@@ -18,9 +18,9 @@
       1
     ],
     "$v_key|default": [
-      1,
-      1,
-      1
+      0,
+      0,
+      0
     ],
     "$v_muted|default": [
       0.753,
@@ -32,6 +32,7 @@
       0,
       0
     ],
+    "$atext": "$actionbar_text",
     "visible": false,
     "bindings": [
       {
@@ -186,7 +187,7 @@
                           }
                         }
                       ],
-                      "visible": "(($actionbar_text - '§k§y') = $actionbar_text)",
+                      "visible": "(($atext - '§k§y') = $atext)",
                       "layer": 5
                     }
                   },
@@ -197,7 +198,7 @@
                         0,
                         6
                       ],
-                      "layer": 21
+                      "layer": 98
                     }
                   },
                   {
@@ -266,8 +267,8 @@
                           }
                         }
                       ],
-                      "visible": "(not (($actionbar_text - '§k§y') = $actionbar_text))",
-                      "layer": 22
+                      "visible": "(not (($atext - '§k§y') = $atext))",
+                      "layer": 99
                     }
                   }
                 ],
@@ -277,7 +278,7 @@
                   8,
                   8
                 ],
-                "layer": 37
+                "layer": 35
               }
             }
           ],
@@ -310,7 +311,7 @@
             -10,
             -10
           ],
-          "visible": "(($actionbar_text - '§k§z') = $actionbar_text)",
+          "visible": "(($atext - '§k§z') = $atext)",
           "layer": 3
         }
       },
@@ -340,8 +341,8 @@
             -10,
             -10
           ],
-          "visible": "(not (($actionbar_text - '§k§z') = $actionbar_text))",
-          "layer": 28
+          "visible": "(not (($atext - '§k§z') = $atext))",
+          "layer": 26
         }
       }
     ]
@@ -452,7 +453,7 @@
     "type": "panel",
     "size": [
       "100%",
-      14
+      16
     ],
     "controls": [
       {
@@ -461,7 +462,7 @@
           "orientation": "horizontal",
           "size": [
             "100%c",
-            12
+            14
           ],
           "controls": [
             {
@@ -474,70 +475,1401 @@
                 "controls": [
                   {
                     "b_a1b00025": {
-                      "type": "panel",
+                      "type": "stack_panel",
+                      "orientation": "horizontal",
                       "size": [
-                        "100%cm",
-                        11
+                        "100%c",
+                        14
                       ],
                       "controls": [
                         {
-                          "b_a1b00025_bg": {
-                            "type": "image",
+                          "b_a1b1000e": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
                             "size": [
-                              "100%sm + 6px",
-                              "100%"
-                            ],
-                            "anchor_from": "top_left",
-                            "anchor_to": "top_left",
-                            "layer": 1,
-                            "texture": "textures/ui/keyboard_tooltip_background",
-                            "alpha": 1,
-                            "keep_ratio": false
-                          }
-                        },
-                        {
-                          "b_a1b00025_in": {
-                            "type": "panel",
-                            "size": [
-                              "100%cm",
-                              "100% - 0px"
+                              "100%c",
+                              14
                             ],
                             "controls": [
                               {
-                                "b_a1b00026": {
-                                  "type": "label",
-                                  "text": "#jui_text",
+                                "b_a1b10008": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    "100%c",
+                                    14
                                   ],
-                                  "color": "$v_key",
+                                  "controls": [
+                                    {
+                                      "b_a1b10001_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b10001": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b10001_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b10001_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b10000": {
+                                                          "type": "label",
+                                                          "text": "W",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 62
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    },
+                                    {
+                                      "b_a1b10008_gap1": {
+                                        "type": "panel",
+                                        "size": [
+                                          1,
+                                          0
+                                        ],
+                                        "layer": 4
+                                      }
+                                    },
+                                    {
+                                      "b_a1b10003_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b10003": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b10003_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b10003_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b10002": {
+                                                          "type": "label",
+                                                          "text": "A",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 60
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 5
+                                      }
+                                    },
+                                    {
+                                      "b_a1b10008_gap2": {
+                                        "type": "panel",
+                                        "size": [
+                                          1,
+                                          0
+                                        ],
+                                        "layer": 8
+                                      }
+                                    },
+                                    {
+                                      "b_a1b10005_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b10005": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b10005_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b10005_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b10004": {
+                                                          "type": "label",
+                                                          "text": "S",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 58
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 9
+                                      }
+                                    },
+                                    {
+                                      "b_a1b10008_gap3": {
+                                        "type": "panel",
+                                        "size": [
+                                          1,
+                                          0
+                                        ],
+                                        "layer": 12
+                                      }
+                                    },
+                                    {
+                                      "b_a1b10007_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b10007": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b10007_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b10007_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b10006": {
+                                                          "type": "label",
+                                                          "text": "D",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 56
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 13
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
                                   "bindings": [
                                     {
-                                      "binding_name": "#player_name_sidebar",
-                                      "binding_type": "collection",
-                                      "binding_collection_name": "scoreboard_players"
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
                                     },
                                     {
                                       "binding_type": "view",
-                                      "source_property_name": "((('§r' + (('%.22s' * #player_name_sidebar) - ' ')) - (('%.12s' * #player_name_sidebar) - ' ')))",
-                                      "target_property_name": "#jui_text"
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
                                     }
                                   ],
-                                  "localize": false,
-                                  "anchor_from": "left_middle",
-                                  "anchor_to": "left_middle",
                                   "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b1000a": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b10009": {
+                                        "type": "image",
+                                        "size": [
+                                          18,
+                                          18
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_left_stick_icon",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_left_stick_icon",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 17
+                                }
+                              },
+                              {
+                                "b_a1b1000d": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b1000b": {
+                                        "type": "image",
+                                        "size": [
+                                          14,
+                                          14
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "textures/ui/joystick_frame",
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    },
+                                    {
+                                      "b_a1b1000c": {
+                                        "type": "image",
+                                        "size": [
+                                          7,
+                                          7
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "textures/ui/joystick_knob",
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 2
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 19
                                 }
                               }
                             ],
-                            "anchor_from": "top_left",
-                            "anchor_to": "top_left",
-                            "offset": [
-                              3,
-                              0
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§0') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
                             ],
-                            "layer": 5
+                            "layer": 1
+                          }
+                        },
+                        {
+                          "b_a1b10015": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b10011": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b10010_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b10010": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b10010_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b10010_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b1000f": {
+                                                          "type": "label",
+                                                          "text": "Space",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 48
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b10013": {
+                                  "type": "panel",
+                                  "size": [
+                                    12,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b10012": {
+                                        "type": "image",
+                                        "size": [
+                                          22,
+                                          22
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_face_down_icon",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_face_down_icon",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b10014": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/jump",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§1') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 23
+                          }
+                        },
+                        {
+                          "b_a1b1001c": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b10018": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b10017_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b10017": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b10017_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b10017_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b10016": {
+                                                          "type": "label",
+                                                          "text": "Left Click",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 42
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b1001a": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b10019": {
+                                        "type": "image",
+                                        "size": [
+                                          16,
+                                          16
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_right_trigger",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_right_trigger",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b1001b": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/attack",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§2') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 31
+                          }
+                        },
+                        {
+                          "b_a1b10023": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b1001f": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b1001e_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b1001e": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b1001e_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b1001e_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b1001d": {
+                                                          "type": "label",
+                                                          "text": "Right Click",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 36
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b10021": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b10020": {
+                                        "type": "image",
+                                        "size": [
+                                          16,
+                                          16
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_left_trigger",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_left_trigger",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b10022": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/interact",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§3') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 39
+                          }
+                        },
+                        {
+                          "b_a1b1002a": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b10026": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b10025_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b10025": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b10025_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b10025_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b10024": {
+                                                          "type": "label",
+                                                          "text": "Shift",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 30
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b10028": {
+                                  "type": "panel",
+                                  "size": [
+                                    12,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b10027": {
+                                        "type": "image",
+                                        "size": [
+                                          22,
+                                          22
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_face_right_icon",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_face_right_icon",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b10029": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/sneak",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§4') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 47
+                          }
+                        },
+                        {
+                          "b_a1b10031": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b1002d": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b1002c_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b1002c": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b1002c_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b1002c_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b1002b": {
+                                                          "type": "label",
+                                                          "text": "Ctrl",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 24
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b1002f": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b1002e": {
+                                        "type": "image",
+                                        "size": [
+                                          18,
+                                          18
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_left_stick_icon",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_left_stick_icon",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b10030": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/sprint",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§5') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 55
                           }
                         }
                       ],
@@ -557,7 +1889,7 @@
                   4,
                   0
                 ],
-                "layer": 4
+                "layer": 65
               }
             },
             {
@@ -585,7 +1917,7 @@
                         },
                         {
                           "binding_type": "view",
-                          "source_property_name": "((('§r' + #player_name_sidebar) - ('%.22s' * #player_name_sidebar)))",
+                          "source_property_name": "((('§r' + #player_name_sidebar) - ('%.18s' * #player_name_sidebar)))",
                           "target_property_name": "#jui_text"
                         }
                       ],
@@ -597,7 +1929,7 @@
                     }
                   }
                 ],
-                "layer": 5
+                "layer": 66
               }
             }
           ],
@@ -675,7 +2007,7 @@
     "type": "panel",
     "size": [
       "100%",
-      14
+      16
     ],
     "controls": [
       {
@@ -684,7 +2016,7 @@
           "orientation": "horizontal",
           "size": [
             "100%c",
-            12
+            14
           ],
           "controls": [
             {
@@ -697,70 +2029,1401 @@
                 "controls": [
                   {
                     "b_a1b00035": {
-                      "type": "panel",
+                      "type": "stack_panel",
+                      "orientation": "horizontal",
                       "size": [
-                        "100%cm",
-                        11
+                        "100%c",
+                        14
                       ],
                       "controls": [
                         {
-                          "b_a1b00035_bg": {
-                            "type": "image",
+                          "b_a1b2000e": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
                             "size": [
-                              "100%sm + 6px",
-                              "100%"
-                            ],
-                            "anchor_from": "top_left",
-                            "anchor_to": "top_left",
-                            "layer": 1,
-                            "texture": "textures/ui/keyboard_tooltip_background",
-                            "alpha": 1,
-                            "keep_ratio": false
-                          }
-                        },
-                        {
-                          "b_a1b00035_in": {
-                            "type": "panel",
-                            "size": [
-                              "100%cm",
-                              "100% - 0px"
+                              "100%c",
+                              14
                             ],
                             "controls": [
                               {
-                                "b_a1b00036": {
-                                  "type": "label",
-                                  "text": "#jui_text",
+                                "b_a1b20008": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
                                   "size": [
-                                    "default",
-                                    "default"
+                                    "100%c",
+                                    14
                                   ],
-                                  "color": "$v_key",
+                                  "controls": [
+                                    {
+                                      "b_a1b20001_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b20001": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b20001_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b20001_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b20000": {
+                                                          "type": "label",
+                                                          "text": "W",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 62
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    },
+                                    {
+                                      "b_a1b20008_gap1": {
+                                        "type": "panel",
+                                        "size": [
+                                          1,
+                                          0
+                                        ],
+                                        "layer": 4
+                                      }
+                                    },
+                                    {
+                                      "b_a1b20003_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b20003": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b20003_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b20003_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b20002": {
+                                                          "type": "label",
+                                                          "text": "A",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 60
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 5
+                                      }
+                                    },
+                                    {
+                                      "b_a1b20008_gap2": {
+                                        "type": "panel",
+                                        "size": [
+                                          1,
+                                          0
+                                        ],
+                                        "layer": 8
+                                      }
+                                    },
+                                    {
+                                      "b_a1b20005_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b20005": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b20005_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b20005_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b20004": {
+                                                          "type": "label",
+                                                          "text": "S",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 58
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 9
+                                      }
+                                    },
+                                    {
+                                      "b_a1b20008_gap3": {
+                                        "type": "panel",
+                                        "size": [
+                                          1,
+                                          0
+                                        ],
+                                        "layer": 12
+                                      }
+                                    },
+                                    {
+                                      "b_a1b20007_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b20007": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b20007_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b20007_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b20006": {
+                                                          "type": "label",
+                                                          "text": "D",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 56
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 13
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
                                   "bindings": [
                                     {
-                                      "binding_name": "#player_name_sidebar",
-                                      "binding_type": "collection",
-                                      "binding_collection_name": "scoreboard_players"
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
                                     },
                                     {
                                       "binding_type": "view",
-                                      "source_property_name": "((('§r' + (('%.22s' * #player_name_sidebar) - ' ')) - (('%.12s' * #player_name_sidebar) - ' ')))",
-                                      "target_property_name": "#jui_text"
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
                                     }
                                   ],
-                                  "localize": false,
-                                  "anchor_from": "left_middle",
-                                  "anchor_to": "left_middle",
                                   "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b2000a": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b20009": {
+                                        "type": "image",
+                                        "size": [
+                                          18,
+                                          18
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_left_stick_icon",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_left_stick_icon",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 17
+                                }
+                              },
+                              {
+                                "b_a1b2000d": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b2000b": {
+                                        "type": "image",
+                                        "size": [
+                                          14,
+                                          14
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "textures/ui/joystick_frame",
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    },
+                                    {
+                                      "b_a1b2000c": {
+                                        "type": "image",
+                                        "size": [
+                                          7,
+                                          7
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "textures/ui/joystick_knob",
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 2
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 19
                                 }
                               }
                             ],
-                            "anchor_from": "top_left",
-                            "anchor_to": "top_left",
-                            "offset": [
-                              3,
-                              0
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§0') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
                             ],
-                            "layer": 5
+                            "layer": 1
+                          }
+                        },
+                        {
+                          "b_a1b20015": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b20011": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b20010_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b20010": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b20010_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b20010_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b2000f": {
+                                                          "type": "label",
+                                                          "text": "Space",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 48
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b20013": {
+                                  "type": "panel",
+                                  "size": [
+                                    12,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b20012": {
+                                        "type": "image",
+                                        "size": [
+                                          22,
+                                          22
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_face_down_icon",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_face_down_icon",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b20014": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/jump",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§1') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 23
+                          }
+                        },
+                        {
+                          "b_a1b2001c": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b20018": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b20017_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b20017": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b20017_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b20017_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b20016": {
+                                                          "type": "label",
+                                                          "text": "Left Click",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 42
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b2001a": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b20019": {
+                                        "type": "image",
+                                        "size": [
+                                          16,
+                                          16
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_right_trigger",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_right_trigger",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b2001b": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/attack",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§2') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 31
+                          }
+                        },
+                        {
+                          "b_a1b20023": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b2001f": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b2001e_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b2001e": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b2001e_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b2001e_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b2001d": {
+                                                          "type": "label",
+                                                          "text": "Right Click",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 36
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b20021": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b20020": {
+                                        "type": "image",
+                                        "size": [
+                                          16,
+                                          16
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_left_trigger",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_left_trigger",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b20022": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/interact",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§3') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 39
+                          }
+                        },
+                        {
+                          "b_a1b2002a": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b20026": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b20025_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b20025": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b20025_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b20025_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b20024": {
+                                                          "type": "label",
+                                                          "text": "Shift",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 30
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b20028": {
+                                  "type": "panel",
+                                  "size": [
+                                    12,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b20027": {
+                                        "type": "image",
+                                        "size": [
+                                          22,
+                                          22
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_face_right_icon",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_face_right_icon",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b20029": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/sneak",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§4') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 47
+                          }
+                        },
+                        {
+                          "b_a1b20031": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
+                            "size": [
+                              "100%c",
+                              14
+                            ],
+                            "controls": [
+                              {
+                                "b_a1b2002d": {
+                                  "type": "stack_panel",
+                                  "orientation": "horizontal",
+                                  "size": [
+                                    "100%c",
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b2002c_slot": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100%"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b2002c": {
+                                              "type": "panel",
+                                              "size": [
+                                                "100%cm",
+                                                12
+                                              ],
+                                              "controls": [
+                                                {
+                                                  "b_a1b2002c_bg": {
+                                                    "type": "image",
+                                                    "size": [
+                                                      "100%sm + 6px",
+                                                      "100%"
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "layer": 1,
+                                                    "texture": "textures/ui/keyboard_tooltip_background",
+                                                    "alpha": 1,
+                                                    "keep_ratio": false
+                                                  }
+                                                },
+                                                {
+                                                  "b_a1b2002c_in": {
+                                                    "type": "panel",
+                                                    "size": [
+                                                      "100%cm",
+                                                      "100% - 0px"
+                                                    ],
+                                                    "controls": [
+                                                      {
+                                                        "b_a1b2002b": {
+                                                          "type": "label",
+                                                          "text": "Ctrl",
+                                                          "size": [
+                                                            "default",
+                                                            "default"
+                                                          ],
+                                                          "color": "$v_key",
+                                                          "localize": false,
+                                                          "anchor_from": "left_middle",
+                                                          "anchor_to": "left_middle",
+                                                          "layer": 1
+                                                        }
+                                                      }
+                                                    ],
+                                                    "anchor_from": "top_left",
+                                                    "anchor_to": "top_left",
+                                                    "offset": [
+                                                      3,
+                                                      0
+                                                    ],
+                                                    "layer": 24
+                                                  }
+                                                }
+                                              ],
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
+                              },
+                              {
+                                "b_a1b2002f": {
+                                  "type": "panel",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b2002e": {
+                                        "type": "image",
+                                        "size": [
+                                          18,
+                                          18
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_left_stick_icon",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_left_stick_icon",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
+                              },
+                              {
+                                "b_a1b20030": {
+                                  "type": "image",
+                                  "size": [
+                                    14,
+                                    14
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/sprint",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 7
+                                }
+                              }
+                            ],
+                            "visible": false,
+                            "bindings": [
+                              {
+                                "binding_name": "#player_name_sidebar",
+                                "binding_type": "collection",
+                                "binding_collection_name": "scoreboard_players"
+                              },
+                              {
+                                "binding_type": "view",
+                                "source_property_name": "(not ((#player_name_sidebar - '§i§5') = #player_name_sidebar))",
+                                "target_property_name": "#visible"
+                              }
+                            ],
+                            "layer": 55
                           }
                         }
                       ],
@@ -780,7 +3443,7 @@
                   4,
                   0
                 ],
-                "layer": 4
+                "layer": 65
               }
             },
             {
@@ -808,7 +3471,7 @@
                         },
                         {
                           "binding_type": "view",
-                          "source_property_name": "((('§r' + #player_name_sidebar) - ('%.22s' * #player_name_sidebar)))",
+                          "source_property_name": "((('§r' + #player_name_sidebar) - ('%.18s' * #player_name_sidebar)))",
                           "target_property_name": "#jui_text"
                         }
                       ],
@@ -820,7 +3483,7 @@
                     }
                   }
                 ],
-                "layer": 5
+                "layer": 66
               }
             }
           ],
@@ -924,7 +3587,7 @@
                     }
                   },
                   {
-                    "b_a1b00043_slot": {
+                    "b_a1b30000_slot": {
                       "type": "panel",
                       "size": [
                         "100%cm",
@@ -932,25 +3595,147 @@
                       ],
                       "controls": [
                         {
-                          "b_a1b00043": {
-                            "type": "image",
+                          "b_a1b30000": {
+                            "type": "stack_panel",
+                            "orientation": "horizontal",
                             "size": [
-                              10,
-                              10
+                              "100%c",
+                              11
                             ],
-                            "keep_ratio": true,
-                            "texture": "#controller_face_down_icon",
-                            "bindings": [
+                            "controls": [
                               {
-                                "binding_name": "#controller_face_down_icon",
-                                "binding_name_override": "#texture"
+                                "b_a1b00045": {
+                                  "type": "panel",
+                                  "size": [
+                                    "100%cm",
+                                    11
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad"
+                                    },
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch"
+                                    },
+                                    {
+                                      "binding_type": "view",
+                                      "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
+                                      "target_property_name": "#visible"
+                                    }
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b00045_bg": {
+                                        "type": "image",
+                                        "size": [
+                                          "100%sm + 6px",
+                                          "100%"
+                                        ],
+                                        "anchor_from": "top_left",
+                                        "anchor_to": "top_left",
+                                        "layer": 1,
+                                        "texture": "textures/ui/keyboard_tooltip_background",
+                                        "alpha": 1,
+                                        "keep_ratio": false
+                                      }
+                                    },
+                                    {
+                                      "b_a1b00045_in": {
+                                        "type": "panel",
+                                        "size": [
+                                          "100%cm",
+                                          "100% - 0px"
+                                        ],
+                                        "controls": [
+                                          {
+                                            "b_a1b00048": {
+                                              "type": "label",
+                                              "text": "Right Click",
+                                              "size": [
+                                                "default",
+                                                "default"
+                                              ],
+                                              "color": "$v_key",
+                                              "localize": false,
+                                              "anchor_from": "left_middle",
+                                              "anchor_to": "left_middle",
+                                              "layer": 1
+                                            }
+                                          }
+                                        ],
+                                        "anchor_from": "top_left",
+                                        "anchor_to": "top_left",
+                                        "offset": [
+                                          3,
+                                          0
+                                        ],
+                                        "layer": 11
+                                      }
+                                    }
+                                  ],
+                                  "layer": 1
+                                }
                               },
                               {
-                                "binding_name": "#is_using_gamepad",
-                                "binding_name_override": "#visible"
+                                "b_a1b30001": {
+                                  "type": "panel",
+                                  "size": [
+                                    12,
+                                    11
+                                  ],
+                                  "controls": [
+                                    {
+                                      "b_a1b00043": {
+                                        "type": "image",
+                                        "size": [
+                                          14,
+                                          14
+                                        ],
+                                        "keep_ratio": true,
+                                        "texture": "#controller_left_trigger",
+                                        "bindings": [
+                                          {
+                                            "binding_name": "#controller_left_trigger",
+                                            "binding_name_override": "#texture"
+                                          }
+                                        ],
+                                        "anchor_from": "center",
+                                        "anchor_to": "center",
+                                        "layer": 1
+                                      }
+                                    }
+                                  ],
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#is_using_gamepad",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 3
+                                }
+                              },
+                              {
+                                "b_a1b00044": {
+                                  "type": "image",
+                                  "size": [
+                                    11,
+                                    11
+                                  ],
+                                  "keep_ratio": true,
+                                  "texture": "textures/ui/interact",
+                                  "visible": false,
+                                  "bindings": [
+                                    {
+                                      "binding_name": "#hud_visible_centered_touch",
+                                      "binding_name_override": "#visible"
+                                    }
+                                  ],
+                                  "layer": 5
+                                }
                               }
                             ],
-                            "visible": false,
                             "anchor_from": "left_middle",
                             "anchor_to": "left_middle",
                             "layer": 1
@@ -967,152 +3752,7 @@
                         3,
                         0
                       ],
-                      "layer": 6
-                    }
-                  },
-                  {
-                    "b_a1b00044_slot": {
-                      "type": "panel",
-                      "size": [
-                        "100%cm",
-                        "100%"
-                      ],
-                      "controls": [
-                        {
-                          "b_a1b00044": {
-                            "type": "image",
-                            "size": [
-                              10,
-                              10
-                            ],
-                            "keep_ratio": true,
-                            "texture": "textures/ui/jump",
-                            "visible": false,
-                            "bindings": [
-                              {
-                                "binding_name": "#hud_visible_centered_touch",
-                                "binding_name_override": "#visible"
-                              }
-                            ],
-                            "anchor_from": "left_middle",
-                            "anchor_to": "left_middle",
-                            "layer": 1
-                          }
-                        }
-                      ],
-                      "layer": 7
-                    }
-                  },
-                  {
-                    "b_a1b00041_gap3": {
-                      "type": "panel",
-                      "size": [
-                        3,
-                        0
-                      ],
-                      "layer": 9
-                    }
-                  },
-                  {
-                    "b_a1b00045_slot": {
-                      "type": "panel",
-                      "size": [
-                        "100%cm",
-                        "100%"
-                      ],
-                      "controls": [
-                        {
-                          "b_a1b00045": {
-                            "type": "panel",
-                            "size": [
-                              "100%cm",
-                              10
-                            ],
-                            "visible": false,
-                            "bindings": [
-                              {
-                                "binding_name": "#is_using_gamepad"
-                              },
-                              {
-                                "binding_name": "#hud_visible_centered_touch"
-                              },
-                              {
-                                "binding_type": "view",
-                                "source_property_name": "((not #is_using_gamepad) and (not #hud_visible_centered_touch))",
-                                "target_property_name": "#visible"
-                              }
-                            ],
-                            "controls": [
-                              {
-                                "b_a1b00045_bg": {
-                                  "type": "image",
-                                  "size": [
-                                    "100%sm + 6px",
-                                    "100%"
-                                  ],
-                                  "anchor_from": "top_left",
-                                  "anchor_to": "top_left",
-                                  "layer": 1,
-                                  "texture": "textures/ui/keyboard_tooltip_background",
-                                  "alpha": 1,
-                                  "keep_ratio": false
-                                }
-                              },
-                              {
-                                "b_a1b00045_in": {
-                                  "type": "panel",
-                                  "size": [
-                                    "100%cm",
-                                    "100% - 0px"
-                                  ],
-                                  "controls": [
-                                    {
-                                      "b_a1b00048": {
-                                        "type": "label",
-                                        "text": "Space",
-                                        "size": [
-                                          "default",
-                                          "default"
-                                        ],
-                                        "color": [
-                                          1,
-                                          1,
-                                          1
-                                        ],
-                                        "localize": false,
-                                        "anchor_from": "left_middle",
-                                        "anchor_to": "left_middle",
-                                        "layer": 1
-                                      }
-                                    }
-                                  ],
-                                  "anchor_from": "top_left",
-                                  "anchor_to": "top_left",
-                                  "offset": [
-                                    3,
-                                    0
-                                  ],
-                                  "layer": 8
-                                }
-                              }
-                            ],
-                            "anchor_from": "left_middle",
-                            "anchor_to": "left_middle",
-                            "layer": 1
-                          }
-                        }
-                      ],
-                      "layer": 10
-                    }
-                  },
-                  {
-                    "b_a1b00041_gap4": {
-                      "type": "panel",
-                      "size": [
-                        3,
-                        0
-                      ],
-                      "layer": 13
+                      "layer": 11
                     }
                   },
                   {
@@ -1140,17 +3780,17 @@
                           }
                         }
                       ],
-                      "layer": 14
+                      "layer": 12
                     }
                   },
                   {
-                    "b_a1b00041_gap5": {
+                    "b_a1b00041_gap3": {
                       "type": "panel",
                       "size": [
                         3,
                         0
                       ],
-                      "layer": 16
+                      "layer": 14
                     }
                   },
                   {
@@ -1190,7 +3830,7 @@
                           }
                         }
                       ],
-                      "layer": 17
+                      "layer": 15
                     }
                   }
                 ],

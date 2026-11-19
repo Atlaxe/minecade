@@ -4,7 +4,7 @@ import { GAME_SIDEBAR_MARK } from "@minecade/minigame-core";
 import { boxRows, boxTitle } from "../behavior_pack/scripts/dialogue-codes.ts";
 import { DICE } from "../behavior_pack/scripts/dice.ts";
 import { ITEMS, holdings } from "../behavior_pack/scripts/dice-items.ts";
-import { ANNOUNCE_HEAD, ANNOUNCE_WHEEL, CARD, EMPTY_ICON, MAX_CONTROLS, MENU, PANEL, PANEL_TEXT, RESULT, ROUND, ROUND_COLORS, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, TUTORIAL_CONTROL, TUTORIAL_READY, announceRows, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, roundRow, roundText, tutorialRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
+import { ANNOUNCE_HEAD, ANNOUNCE_WHEEL, CARD, EMPTY_ICON, MAX_CONTROLS, MENU, PANEL, PANEL_TEXT, RESULT, ROUND, ROUND_COLORS, SCREEN_LAYOUTS, SCREEN_WORDS, STANDINGS_WORD, TUTORIAL_CONTROL, TUTORIAL_INPUTS, TUTORIAL_READY, announceRows, bytes, cardRows, codesOf, fieldsOf, initialOf, menuRow, panelRows, placeText, resultRows, roundRow, roundText, tutorialRows, wordsOf } from "../behavior_pack/scripts/screen-codes.ts";
 import { MAX_ROWS, compose } from "../behavior_pack/scripts/sidebar-rows.ts";
 import { READY_CODE, SIDE_TWO_CODE, STANDINGS_CODE } from "../behavior_pack/scripts/bar-codes.ts";
 import { standingRows } from "../behavior_pack/scripts/results.ts";
@@ -168,19 +168,21 @@ describe("Block Party's screen rows", () => {
     const rows = tutorialRows({
       name: "Hunter",
       sides: [
-        { objective: "Catch them.", controls: [{ action: "Attack", what: "Catch a runner" }] },
-        { objective: "Get home.", controls: [{ action: "Move", what: "Run" }, { action: "Jump", what: "Hop" }] },
+        { objective: "Catch them.", controls: [{ input: "attack", what: "Catch a runner" }] },
+        { objective: "Get home.", controls: [{ input: "move", what: "Run" }, { input: "jump", what: "Hop" }] },
       ],
       ready: 1,
       total: 4,
     });
-    expect(rows).toEqual(["§k§tHunter", "§k§oCatch them.", `§k§x§x§0Attack    Catch a runner`, "§k§pGet home.", "§k§q§x§0Move      Run", "§k§q§x§1Jump      Hop", "§k§r1/4"]);
+    // Each control names its input by its place in TUTORIAL_INPUTS (§i§2 attack, §i§0 move, §i§1 jump).
+    expect(rows).toEqual(["§k§tHunter", "§k§oCatch them.", "§k§x§x§0§i§2Catch a runner", "§k§pGet home.", "§k§q§x§0§i§0Run", "§k§q§x§1§i§1Hop", "§k§r1/4"]);
+    expect(wordsOf(TUTORIAL_CONTROL).input).toBe("i");
+    expect(TUTORIAL_INPUTS.map((_, i) => `i${i}`).filter((word) => rows[2].includes(codesOf(word)))).toEqual(["i2"]);
     const control = fieldsOf(TUTORIAL_CONTROL);
-    expect(cut(rows[2], control.action)).toBe("Attack");
     expect(Buffer.from(rows[2], "utf8").subarray(control.what.from).toString("utf8")).toBe("Catch a runner");
     expect(cut(rows[6], fieldsOf(TUTORIAL_READY).votes)).toBe("1/4");
     // At most MAX_CONTROLS controls a side, and no more than everyone ready.
-    const many = tutorialRows({ name: "X", sides: [{ objective: "Go.", controls: Array.from({ length: 5 }, (_, i) => ({ action: `A${i}`, what: "w" })) }], ready: 5, total: 4 });
+    const many = tutorialRows({ name: "X", sides: [{ objective: "Go.", controls: Array.from({ length: 5 }, () => ({ input: "move" as const, what: "w" })) }], ready: 5, total: 4 });
     expect(many.filter((row) => row.startsWith("§k§x"))).toHaveLength(MAX_CONTROLS);
     expect(many.at(-1)).toBe("§k§r4/4");
   });
@@ -291,9 +293,12 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
 
   it("shows the tutorial's second side and its Ready! strip by each player's action bar codes, and the announcement over the star field", () => {
     const tutorial = readFileSync(new URL("../resource_pack/ui/jui_blockparty_tutorial.json", import.meta.url), "utf8");
+    // Read through the piece's own copy of the line ($atext): straight from $actionbar_text an
+    // expression never matches (network 59d0c7a).
+    expect(tutorial).toContain('"$atext": "$actionbar_text"');
     for (const code of [SIDE_TWO_CODE, READY_CODE]) {
-      expect(tutorial).toContain(`(($actionbar_text - '${code}') = $actionbar_text)`);
-      expect(tutorial).toContain(`(not (($actionbar_text - '${code}') = $actionbar_text))`);
+      expect(tutorial).toContain(`(($atext - '${code}') = $atext)`);
+      expect(tutorial).toContain(`(not (($atext - '${code}') = $atext))`);
     }
     const hud = readFileSync(new URL("../resource_pack/ui/hud_screen.json", import.meta.url), "utf8");
     const at = (name: string) => hud.indexOf(name);
@@ -301,6 +306,20 @@ describe("Block Party's screens' JSON UI (the workshop builder's components, ins
     expect(at("@blockparty_hud.stars")).toBeLessThan(at("@jui_blockparty_announce.layout"));
     // Lifted over the stars, as the dialogue box is.
     expect(hud).toContain('{ "jui_blockparty_announce@jui_blockparty_announce.layout": { "layer": 200 } }');
+  });
+
+  it("draws each tutorial input the player's own way: key caps, the controller's own glyph, the touch button", () => {
+    const tutorial = readFileSync(new URL("../resource_pack/ui/jui_blockparty_tutorial.json", import.meta.url), "utf8");
+    // Each input shows on the control rows that name it, on both sides' lists.
+    for (const i of TUTORIAL_INPUTS.keys()) {
+      const shows = `(not ((#player_name_sidebar - '${codesOf(`i${i}`)}') = #player_name_sidebar))`;
+      expect(tutorial.split(shows).length - 1, TUTORIAL_INPUTS[i]).toBe(2);
+    }
+    for (const key of ["W", "A", "S", "D", "Space", "Left Click", "Right Click", "Shift", "Ctrl"]) expect(tutorial).toContain(`"text": "${key}"`);
+    for (const binding of ["#controller_left_stick_icon", "#controller_face_down_icon", "#controller_right_trigger", "#controller_left_trigger", "#controller_face_right_icon"]) expect(tutorial).toContain(`"binding_name": "${binding}"`);
+    for (const button of ["joystick_frame", "jump", "attack", "interact", "sneak", "sprint"]) expect(tutorial).toContain(`"texture": "textures/ui/${button}"`);
+    // The Ready strip asks for a press of use, a minigame's Ready (with each side's use input: three).
+    expect(tutorial.split('"text": "Right Click"').length - 1).toBe(3);
   });
 
   it("shows a player their own results screen for the standings word while their line has the standings code, and hides their cards", () => {

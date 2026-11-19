@@ -443,12 +443,16 @@ export const TUTORIAL_GOAL_TWO: Layout = {
     { kind: "rest", name: "text" },
   ],
 };
-/** A control: which (each row its own), the action ("Jump") in its key box, and what it does. */
+/**
+ * A control: which (each row its own), the input (its place in TUTORIAL_INPUTS) and what it does.
+ * The component draws the input as the player's own device does: key caps on a keyboard, the
+ * controller's own glyph (Xbox, PlayStation or Switch), vanilla's touch buttons on a touch screen.
+ */
 export const TUTORIAL_CONTROL: Layout = {
   parts: [
     { kind: "code", word: "kx" },
     { kind: "pick", name: "index", letter: "x" },
-    { kind: "field", name: "action", length: 10, align: "left" },
+    { kind: "pick", name: "input", letter: "i" },
     { kind: "rest", name: "what" },
   ],
 };
@@ -456,10 +460,20 @@ export const TUTORIAL_CONTROL_TWO: Layout = {
   parts: [
     { kind: "code", word: "kq" },
     { kind: "pick", name: "index", letter: "x" },
-    { kind: "field", name: "action", length: 10, align: "left" },
+    { kind: "pick", name: "input", letter: "i" },
     { kind: "rest", name: "what" },
   ],
 };
+/**
+ * The inputs a tutorial can name, in the order of their row codes (§i0 is move). How each one shows
+ * (the blockparty_tutorial component; keys as Minecraft's defaults, since the game can't read a
+ * player's own bindings): move is W A S D, the left stick or the touch joystick; jump is Space, A
+ * (cross) or the jump button; attack is Left Click, RT (R2) or the attack button; use is Right
+ * Click, LT (L2) or the interact button; sneak is Shift, B (circle) or the sneak button; sprint is
+ * Ctrl, the left stick's press or the sprint button.
+ */
+export const TUTORIAL_INPUTS = ["move", "jump", "attack", "use", "sneak", "sprint"] as const;
+export type TutorialInput = (typeof TUTORIAL_INPUTS)[number];
 /** The Ready strip, bottom right: how many are ready ("1/4"). The action bar's READY_CODE says "Ready!" to a player who is. */
 export const TUTORIAL_READY: Layout = {
   parts: [
@@ -468,10 +482,10 @@ export const TUTORIAL_READY: Layout = {
   ],
 };
 
-/** One side's part of a minigame's tutorial: what to do, and its controls (an action and what it does). */
+/** One side's part of a minigame's tutorial: what to do, and its controls (an input and what it does). */
 export interface TutorialSide {
   objective: string;
-  controls?: readonly { action: string; what: string }[];
+  controls?: readonly { input: TutorialInput; what: string }[];
 }
 
 export interface TutorialScreen {
@@ -490,7 +504,7 @@ export function tutorialRows(screen: TutorialScreen): string[] {
   const rows = [encode(TUTORIAL_NAME, { name: plain(screen.name) })];
   screen.sides.slice(0, 2).forEach((side, index) => {
     rows.push(encode(index === 0 ? TUTORIAL_GOAL : TUTORIAL_GOAL_TWO, { text: plain(side.objective) }));
-    (side.controls ?? []).slice(0, MAX_CONTROLS).forEach((control, i) => rows.push(encode(index === 0 ? TUTORIAL_CONTROL : TUTORIAL_CONTROL_TWO, { index: i, action: control.action, what: plain(control.what) })));
+    (side.controls ?? []).slice(0, MAX_CONTROLS).forEach((control, i) => rows.push(encode(index === 0 ? TUTORIAL_CONTROL : TUTORIAL_CONTROL_TWO, { index: i, input: TUTORIAL_INPUTS.indexOf(control.input), what: plain(control.what) })));
   });
   rows.push(encode(TUTORIAL_READY, { votes: `${Math.min(screen.ready, screen.total)}/${screen.total}` }));
   return rows;

@@ -82,8 +82,8 @@ export const HOT_FLOOR: MinigameDef = {
     {
       objective: "A color is called. Get onto it before the rest of the floor drops away. Last one standing wins.",
       controls: [
-        { action: "Move", what: "Get to the color" },
-        { action: "Jump", what: "Hop across a gap" },
+        { input: "move", what: "Get to the color" },
+        { input: "jump", what: "Hop across a gap" },
       ],
     },
   ],

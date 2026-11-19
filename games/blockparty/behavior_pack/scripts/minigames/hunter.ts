@@ -39,15 +39,15 @@ export const HUNTER: MinigameDef = {
     {
       objective: "Catch the runners before they reach the goal. Stop half of them and you win.",
       controls: [
-        { action: "Move", what: "Chase the runners" },
-        { action: "Attack", what: "Catch the runner you hit" },
+        { input: "move", what: "Chase the runners" },
+        { input: "attack", what: "Catch the runner you hit" },
       ],
     },
     {
       objective: "Get to the goal without being hit by the hunter. Half of you home wins it.",
       controls: [
-        { action: "Move", what: "Run past the hunter" },
-        { action: "Jump", what: "Hop out of reach" },
+        { input: "move", what: "Run past the hunter" },
+        { input: "jump", what: "Hop out of reach" },
       ],
     },
   ],

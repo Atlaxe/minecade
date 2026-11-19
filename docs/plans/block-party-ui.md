@@ -328,8 +328,8 @@ On the HUD while the minigame's rules camera waits for everyone to be ready:
 
 Not yet seen in game. The panel is the workshop JSON UI builder's `blockparty_tutorial` component
 (word `bpt`), the user's to restyle: a box over the left third (the dialogue box's frame), the name
-in MinecraftTen, the objective wrapped under it, then each control as its action in a key box and
-what it does. It comes up once the camera has come down into the arena and the stars have gone,
+in MinecraftTen, the objective wrapped under it, then each control as its input, drawn the way the
+player plays (below), and what it does. It comes up once the camera has come down into the arena and the stars have gone,
 in place of the rules in the dialogue box. Rows (`screen-codes.ts`): `kt` the name, `ko` and `kx`
 the first side's objective and controls (everyone's in an FFA), `kp` and `kq` the second side's,
 `kr` the Ready strip's votes. The sidebar is everyone's, so a player on the second side (a 1v3's
@@ -337,11 +337,38 @@ trio) has `§k§y` on their action bar (`SIDE_TWO_CODE`) and the panel shows the
 The words are each minigame's `tutorial` in its code (`minigames/kit.ts`; a minigame without one
 shows its rules), until the dialogue tool has them (`block-party.md` pass 11).
 
-The Ready strip, bottom right: "Press [jump] when ready 1/4", the jump button as the player's own
-device draws it (as the dialogue box's prompt), and "Ready! Waiting for the others 3/4" for a player
-who has jumped (`§k§z`, `READY_CODE`), with the sound map's `vote.ready` and `vote.done`. Bots count
-once they've had their moment. It replaces the ready count that was top right. The countdown and
-Go are still notices in the dialogue box.
+**The controls' keys** (the user, 2026-11-18: the real keys and buttons, as they look, not "Move"
+or "Jump"). A control names one of `TUTORIAL_INPUTS` (`screen-codes.ts`: move, jump, attack, use,
+sneak, sprint), and its row carries the input's place as `§i` and a digit, so one row serves every
+device. The component has each input three ways and shows the one for how the player plays right
+now (`#is_using_gamepad`, the HUD's touch layout, else keyboard and mouse), so a player who picks
+up a controller sees it change:
+
+| Input | Keyboard and mouse (key caps) | Controller (its own glyph) | Touch (vanilla's button) |
+| --- | --- | --- | --- |
+| move | W A S D | left stick (LS, L3, L) | the joystick |
+| jump | Space | A, cross | jump |
+| attack | Left Click | RT, R2, ZR | attack |
+| use | Right Click | LT, L2, ZL | interact |
+| sneak | Shift | B, circle | sneak |
+| sprint | Ctrl | left stick | sprint |
+
+The controller glyphs are the client's own bindings (`#controller_left_stick_icon`,
+`#controller_right_trigger`, `#controller_face_down_icon` and the rest, the ones vanilla's gamepad
+helpers use), so Xbox, PlayStation and Switch each get their own; the workshop builder's Controller
+pictures list has the sticks, triggers and bumpers for this. The keys are Minecraft's defaults: the
+game can't read a player's own bindings. Vanilla's tips use `:_input_key.jump:` and the like for
+that ("Checks first" 2): if those draw in a HUD label, the caps could show a player's rebound keys.
+Key letters are black on the cap, as vanilla's keyboard helpers draw them. Each input's three ways
+sit straight in a row of their own, not in a centered row's slots, so the hidden ones take no room.
+A minigame lists at most 3 controls a side (`MAX_CONTROLS`).
+
+The Ready strip, bottom right: "Press [use] when ready 1/4" (a minigame's Ready is a press of use
+since 59d0c7a): Right Click on a key cap, the controller's LT (L2, ZL), or the touch interact button,
+the same way as the controls, and "Ready! Waiting for the others 3/4" for a player who has pressed
+it (`§k§z`, `READY_CODE`), with the sound map's `vote.ready` and `vote.done`. Bots count once they've
+had their moment. It replaces the ready count that was top right. The countdown and Go are still
+notices in the dialogue box.
 
 ## The results screen
 

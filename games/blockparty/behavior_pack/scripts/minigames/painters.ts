@@ -35,7 +35,7 @@ export const PAINTERS: MinigameDef = {
   tutorial: [
     {
       objective: "Walk over the floor to paint it your team's color. The team with the most floor at the end wins.",
-      controls: [{ action: "Move", what: "Paint where you walk" }],
+      controls: [{ input: "move", what: "Paint where you walk" }],
     },
   ],
   size: [FLOOR + EDGE * 2, 6, FLOOR + EDGE * 2],
