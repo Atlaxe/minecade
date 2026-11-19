@@ -1087,12 +1087,14 @@ shows players losing and gaining coins, and doing winning and sad emotes and the
   your facing taken (Take my facing). Build the podium itself (steps, blocks, a backdrop) inside the
   Arena box. The Podium camera can be turned off in the Panel's Checklist Features: the shot then
   stands in front of the spots, the way they face, looking at them.
-- **After a minigame,** the star field comes over the arena (the way in's, `block-party-ui.md`), and
-  behind it everyone who played stands on the podium best first: an FFA's places (ties side by
-  side, in the order they're given), a team minigame's winning side and then the rest, everyone
-  together after a draw. A duel uses spots 1 and 2. The players go first, the bots a moment after;
-  everyone, a duel's onlookers too, comes down into the podium camera as the stars go. After the
-  hold, the way back to the board starts from there (the camera rises over the arena, the stars).
+- **After a minigame,** a plain fade to black (the user, 2026-11-18: no stars and no camera move
+  between the minigame and its podium; 0.5 s in, held about a second, 0.6 s out), and behind it
+  everyone who played stands on the podium best first: an FFA's places (ties side by side, in the
+  order they're given), a team minigame's winning side and then the rest, everyone together after a
+  draw. A duel uses spots 1 and 2. The players go first, the bots a moment after; everyone, a
+  duel's onlookers too, is put on the podium camera, still, and the black lifts on it. After the
+  hold, the star transition back to the board starts from there (the camera rises over the arena,
+  the stars).
 - **There the results come:** who won in the dialogue box, the coins each wins dropping in over
   their head with the count (+3) rising over it, a duel's stake flying from the loser's head to the
   winner's, and a bet lost flying off; the winners celebrate and those who came away with nothing

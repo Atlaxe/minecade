@@ -20,10 +20,11 @@
 //   4. 3, 2, 1, Go, and the minigame plays (its play()). A player who's out watches as a spectator
 //      from the spectator spawn; a bot floats there. Only while it plays do the players have
 //      vanilla's hotbar (isPlaying; spike.ts shows it, the user's call).
-//   5. The minigame podium (minigame-podium.ts; the user, 2026-11-18): the stars come over the
-//      arena, and behind them everyone who played stands on the arena map's podium, best first (or
-//      on a stand-in podium laid in code, while the arena marks none); the stars go as everyone's
-//      camera comes down into the podium camera. There the results come (what the loop pays,
+//   5. The minigame podium (minigame-podium.ts; the user, 2026-11-18): a plain fade to black (no
+//      stars, no camera move: the user, after their look), and behind it everyone who played stands
+//      on the arena map's podium, best first (or on a stand-in podium laid in code, while the arena
+//      marks none) and everyone's camera is put on the podium camera, still; the black lifts on
+//      it. There the results come (what the loop pays,
 //      settle()): who won in the dialogue box, the coins dropping in over heads or flying off them,
 //      and the winners celebrating and those who came away with nothing sad, each holding their pose
 //      (onPodium: the host's moves hold them). Then the way in backwards: everyone's camera rises
@@ -121,9 +122,10 @@ const STARS_AFTER = 20;
 /** How far over and behind the rules camera the ease down into the arena starts, in blocks. */
 const EASE_IN_RISE = 18;
 const EASE_IN_BACK = 14;
-/** How far over and behind the podium camera the ease down into it starts, in blocks (closer than the arena's). */
-const PODIUM_RISE = 8;
-const PODIUM_BACK = 6;
+/** Ticks after the players are on the podium before the bots are made again beside them. */
+const BOTS_AFTER_PODIUM = 10;
+/** The fade to black from the end of a minigame to its podium, in seconds: in, held while everyone is put there, and out on the podium camera. */
+const PODIUM_FADE = { in: 0.5, hold: (BOTS_AFTER_PODIUM + 8) / 20, out: 0.6 };
 /** Ticks "Minigame!" is up alone, and then with the format under it, before the wheel. */
 const HEADING_TICKS = 24;
 const FORMAT_TICKS = 24;
@@ -344,8 +346,8 @@ export class MinigameRunner {
       if (this.current === current) this.current = undefined;
       for (const who of everyone) if (who.player) setMoving(who.player, false);
       this.host.status(undefined);
-      // Everyone who played onto the podium, best first, then the results there: the coins come and
-      // the moods played now are held.
+      // A fade to black, and everyone who played onto the podium, best first, the camera still on it as
+      // the black lifts; then the results there: the coins come and the moods played now are held.
       await this.toPodium(def, field, sides, outcome, onlookers);
       this.podiumUp = true;
       const results = settle(outcome);
@@ -512,10 +514,12 @@ export class MinigameRunner {
   }
 
   /**
-   * Behind the stars, everyone who played onto the minigame podium, best first (ties side by side):
-   * the arena map's Minigame podium, or a stand-in laid in code facing the rules camera while it
-   * marks none; the players first, the bots a moment after. Everyone (onlookers too) waits high over
-   * the podium camera, and comes down into it as the stars go.
+   * From the end of a minigame to its podium: a plain fade to black (the user: no stars and no camera
+   * move here, the star transition comes after the podium), and behind it everyone who played onto
+   * the minigame podium, best first (ties side by side): the arena map's Minigame podium, or a
+   * stand-in laid in code facing the rules camera while it marks none; the players first, the bots a
+   * moment after. Everyone (onlookers too) is put on the podium camera, still, and the black lifts on
+   * it. Resolves once it has.
    */
   private async toPodium(def: MinigameDef, field: Field, sides: readonly Who[][], outcome: Outcome, onlookers: readonly Who[]): Promise<void> {
     const everyone = sides.flat();
@@ -532,47 +536,45 @@ export class MinigameRunner {
     const standIn = standInPodium(middle, floor, yawToward(middle, location), standing.length);
     const layout = podiumLayout(field, standing.length, standIn.spots, location);
     const watching = [...everyone, ...onlookers];
-    await this.host.behindStars(async () => {
-      if (!layout.marked) {
-        try {
-          for (const { at, block } of standIn.blocks) fill(this.host.dimension, at, at, block);
-        } catch (error) {
-          log.warn(`blockparty: laying the stand-in podium failed: ${describeError(error)}`);
-        }
+    for (const who of watching) {
+      try {
+        who.player?.camera.fade({ fadeTime: { fadeInTime: PODIUM_FADE.in, holdTime: PODIUM_FADE.hold, fadeOutTime: PODIUM_FADE.out }, fadeColor: { red: 0, green: 0, blue: 0 } });
+      } catch {
+        // gone
       }
-      standing.forEach((who, place) => {
-        const spot = layout.spots[place];
-        if (!spot || !who.player?.isValid) return;
-        this.put(who.player, spot, spot.yaw, GameMode.Adventure);
-        setMoving(who.player, false);
-      });
-      this.podiumCamera(watching, layout, "above");
-      await this.host.scope.wait(BOTS_AFTER);
-      standing.forEach((who, place) => {
-        const spot = layout.spots[place];
-        if (spot && !who.player) this.host.respawnBot(who, spot, spot.yaw);
-      });
-    }, () => this.podiumCamera(watching, layout, "ease"));
+    }
+    // Fully black: everyone onto the podium, and the camera on it.
+    await this.host.scope.wait(Math.ceil(PODIUM_FADE.in * 20) + 1);
+    if (!layout.marked) {
+      try {
+        for (const { at, block } of standIn.blocks) fill(this.host.dimension, at, at, block);
+      } catch (error) {
+        log.warn(`blockparty: laying the stand-in podium failed: ${describeError(error)}`);
+      }
+    }
+    standing.forEach((who, place) => {
+      const spot = layout.spots[place];
+      if (!spot || !who.player?.isValid) return;
+      this.put(who.player, spot, spot.yaw, GameMode.Adventure);
+      setMoving(who.player, false);
+    });
+    this.podiumCamera(watching, layout);
+    await this.host.scope.wait(BOTS_AFTER_PODIUM);
+    standing.forEach((who, place) => {
+      const spot = layout.spots[place];
+      if (spot && !who.player) this.host.respawnBot(who, spot, spot.yaw);
+    });
+    // The rest of the hold, then the black lifts on the podium.
+    await this.host.scope.wait(Math.max(0, Math.ceil(PODIUM_FADE.hold * 20) - BOTS_AFTER_PODIUM) + Math.ceil(PODIUM_FADE.out * 20 * 0.5));
   }
 
-  /**
-   * The podium camera: "above", at once (behind the stars), high over it and further back, looking at
-   * the podium; "ease", down into it from there as the stars go (the way into the arena's rules
-   * camera, closer).
-   */
-  private podiumCamera(who: readonly Who[], layout: PodiumLayout, step: "above" | "ease"): void {
-    const { shot, spots } = layout;
-    const n = spots.length || 1;
-    const look = { x: spots.reduce((sum, at) => sum + at.x, 0) / n, y: spots.reduce((sum, at) => sum + at.y, 0) / n + 1, z: spots.reduce((sum, at) => sum + at.z, 0) / n };
-    const away = { x: shot.location.x - look.x, z: shot.location.z - look.z };
-    const length = Math.hypot(away.x, away.z) || 1;
-    const above = { x: shot.location.x + (away.x / length) * PODIUM_BACK, y: shot.location.y + PODIUM_RISE, z: shot.location.z + (away.z / length) * PODIUM_BACK };
-    const ease = { easeTime: EASE_IN, easeType: EasingType.InOutSine };
+  /** The podium camera, still: its map's Podium camera, or a shot in front of the spots the way they face. */
+  private podiumCamera(who: readonly Who[], layout: PodiumLayout): void {
+    const { shot } = layout;
     for (const one of who) {
       try {
-        if (step === "above") one.player?.camera.setCamera("minecraft:free", { location: above, facingLocation: look });
-        else if (shot.rotation) one.player?.camera.setCamera("minecraft:free", { location: shot.location, rotation: shot.rotation, easeOptions: ease });
-        else if (shot.facing) one.player?.camera.setCamera("minecraft:free", { location: shot.location, facingLocation: shot.facing, easeOptions: ease });
+        if (shot.rotation) one.player?.camera.setCamera("minecraft:free", { location: shot.location, rotation: shot.rotation });
+        else if (shot.facing) one.player?.camera.setCamera("minecraft:free", { location: shot.location, facingLocation: shot.facing });
       } catch {
         // gone
       }
