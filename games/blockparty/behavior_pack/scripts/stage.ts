@@ -32,13 +32,13 @@ import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { boardBox, floorOf, type Space, type Vec3 } from "./board.ts";
 import { stepBot, stepToward, type Who } from "./bots.ts";
 import type { Dialogue } from "./dialogue.ts";
-import { extendTrail, flightPlan, residentRole, trailPoint, walkInPath, type TrailPoint } from "./entrances.ts";
+import { descentPlan, extendTrail, flightPlan, residentRole, trailPoint, walkInPath, type Flight, type TrailPoint } from "./entrances.ts";
 import { forkShot } from "./fork.ts";
 import { moment } from "./lines.ts";
 import { portalRing, type Moves } from "./moves.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
 import { eventCue, playCue } from "./sounds.ts";
-import { besideSpace, faceShot, finalPodium, hoverBefore, introAround, markerShot, orbitShots, podiumFromMarkup, podiumOnStart, pulledBack, spaceShot, twoShot, yawFrom, type FinalPodium, type Marker, type Podium, type Shot } from "./stage-layout.ts";
+import { besideSpace, faceShot, finalPodium, groupShot, hoverBefore, introAround, markerShot, orbitShots, podiumFromMarkup, podiumOnStart, pulledBack, spaceShot, twoShot, yawFrom, type FinalPodium, type Marker, type Podium, type Shot } from "./stage-layout.ts";
 
 /** The map's podium and intro markup (Block Party's config, map.points). */
 export interface StageMarkup {
@@ -101,6 +101,8 @@ const STAR_FADE_TICKS = 20;
 /** Chris's balloon (chris.json): the property that shows it, the time it takes to pop out, and the events that make him fly (no gravity, no collisions) and land again. */
 const BALLOON = "blockparty:balloon";
 const BALLOON_POP_TICKS = 14;
+/** How high over his spot a Chris starts as he comes down under his balloon at a Star's reveal. */
+const BALLOON_DROP = 10;
 const FLY_EVENT = "blockparty:fly";
 const LAND_EVENT = "blockparty:land";
 /** The camera on a flight: how often it moves on, how far to the side and how far up. */
@@ -453,13 +455,60 @@ export class Stage {
     if (space) this.face(key, space.at);
   }
 
-  /** The Chris who stands by the Star on `space`: placed (dropping in when `drop`), facing the space, and the Star over the space. */
+  /**
+   * The Chris who stands by the Star on `space`: placed (coming down under his balloon when `drop`,
+   * the Star reveal's: the user, as every later Star's Chris flies in), facing the space, and the
+   * Star over the space.
+   */
   async starChris(space: Space, drop: boolean): Promise<void> {
     const at = this.besideSpace(space);
     const yaw = yawFrom(at, space.at);
-    if (drop) await this.fallIn(starKey(space), "chris", at, yaw);
+    if (drop) await this.balloonIn(starKey(space), at, yaw);
     else this.put(starKey(space), "chris", at, yaw);
     this.starModel(space);
+  }
+
+  /**
+   * A Chris comes straight down to `at` under his balloon from BALLOON_DROP blocks up (no gravity, so
+   * it's smooth), and the balloon pops as he lands. Skipped, he's simply there.
+   */
+  private async balloonIn(key: string, at: Vec3, yaw: number): Promise<void> {
+    this.remove(key);
+    if (this.deps.dialogue.skipping) {
+      this.put(key, "chris", at, yaw);
+      return;
+    }
+    const chris = this.put(key, "chris", [at[0], at[1] + BALLOON_DROP, at[2]], yaw);
+    if (!chris) return;
+    try {
+      chris.setProperty(BALLOON, true);
+      chris.triggerEvent(FLY_EVENT);
+    } catch {
+      // gone
+    }
+    playCue(eventCue("npc.chris.balloon"));
+    await this.flyAlong(chris, descentPlan(arr(chris.location), at), at, [at[0] - Math.sin((yaw * Math.PI) / 180), at[1], at[2] + Math.cos((yaw * Math.PI) / 180)], false);
+    try {
+      if (chris.isValid) chris.triggerEvent(LAND_EVENT);
+    } catch {
+      // gone
+    }
+    this.pop(chris, at);
+  }
+
+  /** A Chris's balloon goes with a pop over `spot`. */
+  private pop(chris: Entity, spot: Vec3): void {
+    try {
+      if (chris.isValid) chris.setProperty(BALLOON, false);
+    } catch {
+      // gone
+    }
+    playCue(eventCue("npc.chris.balloon_pop"));
+    try {
+      this.deps.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: spot[0], y: spot[1] + 2.4, z: spot[2] });
+    } catch {
+      // unloaded
+    }
   }
 
   /**
@@ -593,13 +642,7 @@ export class Stage {
       // gone
     }
     // Down: the balloon goes with a pop.
-    property(BALLOON, false);
-    playCue(eventCue("npc.chris.balloon_pop"));
-    try {
-      this.deps.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: spot[0], y: spot[1] + 2.4, z: spot[2] });
-    } catch {
-      // unloaded
-    }
+    this.pop(chris, spot);
   }
 
   /** The camera beside `body`, off to the side of `way`, looking at it: eased there when `first`, then gliding along each tick or two. */
@@ -830,6 +873,15 @@ export class Stage {
     if (move !== "Stay") this.deps.select?.(space);
   }
 
+  /** Several seats in one shot, from high over them (Gift Exchange's passes): a pan by default, given time to get there. */
+  async group(seats: readonly Who[], lineId: string, fallback: Move = "Pan"): Promise<void> {
+    const at = seats.filter((who) => who.body.isValid).map((who) => arr(who.body.location));
+    if (at.length === 0) return;
+    const move = this.moveFor(lineId, fallback);
+    this.shot(groupShot(at), move);
+    if (move === "Pan") await this.deps.dialogue.wait(Math.round(PAN * 20));
+  }
+
   /** Two seats in one shot (an Ender Pearl's swap, Coin Swap): a cut by default. */
   async twoSeats(a: Who, b: Who, lineId: string, fallback: Move = "Cut"): Promise<void> {
     if (!a.body.isValid || !b.body.isValid) return;
@@ -983,7 +1035,15 @@ export class Stage {
    * end, across and down, eased), turning the way it goes, and faces `facing` once there.
    */
   private async flyTo(entity: Entity, spot: Vec3, facing: Vec3, cruise: number): Promise<void> {
-    const flight = flightPlan(arr(entity.location), spot, cruise);
+    await this.flyAlong(entity, flightPlan(arr(entity.location), spot, cruise), spot, facing, true);
+  }
+
+  /**
+   * An NPC with no gravity along `flight` to `spot`, a tick at a time (its speed set toward where the
+   * flight is next, so clients see it smooth), turning the way it goes when `turn`, and facing
+   * `facing` once there.
+   */
+  private async flyAlong(entity: Entity, flight: Flight, spot: Vec3, facing: Vec3, turn: boolean): Promise<void> {
     for (let tick = 0; tick < flight.ticks && entity.isValid && !this.deps.dialogue.skipping && !this.deps.scope.disposed; tick++) {
       const at = entity.location;
       const next = flight.at(tick + 1);
@@ -999,7 +1059,7 @@ export class Stage {
         }
       }
       try {
-        if (Math.hypot(next[0] - at.x, next[2] - at.z) > 0.05) entity.setRotation({ x: 0, y: yawFrom([at.x, at.y, at.z], next) });
+        if (turn && Math.hypot(next[0] - at.x, next[2] - at.z) > 0.05) entity.setRotation({ x: 0, y: yawFrom([at.x, at.y, at.z], next) });
       } catch {
         // gone
       }

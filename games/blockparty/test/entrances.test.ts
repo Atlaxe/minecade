@@ -2,7 +2,7 @@
 // and the Wandering Trader's walk in with his llamas on his trail.
 import { describe, expect, it } from "vitest";
 import type { Space, Vec3 } from "../behavior_pack/scripts/board.ts";
-import { CRUISE, extendTrail, flightPlan, residentRole, smooth, trailPoint, walkInPath, type TrailPoint } from "../behavior_pack/scripts/entrances.ts";
+import { CRUISE, descentPlan, extendTrail, flightPlan, residentRole, smooth, trailPoint, walkInPath, type TrailPoint } from "../behavior_pack/scripts/entrances.ts";
 import { besideSpace } from "../behavior_pack/scripts/stage-layout.ts";
 
 /** A straight run of spaces east (+x), 4 apart, looping back. */
@@ -11,6 +11,18 @@ function line(count = 8): Space[] {
 }
 
 describe("the NPCs' entrances", () => {
+  it("brings Chris straight down under his balloon at a Star's reveal, eased at both ends", () => {
+    const descent = descentPlan([0, 74, 0], [0, 64, 0]);
+    expect(descent.ticks).toBeGreaterThanOrEqual(40);
+    expect(descent.at(0)).toEqual([0, 74, 0]);
+    expect(descent.at(descent.ticks)).toEqual([0, 64, 0]);
+    // Slow at first, quickest in the middle.
+    const first = 74 - descent.at(1)[1];
+    const middle = descent.at(Math.round(descent.ticks / 2))[1] - descent.at(Math.round(descent.ticks / 2) + 1)[1];
+    expect(middle).toBeGreaterThan(first);
+    expect(descentPlan([0, 65, 0], [0, 64, 0]).ticks).toBe(20);
+  });
+
   it("keeps the Referee at Versus spaces and the Villager at the Shop all game, nobody elsewhere", () => {
     expect(residentRole("versus")).toBe("referee");
     expect(residentRole("shop")).toBe("villager");

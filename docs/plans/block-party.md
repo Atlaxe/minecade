@@ -212,7 +212,8 @@ Lucky Draw), purple for the board (Position Shuffle, Battle Royale, Zombie Outbr
 (proposed): Coin Rain 12, Lucky Draw 12, Reverse Fortune 10, Double or Nothing 10, Gift Exchange 8,
 Battle Royale 8, Zombie Outbreak 8, Half-price Star 8, Coin Swap 6, Position Shuffle 4, Shooting Star
 3. Double or Nothing bets 2, 5 or 10 coins (15 late), never more than the lander has; Gift Exchange
-passes a random item of each holder's to the next in turn order, all at once.
+passes a random item of each holder's to the next in turn order, all at once: the camera rises over
+everyone and each item flies from the giver's head to the taker's (2026-11-18, the user asked).
 
 ## The Warden
 
@@ -909,6 +910,26 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 - **The round bottom right** is "Round 3 /" light gray (`§7`) and the rounds in all dark gray (`§8`),
   whatever the user's `round.hud` line says around its fills (`roundText`).
 
+### After pass 8 (2026-11-18)
+
+The user's asks after seeing the end of the game, not yet seen in game:
+
+- **Gift Exchange shows its passes:** the camera rises to take everyone in (`stage.ts` group, a
+  shot from high over their middle), each item flies from the giver's head to the taker's at once
+  (the transfers' item tokens), and the camera goes back to the Witch and the lander for her
+  goodbye. Chat (hidden on the board) still lists them.
+- **Chris comes down under his balloon at the Star reveal** too, as he does whenever a Star moves:
+  he starts 10 blocks over his spot beside the Star's space with the balloon out, comes straight
+  down with no gravity (eased, about 3 seconds), and the balloon pops as he lands (`balloonIn`,
+  `entrances.ts` descentPlan). Skipped, he's simply there.
+- **Confetti** (`resource_pack/particles/confetti.json`, `blockparty:confetti`): paper in six party
+  colors (vanilla's white concrete tinted), 70 pieces bursting up over the head, spinning and
+  flipping as they flutter down, settling on the ground, gone after 3 to 4 seconds. It bursts over
+  a seat whenever a Star lands on them (bought, a bonus Star, Shooting Star, any Star gained), over
+  every winner of a round minigame (the winning side, everyone tied for first) as the results come
+  on its podium, the winner of a duel, the sudden death's winner or the Allay's pick, and three
+  times over the champion on the final podium.
+
 ## Maps
 
 ### How it fits
@@ -1450,8 +1471,8 @@ reward was dropped.
      every Versus space all game (built with the cast, "The board's cast, forks and results"); the
      Witch has no spot of her own and comes to the lander, as built. The Witch's cauldron close-up
      and the Trader's pan in aren't needed.
-   - **Not yet:** the map's own Happening flavor (map settings hold only numbers), and Gift
-     Exchange's passes shown anywhere but chat (hidden on the board), which the user asked about.
+   - **Not yet:** the map's own Happening flavor (map settings hold only numbers). Gift Exchange's
+     passes show now (2026-11-18, "After pass 8").
 8. **End of game:** bonus Stars, the tiebreaker, the podium. **Built 2026-11-18** (`end-game.ts`,
    `board-loop.ts` endGame, `stage.ts` the end; "End-of-game bonus Stars", "Tiebreaker", "The end,
    as built"), not yet seen in game: the record kept on every seat, the bonus Stars on the pre-game

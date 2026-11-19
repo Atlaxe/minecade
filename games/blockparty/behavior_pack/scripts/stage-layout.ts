@@ -284,6 +284,17 @@ export function orbitShots(at: Vec3, yaw: number, radius: number, arc: number, s
   });
 }
 
+/**
+ * Several seats in one shot (Gift Exchange's passes): from high over their middle, looking down at
+ * it from the south side, far enough back to take them all in.
+ */
+export function groupShot(points: readonly Vec3[]): Shot {
+  const middle = middleOf(points);
+  const spread = Math.max(3, ...points.map((at) => Math.hypot(at[0] - middle[0], at[2] - middle[2])));
+  const away = Math.max(9, spread * 1.7 + 4);
+  return { location: [middle[0], middle[1] + away * 0.75, middle[2] + away * 0.7], facing: [middle[0], middle[1] + 1, middle[2]] };
+}
+
 /** Where the Allay hovers in front of someone at `at` turned toward `toward`: `away` blocks toward it, over their head. */
 export function hoverBefore(at: Vec3, toward: Vec3, away = 1.4): Vec3 {
   const [dx, dz] = flat(at, toward);

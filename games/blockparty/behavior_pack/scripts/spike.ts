@@ -546,6 +546,7 @@ export class BlockPartySpike extends Minigame<Config> {
       // On the minigame podium a mood is held until everyone goes back (the user), and on the final podium too.
       react: (who, set, hold) => this.moves.player(who.body, set, hold ?? this.runner.onPodium),
       transfer: (from, to, token, count) => this.transfers.give(from, to, token, count),
+      confetti: (who) => confettiOver(who.body),
       zombies: this.zombies,
       random: () => this.ctx.random(),
     });
@@ -2164,6 +2165,20 @@ function takeStandingsItems(player: Player): void {
     }
   } catch {
     // gone
+  }
+}
+
+/** Block Party's confetti (resource_pack/particles/confetti.json): paper in party colors, bursting up and fluttering down. */
+const CONFETTI = "blockparty:confetti";
+
+/** Confetti bursting over a body's head (a win, a Star gained: the user, 2026-11-18). */
+function confettiOver(body: Entity): void {
+  try {
+    if (!body.isValid) return;
+    const at = body.location;
+    body.dimension.spawnParticle(CONFETTI, { x: at.x, y: at.y + 2.3, z: at.z });
+  } catch {
+    // unloaded
   }
 }
 

@@ -1,0 +1,63 @@
+{
+  "format_version": "1.10.0",
+  "particle_effect": {
+    "description": {
+      "identifier": "blockparty:confetti",
+      "basic_render_parameters": {
+        "material": "particles_alpha",
+        "texture": "textures/blocks/concrete_white"
+      }
+    },
+    "components": {
+      "minecraft:emitter_rate_instant": {
+        "num_particles": 70
+      },
+      "minecraft:emitter_lifetime_once": {
+        "active_time": 0.05
+      },
+      "minecraft:emitter_shape_sphere": {
+        "radius": 0.3,
+        "surface_only": false,
+        "direction": ["math.random(-1, 1)", "math.random(0.9, 2.2)", "math.random(-1, 1)"]
+      },
+      "minecraft:particle_initial_speed": "math.random(5, 8)",
+      "minecraft:particle_initial_spin": {
+        "rotation": "math.random(0, 360)",
+        "rotation_rate": "math.random(-360, 360)"
+      },
+      "minecraft:particle_lifetime_expression": {
+        "max_lifetime": "math.random(3, 4)"
+      },
+      "minecraft:particle_motion_dynamic": {
+        "linear_acceleration": [0, -4, 0],
+        "linear_drag_coefficient": 3
+      },
+      "minecraft:particle_motion_collision": {
+        "collision_radius": 0.05,
+        "coefficient_of_restitution": 0,
+        "collision_drag": 12
+      },
+      "minecraft:particle_appearance_billboard": {
+        "size": [
+          "0.075 * (1 - math.pow(v.particle_age / v.particle_lifetime, 6))",
+          "0.055 * math.abs(math.cos(v.particle_age * 540 + v.particle_random_4 * 360)) * (1 - math.pow(v.particle_age / v.particle_lifetime, 6))"
+        ],
+        "facing_camera_mode": "rotate_xyz",
+        "uv": {
+          "texture_width": 16,
+          "texture_height": 16,
+          "uv": [4, 4],
+          "uv_size": [4, 3]
+        }
+      },
+      "minecraft:particle_appearance_tinting": {
+        "color": [
+          "v.particle_random_3 < 0.1667 ? 1.0 : (v.particle_random_3 < 0.3333 ? 1.0 : (v.particle_random_3 < 0.5 ? 0.25 : (v.particle_random_3 < 0.6667 ? 0.3 : (v.particle_random_3 < 0.8333 ? 1.0 : 0.65))))",
+          "v.particle_random_3 < 0.1667 ? 0.3 : (v.particle_random_3 < 0.3333 ? 0.84 : (v.particle_random_3 < 0.5 ? 0.86 : (v.particle_random_3 < 0.6667 ? 0.65 : (v.particle_random_3 < 0.8333 ? 0.42 : 0.42))))",
+          "v.particle_random_3 < 0.1667 ? 0.3 : (v.particle_random_3 < 0.3333 ? 0.25 : (v.particle_random_3 < 0.5 ? 0.5 : (v.particle_random_3 < 0.6667 ? 1.0 : (v.particle_random_3 < 0.8333 ? 0.84 : 1.0))))",
+          1.0
+        ]
+      }
+    }
+  }
+}

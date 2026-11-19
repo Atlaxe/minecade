@@ -129,6 +129,8 @@ export interface LoopHost {
    * Resolves once the last has landed.
    */
   transfer?(from: Party, to: Party, token: Token, count: number): Promise<void>;
+  /** Confetti bursts over a seat's head (the user, 2026-11-18): a Star gained, a minigame, duel or the game won. */
+  confetti?(who: Who): void;
 }
 
 /** A seat as its card shows it (block-party-ui.md, "Player cards"), in turn order. */
@@ -162,6 +164,9 @@ const PLACES = ["1st", "2nd", "3rd", "4th"];
 const ROUND_NOTICE = 40;
 const TURN_TITLE = 50;
 const STAR_NOTICE = 40;
+/** The champion's confetti on the final podium: how many bursts, and the ticks between them. */
+const CHAMPION_BURSTS = 3;
+const BURST_GAP = 14;
 /** Ticks the screen takes to go black at the very end, and how long it stays black (the lobby takes everyone back behind it). */
 const END_FADE_TICKS = 20;
 const END_BLACK = 6;
@@ -348,7 +353,10 @@ export class BoardLoop {
   private async fly(from: Party, to: Party, token: Token, count: number): Promise<void> {
     if (token === "star" && isSeat(from)) this.react(from.key, "Sad");
     await (this.host.transfer?.(from, to, token, count) ?? Promise.resolve());
-    if (token === "star" && isSeat(to)) this.react(to.key, "Celebration");
+    if (token === "star" && isSeat(to)) {
+      this.react(to.key, "Celebration");
+      this.confetti(to.key);
+    }
   }
 
   /** A transfer's coins or Stars as shown for the seats on each side. */
@@ -395,11 +403,22 @@ export class BoardLoop {
     }
   }
 
-  /** Coins or Stars a seat gained (above 0) from the bank, or lost to it, shown dropping in or flying off. */
+  /** Coins or Stars a seat gained (above 0) from the bank, or lost to it, shown dropping in or flying off; a Star gained brings confetti as it lands. */
   private fromBank(key: string, token: "coin" | "star", change: number): void {
     const who = this.whoOf(key);
     if (change === 0 || !who?.body.isValid) return;
-    void (change > 0 ? this.host.transfer?.(undefined, who, token, change) : this.host.transfer?.(who, undefined, token, -change));
+    if (change < 0) {
+      void this.host.transfer?.(who, undefined, token, -change);
+      return;
+    }
+    const landing = this.host.transfer?.(undefined, who, token, change) ?? Promise.resolve();
+    if (token === "star") void landing.then(() => this.confetti(key));
+  }
+
+  /** Confetti over a seat's head, if they're here (a Star gained, a win). */
+  private confetti(key: string): void {
+    const who = this.whoOf(key);
+    if (who?.body.isValid) this.host.confetti?.(who);
   }
 
   /** A seat's player or bot plays one of the players' sets, if they're here (`hold`: holding its pose till the game lets them go). */
@@ -1189,6 +1208,7 @@ export class BoardLoop {
       const winner = winnerKey === who.key ? who : rival;
       const loser = winner === who ? rival : who;
       this.react(winner.key, "Celebration");
+      this.confetti(winner.key);
       this.react(loser.key, "Sad");
       const paid = this.pay(loser.key, winner.key, stake);
       const result = { player: winner.name, other: loser.name, coins: count(paid, "coin") };
@@ -1345,7 +1365,10 @@ export class BoardLoop {
       outcome,
     );
     // The winners celebrate and those who came away with nothing are sad, there over the arena.
-    for (const [key, mood] of minigameMoods(format, sides.map((side) => side.map((who) => who.key)), outcome)) this.react(key, mood);
+    for (const [key, mood] of minigameMoods(format, sides.map((side) => side.map((who) => who.key)), outcome)) {
+      this.react(key, mood);
+      if (mood === "Celebration") this.confetti(key);
+    }
     const factor = (doubled && format !== "battle" ? 2 : 1) * (bonus ? 2 : 1);
     const paid: string[] = [];
     for (const [key, amount] of coins) {
@@ -1509,6 +1532,7 @@ export class BoardLoop {
           top = this.endTest.stillTied ? [keys] : tiebreakPlaces(keys, outcome);
           const winners = top[0] ?? [];
           for (const key of keys) this.react(key, winners.length === 1 && winners[0] === key ? "Celebration" : "Sad");
+          if (winners.length === 1) this.confetti(winners[0]);
           return { title: winners.length === 1 ? line("minigame.won.one", { player: nameOf(winners[0]) }) : line("minigame.won.tie", { count: winners.length }) };
         },
         { label: line("format.sudden"), here: true },
@@ -1526,6 +1550,7 @@ export class BoardLoop {
           for (let lap = 0; lap < (still.length > 2 ? 1 : 2); lap++) for (const who of still) await stage.allayTo(who, false);
           await stage.allayTo(pick, true);
           this.react(pick.key, "Celebration");
+          this.confetti(pick.key);
           await this.host.say("end.tie.allay", { player: pick.name });
         });
         top = withWinner(top, pick.key);
@@ -1547,7 +1572,10 @@ export class BoardLoop {
     const seat = winner ? this.seats.get(winner.key) : undefined;
     await this.host.cutscene(true, async () => {
       await stage.finalPodium(groups);
-      if (winner) this.react(winner.key, "Celebration", true);
+      if (winner) {
+        this.react(winner.key, "Celebration", true);
+        for (let burst = 0; burst < CHAMPION_BURSTS; burst++) this.host.scope.timeout(() => this.confetti(winner.key), burst * BURST_GAP);
+      }
       if (groups.length > 1) for (const who of groups[groups.length - 1]) this.react(who.key, "Sad", true);
       await this.host.say("end.podium", { player: winner?.name ?? "" });
       if (winner) await stage.orbit(winner);

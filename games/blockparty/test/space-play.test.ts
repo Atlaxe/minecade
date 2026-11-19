@@ -59,6 +59,7 @@ function fake(round = 5, of = 15): Fake {
     walkBack: vi.fn(async () => {}),
     bonusRoll: vi.fn(async () => {}),
     duel: vi.fn(async () => {}),
+    transfer: vi.fn(async () => {}),
     showResults: vi.fn(async () => {}),
   };
   const here = () => names.map((name) => who[name.toLowerCase()]);
@@ -178,6 +179,9 @@ describe("Block Party's Chance Time", () => {
     expect(f.seats.get("alex")!.hands.items).toEqual([]);
     expect(f.seats.get("sam")!.hands.items).toEqual(["glove"]);
     expect(f.seats.get("kim")!.hands.items).toEqual(["lightning"]);
+    // Each item flies from the giver's head to the taker's (chat is hidden on the board).
+    expect(f.calls.transfer).toHaveBeenCalledWith(f.who.alex, f.who.sam, { kind: "item", id: "glove" }, 1);
+    expect(f.calls.transfer).toHaveBeenCalledWith(f.who.sam, f.who.kim, { kind: "item", id: "lightning" }, 1);
   });
 });
 

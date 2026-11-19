@@ -67,6 +67,24 @@ export function flightPlan(from: Vec3, to: Vec3, cruise = CRUISE): Flight {
   };
 }
 
+/** How fast a balloon comes straight down (blocks a tick, at its fastest; it eases in and out). */
+const DROP_SPEED = 0.16;
+
+/**
+ * Straight down from `from` to `to` (Chris coming in under his balloon at the first Stars), eased
+ * at both ends; any way across is made along the way.
+ */
+export function descentPlan(from: Vec3, to: Vec3, speed = DROP_SPEED): Flight {
+  const ticks = Math.max(20, Math.round(Math.abs(from[1] - to[1]) / speed));
+  return {
+    ticks,
+    at(tick: number): Vec3 {
+      const t = smooth(Math.min(ticks, Math.max(0, tick)) / ticks);
+      return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, from[2] + (to[2] - from[2]) * t];
+    },
+  };
+}
+
 /** The spaces that lead into `space`. */
 function into(space: Space, spaces: readonly Space[]): Space[] {
   return spaces.filter((other) => other.next.includes(space.index));

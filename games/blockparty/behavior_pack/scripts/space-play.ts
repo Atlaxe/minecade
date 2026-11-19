@@ -18,6 +18,7 @@
 import type { BoardLoop, LoopHost } from "./board-loop.ts";
 import { addCoins, count } from "./board-rules.ts";
 import type { Who } from "./bots.ts";
+import type { ItemId } from "./dice-items.ts";
 import type { ButtonIcon } from "./dialogue-codes.ts";
 import type { ItemPlay } from "./item-play.ts";
 import { button, line } from "./lines.ts";
@@ -435,7 +436,7 @@ export class SpacePlay {
       }
       case "gift_exchange": {
         await this.host.say("chance.gift-exchange", { player: who.name }, false, who);
-        this.giftExchange(here);
+        await this.giftExchange(who, here);
         break;
       }
       case "lucky_draw": {
@@ -485,7 +486,12 @@ export class SpacePlay {
   }
 
   /** Gift Exchange: everyone with an item passes one (at random) to the next in turn order, all at once. */
-  private giftExchange(here: readonly Who[]): void {
+  /**
+   * Gift Exchange: each holder passes a random item of theirs to the next in turn order, all at once.
+   * The camera rises to take everyone in and each item flies from the giver's head to the taker's
+   * (the user asked: chat is hidden on the board); then back to the Witch and the lander.
+   */
+  private async giftExchange(lander: Who, here: readonly Who[]): Promise<void> {
     const order = this.loop.turnOrder().flatMap((key) => here.filter((who) => who.key === key));
     const gifts = order.map((who) => {
       const items = this.loop.seatOf(who.key)?.hands.items ?? [];
@@ -495,14 +501,22 @@ export class SpacePlay {
       const gift = gifts[i];
       if (gift) take(this.loop.seatOf(who.key)!.hands, { kind: "item", id: gift });
     });
+    const passes: [Who, Who, ItemId][] = [];
     order.forEach((who, i) => {
       const gift = gifts[i];
       const next = order[(i + 1) % order.length];
       if (!gift || !next) return;
       put(this.loop.seatOf(next.key)!.hands, { kind: "item", id: gift });
       this.host.everyone(line("chance.gift.passed", { player: who.name, other: next.name, item: prizeName({ kind: "item", id: gift }) }));
+      passes.push([who, next, gift]);
     });
     this.host.changed();
+    if (passes.length === 0) return;
+    const { stage } = this.host;
+    await stage.group(order, "chance.gift.passed");
+    await Promise.all(passes.map(([from, to, gift]) => this.loop.transfer(from, to, { kind: "item", id: gift }, 1)));
+    await this.host.scope.wait(10);
+    await stage.meet(WITCH, lander, "chance.bye");
   }
 
   private richest(candidates: readonly Who[]): number {

@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { mapRequirements } from "@minecade/minigame-core/config";
 import type { Space, Vec3 } from "../behavior_pack/scripts/board.ts";
-import { EYE, besideSpace, faceShot, finalPodium, hoverBefore, introAround, markerShot, orbitShots, pathWay, podiumFromMarkup, podiumOnStart, pulledBack, spaceShot, twoShot, yawFrom } from "../behavior_pack/scripts/stage-layout.ts";
+import { EYE, besideSpace, faceShot, finalPodium, groupShot, hoverBefore, introAround, markerShot, orbitShots, pathWay, podiumFromMarkup, podiumOnStart, pulledBack, spaceShot, twoShot, yawFrom } from "../behavior_pack/scripts/stage-layout.ts";
 import { STAGE_ADJUSTABLE, STAGE_MARKUP, chrisKey } from "../behavior_pack/scripts/stage-markup.ts";
 import config from "../game.config.ts";
 
@@ -172,6 +172,18 @@ describe("the end of the game's stage", () => {
     }
     expect(shots[2].location[0]).toBeCloseTo(0);
     expect(shots[0].location[0]).toBeCloseTo(-shots[4].location[0]);
+  });
+
+  it("takes several seats in from high over their middle (Gift Exchange)", () => {
+    const shot = groupShot([
+      [0, 64, 0],
+      [20, 64, 0],
+    ]);
+    expect(shot.facing).toEqual([10, 65, 0]);
+    expect(shot.location[0]).toBe(10);
+    // Far enough back for 10 blocks either side of the middle, and well over them.
+    expect(Math.hypot(shot.location[1] - 64, shot.location[2])).toBeGreaterThan(20);
+    expect(shot.location[1]).toBeGreaterThan(74);
   });
 
   it("hovers the Allay in front of a player's head, toward the camera", () => {
