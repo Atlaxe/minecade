@@ -422,6 +422,7 @@ export class SpacePlay {
           botPick: Math.min(1, options.length - 1),
         });
         const bet = options[Math.min(options.length - 1, Math.max(0, picked ?? 0))];
+        this.loop.stats.risk(who.key);
         const won = this.host.random() < 0.5;
         const was = seat.coins;
         seat.coins = addCoins(seat.coins, won ? bet : -bet);

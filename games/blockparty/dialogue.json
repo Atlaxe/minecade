@@ -781,6 +781,9 @@
     "format.duel": [
       "Duel"
     ],
+    "format.sudden": [
+      "Sudden death"
+    ],
     "minigame.battle.pot": [
       "A Battle: everyone puts in up to 5 coins. The pot is §6{coins}§r, and the winner takes it."
     ],
@@ -978,6 +981,54 @@
     ],
     "end.standings": [
       "Final standings: {standings}."
+    ],
+    "bonus.hazards": [
+      "Most Hazards Hit"
+    ],
+    "bonus.swing": [
+      "Wildest Coin Swing"
+    ],
+    "bonus.roll": [
+      "Luckiest Roll"
+    ],
+    "bonus.luck": [
+      "Fortune's Favorite"
+    ],
+    "bonus.wins": [
+      "Most Minigames Won"
+    ],
+    "bonus.streak": [
+      "Longest Win Streak"
+    ],
+    "bonus.seconds": [
+      "Most Second Places"
+    ],
+    "bonus.items": [
+      "Most Items Used"
+    ],
+    "bonus.hoard": [
+      "Biggest Hoard"
+    ],
+    "bonus.tumbles": [
+      "Most Tumbles"
+    ],
+    "bonus.risks": [
+      "Biggest Risk Taker"
+    ],
+    "bonus.comeback": [
+      "Biggest Comeback"
+    ],
+    "bonus.underdog": [
+      "Underdog"
+    ],
+    "bonus.improved": [
+      "Most Improved"
+    ],
+    "bonus.surge": [
+      "Strongest Finish"
+    ],
+    "bonus.team": [
+      "Best Team Player"
     ]
   },
   "moments": {
@@ -2083,6 +2134,10 @@
       "character": "Game",
       "delivery": "Subtitle"
     },
+    "format.sudden": {
+      "character": "Game",
+      "delivery": "Subtitle"
+    },
     "minigame.battle.pot": {
       "character": "Game",
       "delivery": "Dialogue box"
@@ -2346,6 +2401,70 @@
     "end.standings": {
       "character": "Game",
       "delivery": "Dialogue box"
+    },
+    "bonus.hazards": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.swing": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.roll": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.luck": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.wins": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.streak": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.seconds": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.items": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.hoard": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.tumbles": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.risks": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.comeback": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.underdog": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.improved": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.surge": {
+      "character": "Game",
+      "delivery": "Dialogue box"
+    },
+    "bonus.team": {
+      "character": "Game",
+      "delivery": "Dialogue box"
     }
   },
   "characters": {
@@ -2600,6 +2719,24 @@
       ]
     ],
     "announce.final": [
+      [
+        {
+          "who": "Speaker",
+          "action": "Celebrate",
+          "when": "Start"
+        }
+      ]
+    ],
+    "end.allay.hello": [
+      [
+        {
+          "who": "Speaker",
+          "action": "Dance",
+          "when": "Start"
+        }
+      ]
+    ],
+    "end.podium": [
       [
         {
           "who": "Speaker",

@@ -338,6 +338,7 @@ export class ItemPlay {
     this.host.zombies.add(who.key);
     const took = Math.min(ZOMBIE_BITE, seat.coins);
     seat.coins -= took;
+    this.loop.stats.hazard(who.key);
     void this.loop.transfer(who, this.host.zombies.of?.(who.key), "coin", took);
     seat.effects.zombie--;
     this.host.changed();

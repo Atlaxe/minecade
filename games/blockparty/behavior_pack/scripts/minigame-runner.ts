@@ -71,6 +71,8 @@ export interface RunnerHost {
   respawnBot(who: Who, at: Vector3, yaw: number): void;
   /** Lets a player or bot go from the pose they hold on the podium (moves.ts, release). */
   release(who: Who): void;
+  /** A player or bot is out of the minigame (fell, was caught): the end's bonus Stars count it. */
+  out?(who: Who): void;
   /**
    * The game's own words to everyone in the dialogue box with no speaker (no titles, the user's
    * call), for `ticks` or until the next notice; a line break starts a row.
@@ -112,6 +114,16 @@ export interface Results {
   subtitle?: string;
 }
 export type Settle = (outcome: Outcome) => Results;
+
+/**
+ * How a minigame is played besides its format: the announcement's format line in place of the
+ * format's own, and `here` to start from the shot everyone sees now, with no zoom out of the board
+ * (the end's tiebreaker, from the podium).
+ */
+export interface PlayOptions {
+  label?: string;
+  here?: boolean;
+}
 
 const ARENA_AREA = "minecade:blockparty_minigame";
 /** Seconds the camera takes to rise from the board (or the arena) as a minigame comes (or goes), and to ease down into the arena (or the board). */
@@ -235,7 +247,7 @@ export class MinigameRunner {
    * `settle` turns the outcome into the results shown over the arena. Resolves with the outcome once
    * everyone is back on the board.
    */
-  async play(format: Format, def: MinigameDef, sides: Who[][], pool: readonly MinigameDef[], onlookers: readonly Who[], settle: Settle): Promise<Outcome> {
+  async play(format: Format, def: MinigameDef, sides: Who[][], pool: readonly MinigameDef[], onlookers: readonly Who[], settle: Settle, options: PlayOptions = {}): Promise<Outcome> {
     this.on = true;
     this.outs.clear();
     const current: Running = { def, sides };
@@ -251,11 +263,13 @@ export class MinigameRunner {
     const watching = [...everyone, ...onlookers];
     try {
       // The camera rises from the board, the stars come over it a second later, and the announcement plays on them.
-      this.host.zoomOut?.(ZOOM_OUT);
-      playCue(eventCue("minigame.zoom-out"));
-      await this.host.scope.wait(STARS_AFTER);
+      if (!options.here) {
+        this.host.zoomOut?.(ZOOM_OUT);
+        playCue(eventCue("minigame.zoom-out"));
+        await this.host.scope.wait(STARS_AFTER);
+      }
       await this.host.starsIn();
-      await this.announce(def, pool, format, sides);
+      await this.announce(def, pool, format, sides, options.label);
       await this.host.behindStars(async () => {
         field = await this.layDown(def, laid);
         watchSpot = watchSpotOf(field);
@@ -455,12 +469,12 @@ export class MinigameRunner {
    * light stepping down it, slowing, until it lands on the pick. Then the wheel and the titles go,
    * the stars staying for the move into the arena.
    */
-  private async announce(def: MinigameDef, pool: readonly MinigameDef[], format: Format, sides: readonly (readonly Who[])[]): Promise<void> {
+  private async announce(def: MinigameDef, pool: readonly MinigameDef[], format: Format, sides: readonly (readonly Who[])[], labelled?: string): Promise<void> {
     const { host } = this;
     host.announce({});
     playCue(eventCue("minigame.title"));
     await host.scope.wait(HEADING_TICKS);
-    const label = formatLabel(format, sides);
+    const label = labelled ?? formatLabel(format, sides);
     host.announce({ format: label });
     playCue(eventCue("minigame.format"));
     await host.scope.wait(FORMAT_TICKS);
@@ -676,6 +690,7 @@ export class MinigameRunner {
     if (this.outs.has(who.key)) return;
     const apart = this.outs.size;
     this.outs.add(who.key);
+    this.host.out?.(who);
     const body = this.bodyOf(who);
     if (!body) return;
     const spot = { x: watchSpot.x, y: watchSpot.y, z: watchSpot.z };

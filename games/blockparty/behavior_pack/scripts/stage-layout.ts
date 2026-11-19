@@ -170,3 +170,122 @@ export function faceShot(at: Vec3, yaw: number, away = 3.2): Shot {
   const fz = Math.cos(radians);
   return { location: [at[0] + fx * away, at[1] + EYE + 0.1, at[2] + fz * away], facing: [at[0], at[1] + EYE - 0.15, at[2]] };
 }
+
+// ---- The end of the game (pass 8) -------------------------------------------------------------
+
+/** The final podium: where each place stands (1st first) and the way they face, Chris's spot, and the camera. */
+export interface FinalPodium {
+  spots: Vec3[];
+  yaws: number[];
+  chris: Vec3;
+  camera: Shot;
+  /** Whether the map marks a final podium (else the pre-game podium stands in). */
+  marked: boolean;
+}
+
+/** How far in front of a final podium with no camera of its own the camera stands, at the least, and how high over the spots. */
+const FINAL_BACK = 7;
+const FINAL_UP = 2.4;
+/** How far past the end of an unmarked Chris's podium he stands. */
+const CHRIS_ASIDE = 2.5;
+
+/** The average of some yaws by their directions (undefined when they cancel out or there are none). */
+export function meanYaw(yaws: readonly number[]): number | undefined {
+  if (yaws.length === 0) return undefined;
+  const x = yaws.reduce((sum, yaw) => sum - Math.sin((yaw * Math.PI) / 180), 0);
+  const z = yaws.reduce((sum, yaw) => sum + Math.cos((yaw * Math.PI) / 180), 0);
+  if (Math.hypot(x, z) < 1e-6) return undefined;
+  return (Math.atan2(-x, z) * 180) / Math.PI;
+}
+
+function middleOf(points: readonly Vec3[]): Vec3 {
+  const n = points.length || 1;
+  return [0, 1, 2].map((axis) => points.reduce((sum, at) => sum + at[axis], 0) / n) as Vec3;
+}
+
+/**
+ * The final podium for `seats` places (the map's Final podium, 1st to 4th, when it marks as many),
+ * each spot facing the way the map placed it, else toward the camera; the camera the map's Final
+ * podium camera, else one in front of the spots the way they face, looking at them; Chris at his
+ * Final podium marker, else past the end of the podium facing its middle. Without a final podium,
+ * the pre-game podium (`pregame`) stands in: its spots in place order, everyone facing its camera,
+ * Chris at his spot (or his Final podium marker).
+ */
+export function finalPodium(spots: readonly Marker[], chris: Marker | undefined, camera: Marker | undefined, seats: number, pregame: Podium): FinalPodium {
+  const marked = seats > 0 && spots.length >= seats;
+  if (!marked) {
+    const at = pregame.lineup.map((spot): Vec3 => [...spot]);
+    const shot = camera ? markerShot(camera, [middleOf(at)[0], middleOf(at)[1] + 1.1, middleOf(at)[2]]) : pregame.camera;
+    return { spots: at, yaws: at.map((spot) => yawFrom(spot, shot.location)), chris: chris?.at ?? pregame.chris, camera: shot, marked: false };
+  }
+  const chosen = spots.slice(0, seats);
+  const at = chosen.map((spot): Vec3 => [...spot.at]);
+  const middle = middleOf(at);
+  const look: Vec3 = [middle[0], middle[1] + 1.1, middle[2]];
+  let shot: Shot;
+  if (camera) shot = markerShot(camera, look);
+  else {
+    const facing = meanYaw(chosen.flatMap((spot) => (spot.yaw === undefined ? [] : [spot.yaw]))) ?? 0;
+    const wide = at.reduce((most, a) => Math.max(most, ...at.map((b) => Math.hypot(a[0] - b[0], a[2] - b[2]))), 0);
+    const back = Math.max(FINAL_BACK, wide * 1.3 + 2);
+    const radians = (facing * Math.PI) / 180;
+    shot = { location: [middle[0] - Math.sin(radians) * back, middle[1] + FINAL_UP, middle[2] + Math.cos(radians) * back], facing: look };
+  }
+  const yaws = chosen.map((spot) => spot.yaw ?? yawFrom(spot.at, shot.location));
+  return { spots: at, yaws, chris: chris?.at ?? chrisBeside(at, yaws), camera: shot, marked: true };
+}
+
+/** A spot past the end of a podium's row, across the way its places face, on its lowest spot's floor. */
+function chrisBeside(spots: readonly Vec3[], yaws: readonly number[]): Vec3 {
+  const middle = middleOf(spots);
+  const facing = meanYaw(yaws) ?? 0;
+  const radians = (facing * Math.PI) / 180;
+  // Across the way they face (their right hand, seen from the front: the camera's left).
+  const across: [number, number] = [Math.cos(radians), Math.sin(radians)];
+  const reach = Math.max(0, ...spots.map((spot) => (spot[0] - middle[0]) * across[0] + (spot[2] - middle[2]) * across[1]));
+  const floor = Math.min(...spots.map((spot) => spot[1]));
+  return [middle[0] + across[0] * (reach + CHRIS_ASIDE), floor, middle[2] + across[1] * (reach + CHRIS_ASIDE)];
+}
+
+/** Which way a shot looks, as a unit vector. */
+function forwardOf(shot: Shot): Vec3 {
+  if (shot.rotation) {
+    const yaw = (shot.rotation.yaw * Math.PI) / 180;
+    const pitch = (shot.rotation.pitch * Math.PI) / 180;
+    return [-Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch)];
+  }
+  const to = shot.facing ?? shot.location;
+  const d: Vec3 = [to[0] - shot.location[0], to[1] - shot.location[1], to[2] - shot.location[2]];
+  const length = Math.hypot(...d) || 1;
+  return [d[0] / length, d[1] / length, d[2] / length];
+}
+
+/** The same shot pulled `back` blocks back the way it looks and `up` higher, still looking at the same thing (the final podium's slow ease in starts there). */
+export function pulledBack(shot: Shot, back: number, up = 0): Shot {
+  const [fx, fy, fz] = forwardOf(shot);
+  const location: Vec3 = [shot.location[0] - fx * back, shot.location[1] - fy * back + up, shot.location[2] - fz * back];
+  if (shot.rotation && up === 0) return { location, rotation: shot.rotation };
+  // Raised, it tips down to keep its aim: at what it looked at, or where it looked `back` blocks on.
+  const aim: Vec3 = shot.facing ?? [shot.location[0] + fx * back, shot.location[1] + fy * back, shot.location[2] + fz * back];
+  return { location, facing: aim };
+}
+
+/**
+ * The winner's orbit: `steps` + 1 shots on an arc `arc` degrees wide round the front of someone
+ * standing at `at` facing `yaw`, `radius` out and a little over their eyes, each looking at their
+ * chest, from their left round to their right (seen from the front).
+ */
+export function orbitShots(at: Vec3, yaw: number, radius: number, arc: number, steps: number): Shot[] {
+  const look: Vec3 = [at[0], at[1] + 1.2, at[2]];
+  return Array.from({ length: steps + 1 }, (_, i) => {
+    const degrees = yaw - arc / 2 + (arc * i) / Math.max(1, steps);
+    const radians = (degrees * Math.PI) / 180;
+    return { location: [at[0] - Math.sin(radians) * radius, at[1] + EYE + 0.5, at[2] + Math.cos(radians) * radius] as Vec3, facing: look };
+  });
+}
+
+/** Where the Allay hovers in front of someone at `at` turned toward `toward`: `away` blocks toward it, over their head. */
+export function hoverBefore(at: Vec3, toward: Vec3, away = 1.4): Vec3 {
+  const [dx, dz] = flat(at, toward);
+  return [at[0] + dx * away, at[1] + EYE + 0.3, at[2] + dz * away];
+}

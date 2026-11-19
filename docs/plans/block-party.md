@@ -344,6 +344,37 @@ one category, and kept secret until the end, from:
 - **Participation:** best comeback, last-place bonus, most improved, biggest jump in standings over
   the last 5 rounds, most wins in 2v2 and 1v3 (team player).
 
+**Built in pass 8 (2026-11-18,** `end-game.ts`), not yet seen in game. The game keeps a record on
+every seat all game (`GameStats`) and draws the bonus Stars from it at the end: the categories in a
+random order, and in each the first of its awards (in a random order) whose best has no bonus Star
+yet goes to them, a tie among the best picked at random. An award whose best already has one isn't
+given (it never goes to a runner-up), and a category with nothing to give is passed over; nothing
+scores for 0. Each award's name is a text in the dialogue file, `bonus.<id>`, the `{award}` in
+`end.bonus.award` (the user words them):
+
+| Category | Award (`bonus.<id>`) | Who gets it |
+|---|---|---|
+| Chaos | Most Hazards Hit (`hazards`) | the most Red and Warden spaces landed on and zombie bites |
+| Chaos | Wildest Coin Swing (`swing`) | the most coins won or lost at once, less what they spent of their own accord |
+| Chaos | Luckiest Roll (`roll`) | the highest roll |
+| Chaos | Fortune's Favorite (`luck`) | the most coins (and Stars, at their price) Chance Time and Happenings brought them, whoever landed |
+| Skill | Most Minigames Won (`wins`) | the most minigames won (a team minigame's winning side, everyone tied for first) and duels won |
+| Skill | Longest Win Streak (`streak`) | the most round minigames won in a row, 2 at the least |
+| Skill | Most Second Places (`seconds`) | the most free-for-all minigames finished with one player ahead |
+| Behavior | Most Items Used (`items`) | the most items used |
+| Behavior | Biggest Hoard (`hoard`) | the most items and special dice still held at the end |
+| Behavior | Most Tumbles (`tumbles`) | the most times out in a minigame (fell, caught): the plan's "most deaths" |
+| Behavior | Biggest Risk Taker (`risks`) | the most duel bets, Double or Nothing bets, and Risk and Mystery Dice rolled |
+| Participation | Biggest Comeback (`comeback`) | the furthest climb from their worst place after a round to where they finish |
+| Participation | Underdog (`underdog`) | last place at the end (with someone ahead) |
+| Participation | Most Improved (`improved`) | the furthest climb from their place after round 1 |
+| Participation | Strongest Finish (`surge`) | the furthest climb over the last 5 rounds (a game over 5 rounds) |
+| Participation | Best Team Player (`team`) | the most 2v2 and 1v3 minigames won |
+
+Left out until the minigames report them: most kills, fewest deaths, and wins decided in a
+minigame's last seconds. A place is the results screen's (Stars, then coins; ties share one), taken
+after each round's minigame.
+
 ## Tiebreaker
 
 Checked after the bonus Stars:
@@ -353,6 +384,50 @@ Checked after the bonus Stars:
 3. A sudden-death minigame among only the tied players, picked at random from a short pool (Quick
    Draw, Hot Floor, Sumo Duel). FFA if 3 or more are tied.
 4. If still tied, the Allay picks the winner at random.
+
+**Built in pass 8 (2026-11-18),** not yet seen in game: the pool is the plan's three as they're
+built (only Hot Floor so far), else any free-for-all minigame; a duel for two tied, a free-for-all
+for more, the rest watching, and the minigame pays nothing. Its places order the tied on the final
+podium; a draw (or nobody left standing together) goes to the Allay. Only the seats here at the end
+are ranked: someone who left isn't on the final podium.
+
+### The end, as built (pass 8, 2026-11-18)
+
+`board-loop.ts` endGame, `stage.ts` (the end), in the order of the user's End of game scene in the
+dialogue tool. Not yet seen in game.
+
+1. **Back on the pre-game podium:** after the last round's minigame and results, a fade to black,
+   and behind it everyone stands on the pre-game podium in turn order facing the podium camera,
+   Chris at his spot behind them, zombies gone. The black lifts on the podium camera.
+2. **The bonus Stars** (a cutscene everyone can vote to skip; skipped, every Star is still given and
+   drops in over its winner's head): Chris says it's over (`end.chris.over`) and how many bonus Stars
+   there are (`end.bonus.intro`), the Allay flies down from high over the podium to wait over it
+   (`end.allay.hello`, the Allay dancing: a seeded action), then for each Star flies over to its
+   winner and hovers in front of their head, the two turning to each other while the camera eases
+   to them; the Star flies from the Allay to them as it says what for (`end.bonus.award`), and they
+   celebrate as it lands. Then the Allay goes back over the podium and the camera with it.
+3. **The results screen**, from before the bonus Stars to after.
+4. **A tie for first:** Chris calls it (`end.tie.chris`) and the sudden death plays from the
+   podium's shot (the stars come in over it, no zoom out of the board), its announcement's format
+   line "Sudden death" (`format.sudden`); its podium shows who won it, no coins. Still tied: back on
+   the pre-game podium behind a fade, the Allay flies round the tied (twice, once for three or
+   more), then to the one it picks (`end.tie.allay`), who celebrates.
+5. **The final podium** (a cutscene too): behind a fade to black everyone stands on the board's
+   Final podium best first (tied places side by side), Chris at his Final podium spot, and the
+   camera eases slowly in from 6 blocks further back and 2 higher (4.5 s). The winner celebrates
+   and last place is sad, each holding the pose; Chris names the champion (`end.podium`, Chris
+   celebrating: a seeded action), the camera goes round the front of the winner (a 140 degree arc,
+   about 5 seconds) and back, Chris thanks everyone (`end.thanks`), and the screen fades to black,
+   held while everyone goes back to the lobby. The final standings go to chat (`end.standings`).
+6. **Without the board's Final podium,** the pre-game podium stands in: its spots in place order,
+   everyone facing its camera, Chris at his spot (or his Final podium marker).
+
+The old end's lines (`end.tie`, `end.title`, `end.subtitle`) are no longer said.
+
+**Tests** (`/blockparty:tests`): Skip to a round has **The end of the game (bonus Stars)** at the
+bottom of its list, and **End-of-game tie** sets a tie for after the bonus Stars (the top 2, 3 or
+all 4 made level with the leader) and can make the sudden death decide nothing, so the Allay picks.
+With `/minigame win <name>` the sudden death ends at once.
 
 ## Dice
 
@@ -921,7 +996,7 @@ Each also has an event camera.
 | Region anchors (the follow camera falls back to them, and carries boards too big for one overview) | Camera tool |
 | Intro flyover path (its cameras in order) | Camera tool |
 | Special event camera (a map with an event) | Camera tool |
-| Podium set: 4 spots, 1st to 4th, facing front | Game marker tool |
+| **Final podium** (pass 8, built 2026-11-18): 4 spots, 1st place to 4th, each placed standing where the player stands with your facing taken; **Final podium camera**, placed standing where the camera goes with your facing taken; and **Chris** with the type **Final podium**. Without a camera, the shot stands in front of the spots the way they face; without Chris's marker, he stands past the end of the podium. Without the podium, the pre-game podium stands in (in place order) | Game marker tool |
 | Pre-game lineup, one spot per player, and the turn-order pedestals (the starting podium in `block-party-ui.md`: a wider gap between the 2nd and 3rd spots, Chris's spot further back, a fixed podium camera). **Built in pass 6** as **Pre-game podium** (4 spots, 1 to 4), **Chris** with the type **Pre-game** (the marker's Type list; more types come with later stages), and **Podium camera** (`stage-markup.ts`). Without a podium camera, the shot is from behind the podium looking at Chris | Game marker tool |
 | **Intro shots** (pass 6): the intro's cameras in order, each placed standing where the camera goes with your facing taken (the shot is what you saw); the camera eases from each to the next. They stand in for the intro flyover path above | Game marker tool |
 | NPC stages: Chris, Villager (the shop counter), Witch (the cauldron), Referee, and the Allay's landing spot. Each is the NPC's spot and the guest's spot (where the player stands to talk), both with a facing; the conversation shots are worked out from the two, and a camera named for the stage replaces the default | Game marker tool |
@@ -1328,9 +1403,9 @@ reward was dropped.
      line, and he goes.
    - **Chris's announcements** as a round starts: halfway, coins doubling from now on, the final
      round (each skippable).
-   - **Not yet:** blocks from the dialogue tool, the other NPCs' stages (the Villager, the Witch,
-     the Allay: with their passes), the board view's modes and the turn shot, button prompts per
-     device, heads in the skip strip (names for now). Player animations and the lines' actions
+   - **Done** (the user, 2026-11-18): the dialogue tool works as it is (no blocks from it in the
+     game), and the skip strip needs no heads or names. The NPCs' stages came with their passes,
+     the board view and the turn shot with the cameras. Player animations and the lines' actions
      came later (2026-11-18, `block-party-ui.md` "Player animations", "As built").
    - **After the user's first look (2026-11-17):** the dialogue box showed only Chris's name. Its
      size variables were single parts of a size (`"$box_width": 330`), which the game rejects
@@ -1371,11 +1446,17 @@ reward was dropped.
      the Wandering Trader, beside Go to a space.
    - **Lines:** every new thing said is a Draft row in the workshop's dialogue file (5dfb524): the
      NPCs' as one-card scenes, the buttons and the game's own words as texts.
-   - **Not yet:** NPC stages for the Villager and the Witch (they stand beside the lander's space),
-     the map's own Happening flavor (map settings hold only numbers), shots beyond the two-shots and
-     a space cut (the Witch's cauldron close-up, the Trader's pan in), Gift Exchange's passes shown
-     anywhere but chat.
-8. **End of game:** bonus Stars, the tiebreaker, the podium.
+   - **The user's answers (2026-11-18):** the Villager stands by every Shop space and the Referee by
+     every Versus space all game (built with the cast, "The board's cast, forks and results"); the
+     Witch has no spot of her own and comes to the lander, as built. The Witch's cauldron close-up
+     and the Trader's pan in aren't needed.
+   - **Not yet:** the map's own Happening flavor (map settings hold only numbers), and Gift
+     Exchange's passes shown anywhere but chat (hidden on the board), which the user asked about.
+8. **End of game:** bonus Stars, the tiebreaker, the podium. **Built 2026-11-18** (`end-game.ts`,
+   `board-loop.ts` endGame, `stage.ts` the end; "End-of-game bonus Stars", "Tiebreaker", "The end,
+   as built"), not yet seen in game: the record kept on every seat, the bonus Stars on the pre-game
+   podium with the Allay, the results, the sudden death and the Allay's pick, the board's Final
+   podium (new markers), the winner's orbit, and the fade to the lobby.
 9. **The rest of the minigames.**
 10. **Refinement: cameras and UI** (the user, 2026-11-17): everything that works made to work and
     look better: the cameras, the titles and the HUD, and showing coins as they're won and lost
@@ -1454,3 +1535,11 @@ Every question is answered. These were taken without one; the user can change an
   spins and Minecade blue on the pick; the tutorial panel 180 units wide at the left; the Ready strip
   "Press [jump] when ready 1/4", "Ready! Waiting for the others 3/4" once jumped; each test
   minigame's objective and controls as written in its code.
+- The end (pass 8, 2026-11-18): the bonus Stars given on the pre-game podium (everyone in turn order
+  facing its camera), not on the board or the final podium; the award list and how each is measured
+  above (the plan's kills, fewest deaths and last-seconds wins left out, "most deaths" as times out);
+  the award names; a streak needs 2; the bonus Stars and the final podium skippable cutscenes, the
+  sudden death not; the tiebreaker paying no coins; only seats here at the end ranked; on the final
+  podium the winner celebrating and last place sad, held (as on the minigame podium); every fade,
+  ease and orbit length in `stage.ts`; Chris past the end of a final podium with no marker for him;
+  the Allay's dance at its hello and Chris's celebration as he names the champion (seeded actions).

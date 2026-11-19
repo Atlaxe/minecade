@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { mapRequirements } from "@minecade/minigame-core/config";
 import type { Space, Vec3 } from "../behavior_pack/scripts/board.ts";
-import { EYE, besideSpace, faceShot, introAround, markerShot, pathWay, podiumFromMarkup, podiumOnStart, spaceShot, twoShot, yawFrom } from "../behavior_pack/scripts/stage-layout.ts";
+import { EYE, besideSpace, faceShot, finalPodium, hoverBefore, introAround, markerShot, orbitShots, pathWay, podiumFromMarkup, podiumOnStart, pulledBack, spaceShot, twoShot, yawFrom } from "../behavior_pack/scripts/stage-layout.ts";
 import { STAGE_ADJUSTABLE, STAGE_MARKUP, chrisKey } from "../behavior_pack/scripts/stage-markup.ts";
 import config from "../game.config.ts";
 
@@ -91,16 +91,92 @@ describe("Block Party's stage", () => {
     expect(yawFrom([0, 64, 0], [-5, 64, 0])).toBeCloseTo(90);
   });
 
-  it("asks a board for its pre-game podium, Chris by type, the podium camera and the intro, each a row a map can turn off", () => {
+  it("asks a board for its pre-game podium, Chris by type, the podium camera, the intro and the final podium, each a row a map can turn off", () => {
     expect(config.map.points).toBe(STAGE_MARKUP);
     const rows = mapRequirements(config.map, { kind: "game", maxPlayers: config.maxPlayers });
     expect(rows.filter((row) => row.field === "points").map((row) => [row.key, row.label, row.min, row.floor])).toEqual([
       ["points.podium", "Pre-game podium", 4, 0],
       ["points.chris.pregame", "Chris (Pre-game)", 1, 0],
+      ["points.chris.final", "Chris (Final podium)", 1, 0],
       ["points.podiumCamera", "Podium camera", 1, 0],
       ["points.intro", "Intro shots", 2, 0],
+      ["points.finalPodium", "Final podium", 4, 0],
+      ["points.finalCamera", "Final podium camera", 1, 0],
     ]);
     expect(chrisKey("pregame")).toBe("chris.pregame");
-    expect(Object.keys(STAGE_ADJUSTABLE)).toEqual(["points.podium", "points.chris", "points.podiumCamera", "points.intro"]);
+    expect(chrisKey("final")).toBe("chris.final");
+    expect(Object.keys(STAGE_ADJUSTABLE)).toEqual(["points.podium", "points.chris", "points.podiumCamera", "points.intro", "points.finalPodium", "points.finalCamera"]);
+  });
+});
+
+describe("the end of the game's stage", () => {
+  // The pre-game podium: four spots along x at z 0, Chris at z 5, the camera behind them at z -6.
+  const pregame = { lineup: [[0, 70, 0], [1.5, 70, 0], [4, 70, 0], [5.5, 70, 0]] as Vec3[], chris: [2.75, 70, 5] as Vec3, camera: { location: [2.75, 73.2, -6] as Vec3, facing: [2.75, 70.8, 5] as Vec3 } };
+
+  it("stands the final podium on the pre-game one, in place order, facing its camera, when the map marks none", () => {
+    const podium = finalPodium([], undefined, undefined, 4, pregame);
+    expect(podium.marked).toBe(false);
+    expect(podium.spots).toEqual(pregame.lineup);
+    expect(podium.camera).toBe(pregame.camera);
+    expect(podium.chris).toEqual(pregame.chris);
+    // Everyone faces the camera (north, -z: yaw 180 or -180).
+    for (const yaw of podium.yaws) expect(Math.abs(yaw)).toBeGreaterThan(150);
+    // Too few final spots for everyone: the pre-game podium still.
+    expect(finalPodium([{ at: [0, 64, 0] }], undefined, undefined, 2, pregame).marked).toBe(false);
+  });
+
+  it("uses the map's final podium: each spot's own facing, Chris's marker, its camera, or a shot in front of the spots", () => {
+    // 2nd, 1st, 3rd across x, all facing south (+z, yaw 0), 1st higher.
+    const spots = [{ at: [10, 66, 0] as Vec3, yaw: 0 }, { at: [8, 65, 0] as Vec3, yaw: 0 }, { at: [12, 64, 0] as Vec3, yaw: 0 }];
+    const podium = finalPodium(spots, { at: [20, 64, 3] }, undefined, 3, pregame);
+    expect(podium.marked).toBe(true);
+    expect(podium.spots).toEqual([[10, 66, 0], [8, 65, 0], [12, 64, 0]]);
+    expect(podium.yaws).toEqual([0, 0, 0]);
+    expect(podium.chris).toEqual([20, 64, 3]);
+    // No camera marker: in front of them (south, +z), looking at their middle.
+    expect(podium.camera.location[2]).toBeGreaterThanOrEqual(7);
+    expect(podium.camera.facing?.[0]).toBeCloseTo(10);
+    // No Chris marker: past the end of the row, on the lowest spot's floor.
+    const aside = finalPodium(spots, undefined, undefined, 3, pregame).chris;
+    expect(aside[1]).toBe(64);
+    expect(Math.abs(aside[0] - 10)).toBeGreaterThan(2);
+    // The map's camera with its own facing wins, and spots with none face it.
+    const camera = { at: [10, 64, 9], yaw: 180, pitch: 10 };
+    const marked = finalPodium([{ at: [10, 66, 0] }, { at: [8, 65, 0] }], undefined, camera, 2, pregame);
+    expect(marked.camera.rotation).toEqual({ yaw: 180, pitch: 10 });
+    expect(marked.yaws[0]).toBeCloseTo(0);
+  });
+
+  it("starts the final podium's ease in further back and higher, still aimed the same way", () => {
+    const shot = { location: [0, 70, 0] as Vec3, facing: [0, 70, 10] as Vec3 };
+    const back = pulledBack(shot, 6, 2);
+    expect(back.location).toEqual([0, 72, -6]);
+    expect(back.facing).toEqual([0, 70, 10]);
+    const turned = pulledBack({ location: [0, 70, 0], rotation: { yaw: 0, pitch: 0 } }, 6);
+    expect(turned.location[2]).toBeCloseTo(-6);
+    expect(turned.rotation).toEqual({ yaw: 0, pitch: 0 });
+    // Raised, a shot with its own facing looks at where it looked: down a little.
+    const raised = pulledBack({ location: [0, 70, 0], rotation: { yaw: 0, pitch: 0 } }, 6, 2);
+    expect(raised.facing?.[2]).toBeCloseTo(6);
+  });
+
+  it("orbits the winner round their front, level with a little over their eyes, looking at them", () => {
+    const shots = orbitShots([0, 64, 0], 0, 4, 120, 4);
+    expect(shots).toHaveLength(5);
+    for (const shot of shots) {
+      expect(Math.hypot(shot.location[0], shot.location[2])).toBeCloseTo(4);
+      expect(shot.location[1]).toBeCloseTo(64 + EYE + 0.5);
+      expect(shot.facing).toEqual([0, 65.2, 0]);
+      // Facing south: always in front of them.
+      expect(shot.location[2]).toBeGreaterThan(0);
+    }
+    expect(shots[2].location[0]).toBeCloseTo(0);
+    expect(shots[0].location[0]).toBeCloseTo(-shots[4].location[0]);
+  });
+
+  it("hovers the Allay in front of a player's head, toward the camera", () => {
+    const spot = hoverBefore([0, 64, 0], [0, 70, -10]);
+    expect(spot[2]).toBeCloseTo(-1.4);
+    expect(spot[1]).toBeCloseTo(64 + EYE + 0.3);
   });
 });

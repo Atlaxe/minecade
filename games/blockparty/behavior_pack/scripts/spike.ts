@@ -404,6 +404,8 @@ export class BlockPartySpike extends Minigame<Config> {
       backToBoard: (who) => this.backOnBoard(who),
       respawnBot: (who, at, yaw) => this.bots.respawn(who, at, yaw),
       release: (who) => this.moves.release(who.body),
+      // Out of a minigame: the end's bonus Stars count it.
+      out: (who) => this.loop?.stats.out(who.key),
       notice: (text, ticks) => void this.notice(text, "", ticks),
       say: (text) => this.everyone(text),
       random: () => this.ctx.random(),
@@ -489,7 +491,8 @@ export class BlockPartySpike extends Minigame<Config> {
       dialogue: this.dialogue,
       spaces: () => this.spaces,
       markup: () => this.stageMarkup(),
-      put: (who, at, yaw) => this.putSeat(who, at, yaw),
+      put: (who, at, yaw, still) => this.putSeat(who, at, yaw, still),
+      fade: (fadeIn, hold, fadeOut) => this.blackFade(fadeIn, hold, fadeOut),
       face: (who, toward) => this.faceSeat(who, toward),
       // Bots a moment after the players, as everywhere a body goes a long way with them (bots.ts).
       toStart: (who) => (who.player ? this.backOnBoard(who) : this.scope.timeout(() => this.backOnBoard(who), BOTS_AFTER)),
@@ -533,15 +536,15 @@ export class BlockPartySpike extends Minigame<Config> {
       cutscene: (skippable, work) => this.dialogue.cutscene(skippable, work),
       stage: this.staging,
       minigames: MINIGAMES,
-      playMinigame: (format, def, sides, pool, onlookers, settle) => this.runner.play(format, def, sides, pool, onlookers, settle),
+      playMinigame: (format, def, sides, pool, onlookers, settle, options) => this.runner.play(format, def, sides, pool, onlookers, settle, options),
       everyone: (text) => this.everyone(text),
       tell: (who, text) => who.player && this.tell(who.player, text),
       notice: (text, more, ticks) => this.notice(text, more, ticks),
       headline: (title, subtitle, ticks) => this.headline(title, subtitle, ticks),
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
-      // On the minigame podium a mood is held until everyone goes back (the user).
-      react: (who, set) => this.moves.player(who.body, set, this.runner.onPodium),
+      // On the minigame podium a mood is held until everyone goes back (the user), and on the final podium too.
+      react: (who, set, hold) => this.moves.player(who.body, set, hold ?? this.runner.onPodium),
       transfer: (from, to, token, count) => this.transfers.give(from, to, token, count),
       zombies: this.zombies,
       random: () => this.ctx.random(),
@@ -729,12 +732,14 @@ export class BlockPartySpike extends Minigame<Config> {
 
   /**
    * A seat put somewhere off its space (the pre-game podium) facing `yaw`: a player at once, free to
-   * walk there until they roll for turn order (the user's call), a bot made again there a moment later.
+   * walk there until they roll for turn order (the user's call), or held still there when `still`
+   * (the end's podiums), a bot made again there a moment later.
    */
-  private putSeat(who: Who, at: Vec3, yaw: number): void {
+  private putSeat(who: Who, at: Vec3, yaw: number, still = false): void {
     const spot = { x: at[0], y: at[1], z: at[2] };
     if (who.player) {
-      this.podium.add(who.key);
+      if (still) this.podium.delete(who.key);
+      else this.podium.add(who.key);
       try {
         if (who.player.isValid) who.player.teleport(spot, { rotation: { x: 0, y: yaw } });
       } catch {
@@ -774,6 +779,9 @@ export class BlockPartySpike extends Minigame<Config> {
       chris: this.map.points(chrisKey("pregame")).map(marker)[0],
       podiumCamera: this.map.points(STAGE_POINTS.podiumCamera).map(marker)[0],
       intro: this.map.points(STAGE_POINTS.intro).map(marker),
+      final: this.map.points(STAGE_POINTS.finalPodium).map(marker),
+      finalChris: this.map.points(chrisKey("final")).map(marker)[0],
+      finalCamera: this.map.points(STAGE_POINTS.finalCamera).map(marker)[0],
     };
   }
 
@@ -1500,6 +1508,7 @@ export class BlockPartySpike extends Minigame<Config> {
       gotospace: ["Go to a space (on your roll)", () => this.goToSpace(player)],
       skiptoround: ["Skip to a round", () => this.skipForm(player)],
       playminigame: ["Play a minigame now", () => this.minigameForm(player)],
+      endtie: ["End-of-game tie", () => this.endTieForm(player)],
       piecesettings: ["Piece settings", () => this.settingsForm(player)],
       camerashots: ["Camera shots", () => this.shotsMenu(player)],
       jumptest: ["Jump test", () => this.jumpMenu(player)],
@@ -1580,7 +1589,7 @@ export class BlockPartySpike extends Minigame<Config> {
     pending.resolve({ die: STANDARD, faces: [], move: path.length });
   }
 
-  /** Skip to a round (the user asked, to try late rounds without playing up to them). */
+  /** Skip to a round (the user asked, to try late rounds without playing up to them), or to the end of the game (pass 8). */
   private async skipForm(player: Player): Promise<void> {
     if (!this.loop.active) return this.tell(player, "Skip to a round works once the board game is on.");
     const { now, of } = this.loop.rounds;
@@ -1588,16 +1597,42 @@ export class BlockPartySpike extends Minigame<Config> {
       .title("Skip to a round")
       .dropdown(
         "Round",
-        Array.from({ length: of }, (_, i) => `Round ${i + 1} of ${of}`),
+        [...Array.from({ length: of }, (_, i) => `Round ${i + 1} of ${of}`), "The end of the game (bonus Stars)"],
         { defaultValueIndex: Math.min(of - 1, now) },
       )
       .toggle("Straight to its minigame", { defaultValue: true });
     const values = (await showForm(this.scope, player, form))?.formValues;
     if (!values) return;
     const [index, minigameOnly] = values as [number, boolean];
-    this.loop.testJump({ kind: "round", round: index + 1, minigameOnly });
     this.callOffRoll(player);
+    if (index >= of) {
+      this.loop.testJump({ kind: "end" });
+      this.tell(player, "On to the end of the game once the turn going on ends.");
+      return;
+    }
+    this.loop.testJump({ kind: "round", round: index + 1, minigameOnly });
     this.tell(player, `On to round ${index + 1}${minigameOnly ? "'s minigame" : ""} once the turn going on ends.`);
+  }
+
+  /**
+   * End-of-game tie (pass 8, to try the tiebreaker): after the bonus Stars, the top 2, 3 or 4 are
+   * made level with the leader, and the sudden death can be made to decide nothing, so the Allay
+   * picks. Set any time; it's used at the end.
+   */
+  private async endTieForm(player: Player): Promise<void> {
+    if (!this.loop) return this.tell(player, "Block Party isn't running yet.");
+    const now = this.loop.endTestNow;
+    const ties = ["No tie", "The top 2", "The top 3", "All 4"];
+    const form = new ModalFormData()
+      .title("End-of-game tie")
+      .dropdown("Tied for first after the bonus Stars", ties, { defaultValueIndex: Math.max(0, now.tie - 1) })
+      .toggle("The sudden death decides nothing (the Allay picks)", { defaultValue: now.stillTied });
+    const values = (await showForm(this.scope, player, form))?.formValues;
+    if (!values) return;
+    const [index, stillTied] = values as [number, boolean];
+    const tie = index === 0 ? 0 : index + 1;
+    this.loop.setEndTest({ tie, stillTied });
+    this.tell(player, tie === 0 ? "End-of-game tie: off." : `End-of-game tie: the top ${tie} will be tied after the bonus Stars${stillTied ? ", and the sudden death will decide nothing" : ""}. Skip to a round has The end of the game.`);
   }
 
   /** Play a minigame now (the user asked): any minigame in any of its formats, next, then the turns go on. */

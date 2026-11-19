@@ -5,6 +5,7 @@ import type { Space } from "../behavior_pack/scripts/board.ts";
 import type { Who } from "../behavior_pack/scripts/bots.ts";
 import type { ItemId } from "../behavior_pack/scripts/dice-items.ts";
 import { STANDARD } from "../behavior_pack/scripts/dice.ts";
+import { GameStats } from "../behavior_pack/scripts/end-game.ts";
 import { ItemPlay, LIGHTNING, SHAKEDOWN } from "../behavior_pack/scripts/item-play.ts";
 import { newSeat, type Seat, type TurnState } from "../behavior_pack/scripts/seats.ts";
 import { SpacePlay } from "../behavior_pack/scripts/space-play.ts";
@@ -86,6 +87,7 @@ function fake(round = 5, of = 15): Fake {
     random: lcg(3),
   } as unknown as LoopHost;
   const loop = {
+    stats: new GameStats(),
     rounds: { now: round, of },
     get turnState() {
       return turn;

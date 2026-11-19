@@ -18,6 +18,11 @@
 //     podium (the map's lineup, Chris's spot and camera, or Start's corners with Chris on the next
 //     space), the turn order reveal (the camera moves to each player in turn), and the Star reveal
 //     (the camera pans to each Star's space as its Chris drops in beside it).
+//   - The end (pass 8): everyone back on the pre-game podium behind a fade to black, the Allay
+//     flying in and over to each bonus Star's winner (the camera easing to the two of them), and
+//     round the players still tied to land on the one it picks; then the final podium, best first
+//     (the map's Final podium, or the pre-game one in place order), its camera easing slowly in, and
+//     the winner's orbit.
 // While a cutscene is skipped (dialogue.ts) the shots and waits are left out, but everyone and
 // everything still ends up where it belongs.
 // A line's Speaker (its actions, moves.ts) is the part of its character's role last brought into a
@@ -33,7 +38,7 @@ import { moment } from "./lines.ts";
 import { portalRing, type Moves } from "./moves.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
 import { eventCue, playCue } from "./sounds.ts";
-import { besideSpace, faceShot, introAround, markerShot, podiumFromMarkup, podiumOnStart, spaceShot, twoShot, yawFrom, type Marker, type Podium, type Shot } from "./stage-layout.ts";
+import { besideSpace, faceShot, finalPodium, hoverBefore, introAround, markerShot, orbitShots, podiumFromMarkup, podiumOnStart, pulledBack, spaceShot, twoShot, yawFrom, type FinalPodium, type Marker, type Podium, type Shot } from "./stage-layout.ts";
 
 /** The map's podium and intro markup (Block Party's config, map.points). */
 export interface StageMarkup {
@@ -41,6 +46,10 @@ export interface StageMarkup {
   chris?: Marker;
   podiumCamera?: Marker;
   intro: Marker[];
+  /** The final podium (pass 8): its spots, 1st to 4th, Chris's spot there, and its camera. */
+  final?: Marker[];
+  finalChris?: Marker;
+  finalCamera?: Marker;
 }
 
 export interface StageDeps {
@@ -49,8 +58,14 @@ export interface StageDeps {
   dialogue: Dialogue;
   spaces(): readonly Space[];
   markup(): StageMarkup;
-  /** A seat's body put at `at` facing `yaw`: a player teleported (their piece locked), a bot made again there. */
-  put(who: Who, at: Vec3, yaw: number): void;
+  /**
+   * A seat's body put at `at` facing `yaw`: a player teleported, a bot made again there. `still`: the
+   * player stays where they're put (the end's podiums), else they may walk there until they roll for
+   * the turn order (the pre-game's).
+   */
+  put(who: Who, at: Vec3, yaw: number, still?: boolean): void;
+  /** Everyone's screen fades to black over `fadeIn` seconds, stays black `hold`, and lifts over `fadeOut`. */
+  fade?(fadeIn: number, hold: number, fadeOut: number): void;
   /** Everyone back on Start, as the board loop places them. */
   toStart(who: Who): void;
   /** A seat turns where it stands to look at `toward` (an NPC it's talking with). */
@@ -109,6 +124,23 @@ const LLAMA_GAP = 1.9;
 const FORK_PAN = 0.8;
 /** A llama's coat (trader_llama.json): creamy, white, brown or gray. */
 const COAT = "blockparty:coat";
+/** The end's fades to black (seconds): in, held while everyone is put on a podium, and out on its camera. */
+const END_FADE = { in: 0.6, hold: 1.2, out: 0.8 };
+/** The end's Chris and Allay. */
+const END_CHRIS = "chris:podium";
+const ALLAY = "allay:end";
+/** How high over its spot the Allay starts as it flies in, and how high its hops between players go over the higher end. */
+const ALLAY_DROP = 14;
+const ALLAY_HOP = 1;
+/** The final podium's camera: how far back and up its slow ease in starts, and how long it takes (seconds). */
+const FINAL_PULL_BACK = 6;
+const FINAL_PULL_UP = 2;
+const FINAL_EASE = 4.5;
+/** The winner's orbit: how far out, how wide an arc round their front (degrees), its steps, and the ticks between them. */
+const ORBIT_RADIUS = 3.6;
+const ORBIT_ARC = 140;
+const ORBIT_STEPS = 14;
+const ORBIT_STEP_TICKS = 7;
 
 export class Stage {
   private readonly deps: StageDeps;
@@ -121,6 +153,8 @@ export class Stage {
   private podiumNow: Podium | undefined;
   /** The Referee at the duel now (his key), if any: one who came, or the one standing at the Versus space. */
   private refereeNow: string | undefined;
+  /** The final podium, once everyone is on it. */
+  private finalNow: FinalPodium | undefined;
 
   constructor(deps: StageDeps) {
     this.deps = deps;
@@ -139,7 +173,8 @@ export class Stage {
     const manager = world.tickingAreaManager;
     try {
       if (manager.hasTickingArea(BOARD_AREA)) manager.removeTickingArea(BOARD_AREA);
-      const markers = [...this.deps.markup().lineup, ...[this.deps.markup().chris, this.deps.markup().podiumCamera].filter((marker): marker is Marker => marker !== undefined)].map((marker) => marker.at);
+      const markup = this.deps.markup();
+      const markers = [...markup.lineup, ...(markup.final ?? []), ...[markup.chris, markup.podiumCamera, markup.finalChris, markup.finalCamera].filter((marker): marker is Marker => marker !== undefined)].map((marker) => marker.at);
       const xs = [box.min[0], box.max[0], ...markers.map((at) => at[0])];
       const zs = [box.min[2], box.max[2], ...markers.map((at) => at[2])];
       await manager.createTickingArea(BOARD_AREA, {
@@ -839,6 +874,202 @@ export class Stage {
       log.warn(`blockparty: ${key}'s ${animation} failed: ${describeError(error)}`);
     }
   }
+
+  // ---- The end of the game (pass 8) ---------------------------------------------------------
+
+  /**
+   * A fade to black for everyone, `work` done once it's black (everyone put somewhere new), and the
+   * black lifting; resolves as it starts to lift. While a cutscene is skipped there's no fade: the
+   * work is just done.
+   */
+  private async blackout(work: () => void): Promise<void> {
+    if (this.deps.dialogue.skipping || !this.deps.fade) {
+      work();
+      await this.deps.scope.wait(2);
+      return;
+    }
+    this.deps.fade(END_FADE.in, END_FADE.hold, END_FADE.out);
+    await this.deps.scope.wait(Math.ceil(END_FADE.in * 20) + 1);
+    work();
+    await this.deps.scope.wait(Math.ceil(END_FADE.hold * 20));
+  }
+
+  /**
+   * Everyone back on the pre-game podium for the bonus Stars (the end's lineup), in turn order, facing
+   * the podium camera, with Chris at his spot behind them: behind a fade to black, the podium camera
+   * as it lifts.
+   */
+  async endLineup(seats: readonly Who[]): Promise<void> {
+    const podium = this.podiumFor(seats.length);
+    this.podiumNow = podium;
+    await this.blackout(() => {
+      this.put(END_CHRIS, "chris", podium.chris, yawFrom(podium.chris, lineupMiddle(podium)));
+      seats.forEach((who, i) => {
+        const at = podium.lineup[i] ?? podium.lineup[0];
+        this.deps.put(who, at, yawFrom(at, podium.camera.location), true);
+      });
+      this.shot(podium.camera, "Cut");
+    });
+  }
+
+  /** The podium camera of the end's lineup again (after a two-shot), eased back to. */
+  lineupShot(move: Move = "Pan"): void {
+    if (this.podiumNow) this.shot(this.podiumNow.camera, move);
+  }
+
+  /** Where the Allay waits on the end's lineup: between Chris and the players, over their heads. */
+  private allayHome(): Vec3 | undefined {
+    const podium = this.podiumNow;
+    if (!podium) return undefined;
+    const middle = lineupMiddle(podium);
+    return [podium.chris[0] + (middle[0] - podium.chris[0]) * 0.45, Math.max(podium.chris[1], middle[1]) + 2.2, podium.chris[2] + (middle[2] - podium.chris[2]) * 0.45];
+  }
+
+  /** The Allay (its entity), while it's on stage. */
+  allay(): Entity | undefined {
+    return this.get(ALLAY);
+  }
+
+  /** The Allay flies down from high over the end's lineup to wait over it (simply there while skipped). */
+  async allayArrives(): Promise<void> {
+    const home = this.allayHome();
+    const podium = this.podiumNow;
+    if (!home || !podium) return;
+    const facing = podium.camera.location;
+    if (this.deps.dialogue.skipping) {
+      this.put(ALLAY, "allay", home, yawFrom(home, facing));
+      return;
+    }
+    const allay = this.put(ALLAY, "allay", [home[0], home[1] + ALLAY_DROP, home[2]], yawFrom(home, facing));
+    if (allay) await this.flyTo(allay, home, facing, 0);
+  }
+
+  /**
+   * The Allay flies over to `who` and hovers in front of their head, the two turning to each other.
+   * `close`: the camera eases to the two of them as it flies (a bonus Star, the tie's pick), else it
+   * stays on the lineup (circling the tied).
+   */
+  async allayTo(who: Who, close: boolean): Promise<void> {
+    const allay = this.get(ALLAY);
+    if (!allay || !who.body.isValid) return;
+    const them = arr(who.body.location);
+    const camera = this.podiumNow?.camera.location ?? arr(allay.location);
+    const spot = hoverBefore(them, camera);
+    this.deps.face?.(who, spot);
+    if (this.deps.dialogue.skipping) {
+      this.put(ALLAY, "allay", spot, yawFrom(spot, them));
+      return;
+    }
+    const flight = flightPlan(arr(allay.location), spot, ALLAY_HOP);
+    if (close) this.shot(twoShot(them, spot, sideOf(who)), "Pan", Math.max(1, flight.ticks / 20));
+    await this.flyTo(allay, spot, them, ALLAY_HOP);
+  }
+
+  /** The Allay goes back to wait over the end's lineup, and the camera eases back to it. */
+  async allayBack(): Promise<void> {
+    const allay = this.get(ALLAY);
+    const home = this.allayHome();
+    if (!allay || !home) return;
+    this.lineupShot();
+    if (this.deps.dialogue.skipping) {
+      this.put(ALLAY, "allay", home, allay.getRotation().y);
+      return;
+    }
+    await this.flyTo(allay, home, this.podiumNow?.camera.location ?? home, ALLAY_HOP);
+  }
+
+  /**
+   * An NPC with no gravity flies to `spot` (the balloon flight's way: up `cruise` over the higher
+   * end, across and down, eased), turning the way it goes, and faces `facing` once there.
+   */
+  private async flyTo(entity: Entity, spot: Vec3, facing: Vec3, cruise: number): Promise<void> {
+    const flight = flightPlan(arr(entity.location), spot, cruise);
+    for (let tick = 0; tick < flight.ticks && entity.isValid && !this.deps.dialogue.skipping && !this.deps.scope.disposed; tick++) {
+      const at = entity.location;
+      const next = flight.at(tick + 1);
+      try {
+        entity.clearVelocity();
+        entity.applyImpulse({ x: next[0] - at.x, y: next[1] - at.y, z: next[2] - at.z });
+      } catch {
+        // No impulse for it: a teleport each tick instead.
+        try {
+          entity.teleport(vec(next));
+        } catch {
+          // gone
+        }
+      }
+      try {
+        if (Math.hypot(next[0] - at.x, next[2] - at.z) > 0.05) entity.setRotation({ x: 0, y: yawFrom([at.x, at.y, at.z], next) });
+      } catch {
+        // gone
+      }
+      await this.deps.scope.wait(1);
+    }
+    try {
+      if (entity.isValid) {
+        entity.clearVelocity();
+        entity.teleport(vec(spot), { rotation: { x: 0, y: yawFrom(spot, facing) } });
+      }
+    } catch {
+      // gone
+    }
+  }
+
+  /**
+   * The final podium (the plan's "Final podium, 1st on top, slow ease in"): behind a fade to black,
+   * everyone on it best first (`places`, groups tied for a place standing side by side in order),
+   * Chris at his spot, the Allay gone; as the black lifts the camera eases slowly in from further
+   * back. Resolves once it's in.
+   */
+  async finalPodium(places: readonly (readonly Who[])[]): Promise<void> {
+    const order = places.flat();
+    const markup = this.deps.markup();
+    const pregame = this.podiumFor(order.length);
+    const podium = finalPodium(markup.final ?? [], markup.finalChris, markup.finalCamera, order.length, pregame);
+    this.finalNow = podium;
+    const middle = podium.spots.length > 0 ? lineupMiddle({ lineup: podium.spots, chris: podium.chris, camera: podium.camera }) : podium.chris;
+    await this.blackout(() => {
+      this.remove(ALLAY);
+      this.put(END_CHRIS, "chris", podium.chris, yawFrom(podium.chris, middle));
+      order.forEach((who, i) => this.deps.put(who, podium.spots[i] ?? podium.spots[0], podium.yaws[i] ?? podium.yaws[0] ?? 0, true));
+      this.shot(pulledBack(podium.camera, FINAL_PULL_BACK, FINAL_PULL_UP), "Cut");
+    });
+    this.shot(podium.camera, "Pan", FINAL_EASE);
+    await this.deps.dialogue.wait(Math.round(FINAL_EASE * 20));
+  }
+
+  /** The final podium's camera again, eased back to (after the winner's orbit). */
+  finalShot(): void {
+    if (this.finalNow) this.shot(this.finalNow.camera, "Pan");
+  }
+
+  /** The winner's orbit: the camera round the front of them on the final podium, slowly. None while skipped. */
+  async orbit(who: Who): Promise<void> {
+    if (this.deps.dialogue.skipping || !who.body.isValid) return;
+    const at = who.body.location;
+    const index = this.finalNow?.spots.findIndex((spot) => Math.hypot(spot[0] - at.x, spot[2] - at.z) < 1) ?? -1;
+    const yaw = index >= 0 ? (this.finalNow?.yaws[index] ?? who.body.getRotation().y) : who.body.getRotation().y;
+    const shots = orbitShots(arr(at), yaw, ORBIT_RADIUS, ORBIT_ARC, ORBIT_STEPS);
+    this.shot(shots[0], "Pan", 1);
+    await this.deps.dialogue.wait(20);
+    for (const shot of shots.slice(1)) {
+      if (this.deps.dialogue.skipping) return;
+      for (const player of world.getAllPlayers()) {
+        try {
+          player.camera.setCamera("minecraft:free", { location: vec(shot.location), facingLocation: vec(shot.facing ?? shot.location), easeOptions: { easeTime: ORBIT_STEP_TICKS / 20, easeType: EasingType.Linear } });
+        } catch {
+          // gone
+        }
+      }
+      await this.deps.dialogue.wait(ORBIT_STEP_TICKS);
+    }
+  }
+
+  /** The screen fades to black for good: the game is over, and everyone goes back to the lobby behind it. */
+  fadeOut(seconds: number, hold: number): void {
+    this.deps.fade?.(seconds, hold, 0.5);
+  }
+
 
   private podiumFor(seats: number): Podium {
     const markup = this.deps.markup();

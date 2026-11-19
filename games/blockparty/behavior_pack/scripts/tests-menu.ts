@@ -9,6 +9,7 @@ export const TEST_WORDS = [
   "gotospace",
   "skiptoround",
   "playminigame",
+  "endtie",
   "piecesettings",
   "camerashots",
   "jumptest",

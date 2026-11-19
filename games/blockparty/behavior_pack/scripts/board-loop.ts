@@ -26,8 +26,11 @@
 //   4. After everyone has moved, a minigame (minigame-rules.ts picks the format and the minigame,
 //      minigame-runner.ts plays it), and its coins are paid; coins awarded and duel stakes double in
 //      the last 2 rounds (the last one in a 10-turn game).
-//   5. After the last round, most Stars wins, then coins; a tie still standing goes to chance (the
-//      Allay picks, pass 8).
+//   5. The end (pass 8, endGame): everyone back on the pre-game podium, Chris saying it's over, and
+//      the Allay bringing the bonus Stars (end-game.ts draws them from what the game kept on each
+//      seat: stats), then the results screen; a tie for first plays a sudden-death minigame among
+//      the tied, and if that decides nothing the Allay picks; then the final podium, best first, the
+//      winner celebrating and last place sad, the camera round the winner, and a fade to the lobby.
 // Seats are players and bots (bots.ts): the game asks each the same things, a player through the
 // dice, the dialogue box's buttons and forms, a bot by thinking a moment and picking. A player who isn't there when their turn
 // comes is skipped and keeps their place. Someone new comes in at the start of the next round, at
@@ -45,14 +48,15 @@ import { BETS, GLOVE_STAKE, betResult, trailOf, type Hands } from "./space-rules
 import type { ForkOptions, TalkOptions } from "./dialogue.ts";
 import { forkLabelIds, forkOrder, headingInto, wayAhead } from "./fork.ts";
 import type { Stage } from "./stage.ts";
-import { activeStars, addCoins, coinsFor, count, firstStars, leaders, nextStar, ranked, starDistance, starPrice, turnOrder, type Standing } from "./board-rules.ts";
+import { activeStars, addCoins, coinsFor, count, firstStars, nextStar, ranked, starDistance, starPrice, turnOrder } from "./board-rules.ts";
+import { bonusStarCount, drawBonusStars, finalPlaces, GameStats, RISKY_DICE, tiebreakFormat, tiebreakPlaces, tiebreakPool, withWinner, type BonusStar, type DrawSeat } from "./end-game.ts";
 import { moodOf, type CoinsAndStars, type PlayerSet } from "./animations.ts";
 import { isSeat, type Party, type Token } from "./tokens.ts";
 import type { Who } from "./bots.ts";
 import { thrown, type DieFace, type RollOutcome } from "./dice.ts";
 import { button, line, type Fills } from "./lines.ts";
 import { VERSUS_STAKE, battleBets, ffaCoins, firstDoubled, fits, formatFor, isDoubled, kindOf, minigameMoods, pairingKey, pickMinigame, pickPairs, pickSolo, splitPot, teamCoins, type Format } from "./minigame-rules.ts";
-import type { Results, Settle } from "./minigame-runner.ts";
+import type { PlayOptions, Results, Settle } from "./minigame-runner.ts";
 import type { MinigameDef, Outcome } from "./minigames/kit.ts";
 import type { Pieces } from "./pieces.ts";
 import { placesOf, type ResultSeat } from "./results.ts";
@@ -91,7 +95,7 @@ export interface LoopHost {
   stage: Stage;
   minigames: readonly MinigameDef[];
   /** Plays a minigame (minigame-runner.ts) and resolves with its outcome once everyone is back. */
-  playMinigame(format: Format, def: MinigameDef, sides: Who[][], pool: readonly MinigameDef[], onlookers: readonly Who[], settle: Settle): Promise<Outcome>;
+  playMinigame(format: Format, def: MinigameDef, sides: Who[][], pool: readonly MinigameDef[], onlookers: readonly Who[], settle: Settle, options?: PlayOptions): Promise<Outcome>;
   everyone(text: string): void;
   tell(who: Who, text: string): void;
   /**
@@ -115,9 +119,10 @@ export interface LoopHost {
   /**
    * A seat's player (or bot) plays one of the players' animation sets (moves.ts): Celebration on
    * the turn order reveal, a minigame won, a Star gained; Sad on a minigame lost, a Star or coins
-   * lost; Select when they're picked as a rival.
+   * lost; Select when they're picked as a rival. `hold`: they hold its pose until the game lets them
+   * go (the final podium's).
    */
-  react?(who: Who, set: PlayerSet): void;
+  react?(who: Who, set: PlayerSet, hold?: boolean): void;
   /**
    * Shows `count` of `token` going from one to another (transfers.ts: a seat, an NPC, or nobody for
    * the bank), like Super Mario Party's coins: they fly head to head with a count over the heads.
@@ -139,8 +144,14 @@ export interface CardInfo {
   shown: boolean;
 }
 
-/** A test's jump (the Tests menu): to a round, straight to its minigame or not, or a minigame played next. */
-export type TestJump = { kind: "round"; round: number; minigameOnly: boolean } | { kind: "minigame"; format: Format; def: MinigameDef };
+/** A test's jump (the Tests menu): to a round, straight to its minigame or not, a minigame played next, or the end of the game. */
+export type TestJump = { kind: "round"; round: number; minigameOnly: boolean } | { kind: "minigame"; format: Format; def: MinigameDef } | { kind: "end" };
+
+/** Tests: the end's tie (to try the tiebreaker): after the bonus Stars the top `tie` seats are level; `stillTied`: its minigame decides nothing, so the Allay picks. */
+export interface EndTest {
+  tie: number;
+  stillTied: boolean;
+}
 
 /** Ticks between drawings of the Stars' beams. */
 const BEAM_TICKS = 10;
@@ -151,7 +162,9 @@ const PLACES = ["1st", "2nd", "3rd", "4th"];
 const ROUND_NOTICE = 40;
 const TURN_TITLE = 50;
 const STAR_NOTICE = 40;
-const END_NOTICE = 100;
+/** Ticks the screen takes to go black at the very end, and how long it stays black (the lobby takes everyone back behind it). */
+const END_FADE_TICKS = 20;
+const END_BLACK = 6;
 
 export class BoardLoop {
   private readonly seats = new Map<string, Seat>();
@@ -198,6 +211,10 @@ export class BoardLoop {
   /** The items in play, and the spaces past Blue, Red and Versus (pass 7). */
   readonly items: ItemPlay;
   readonly spacePlay: SpacePlay;
+  /** What the game keeps on each seat for the bonus Stars (end-game.ts). */
+  readonly stats = new GameStats();
+  /** Tests: the end's tie, if one is asked for. */
+  private endTest: EndTest = { tie: 0, stillTied: false };
 
   constructor(host: LoopHost) {
     this.host = host;
@@ -366,6 +383,8 @@ export class BoardLoop {
       this.spentSince.delete(key);
       this.shownSince.delete(key);
       if (!before) continue;
+      // The biggest coin swing (the bonus Stars): what came or went at once, less what they spent.
+      if (now.coins !== before.coins) this.stats.coins(key, now.coins - before.coins + spent);
       // A Star a transfer shows brings its mood as it flies (fly), not here.
       const mood = moodOf(before, { coins: now.coins, stars: now.stars - shown.stars }, spent);
       if (mood) this.react(key, mood);
@@ -383,10 +402,10 @@ export class BoardLoop {
     void (change > 0 ? this.host.transfer?.(undefined, who, token, change) : this.host.transfer?.(who, undefined, token, -change));
   }
 
-  /** A seat's player or bot plays one of the players' sets, if they're here. */
-  private react(key: string, set: PlayerSet): void {
+  /** A seat's player or bot plays one of the players' sets, if they're here (`hold`: holding its pose till the game lets them go). */
+  private react(key: string, set: PlayerSet, hold?: boolean): void {
     const who = this.host.present().find((one) => one.key === key);
-    if (who?.body.isValid) this.host.react?.(who, set);
+    if (who?.body.isValid) this.host.react?.(who, set, hold);
   }
 
   /** What a seat holds as the board menu shows it: the dice it may roll now, its items, and whether Items is spent this turn. */
@@ -436,7 +455,9 @@ export class BoardLoop {
   /** A seat uses an item on its turn (the item panel's jump): resolves once it's done, true if it was used. */
   async useItem(who: Who, id: ItemId): Promise<boolean> {
     try {
-      return await this.items.use(who, id);
+      const used = await this.items.use(who, id);
+      if (used) this.stats.item(who.key);
+      return used;
     } catch (error) {
       log.warn(`blockparty: ${who.name}'s ${id} failed: ${describeError(error)}`);
       return false;
@@ -498,6 +519,7 @@ export class BoardLoop {
     this.host.stage.clear();
     const rolled = await this.host.roll(who, true);
     if (rolled === undefined || !who.body.isValid) return;
+    this.stats.rolled(who.key, rolled.move);
     await this.move(who, rolled.move);
     if (!who.body.isValid) return;
     await this.land(who);
@@ -616,6 +638,15 @@ export class BoardLoop {
     this.jump = jump;
   }
 
+  /** Tests: the end's tie (to try the tiebreaker), as it's set now, or set anew. */
+  get endTestNow(): EndTest {
+    return { ...this.endTest };
+  }
+
+  setEndTest(test: EndTest): void {
+    this.endTest = { ...test };
+  }
+
   async run(): Promise<Result> {
     this.running = true;
     const spaces = this.host.spaces();
@@ -673,7 +704,7 @@ export class BoardLoop {
       }
       jumped ??= await this.takeJump();
       if (jumped) {
-        this.host.everyone(`Test: on to round ${jumped.round}${jumped.minigameOnly ? ", straight to its minigame" : ""}.`);
+        this.host.everyone(jumped.round > this.host.turns ? "Test: on to the end of the game." : `Test: on to round ${jumped.round}${jumped.minigameOnly ? ", straight to its minigame" : ""}.`);
         next = jumped.round;
         withTurns = !jumped.minigameOnly;
         continue;
@@ -684,11 +715,12 @@ export class BoardLoop {
         log.warn(`blockparty: round ${this.round}'s minigame failed: ${describeError(error)}`);
         this.host.everyone(`The minigame failed: ${describeError(error)}`);
       }
+      this.placesAfterRound();
       next++;
       withTurns = true;
     }
     this.round = this.host.turns;
-    return this.finish();
+    return this.endGame();
   }
 
   /**
@@ -848,6 +880,8 @@ export class BoardLoop {
     this.jump = undefined;
     if (!jump) return undefined;
     if (jump.kind === "round") return { round: Math.max(1, Math.min(this.host.turns, jump.round)), minigameOnly: jump.minigameOnly };
+    // Past the last round: the end of the game.
+    if (jump.kind === "end") return { round: this.host.turns + 1, minigameOnly: true };
     this.turn = undefined;
     this.host.changed();
     try {
@@ -877,9 +911,11 @@ export class BoardLoop {
     const rolled = await this.host.roll(who, true);
     if (rolled === undefined) return this.jump !== undefined;
     if (!who.body.isValid) return false;
+    if (RISKY_DICE.includes(rolled.die.id)) this.stats.risk(who.key);
     await this.items.afterRoll(who, rolled);
     await this.rolledFaces(who, rolled);
     if (!who.body.isValid) return false;
+    this.stats.rolled(who.key, rolled.move);
     await this.move(who, rolled.move);
     this.steering.delete(who.key);
     if (!who.body.isValid) return false;
@@ -1076,6 +1112,10 @@ export class BoardLoop {
     const change = coinsFor(space.type);
     // Blue and Red pay; every type is said in chat.
     if (change !== 0) seat.coins = addCoins(seat.coins, change);
+    // The bonus Stars: a Red or Warden space is a hazard hit, and what Chance Time or a Happening
+    // brings anyone is luck.
+    if (space.type === "red" || space.type === "warden") this.stats.hazard(who.key);
+    const luck = space.type === "chance" || space.type === "happening" ? new Map([...this.seats].map(([key, one]) => [key, { coins: one.coins, stars: one.stars }])) : undefined;
     if (space.type !== "versus") this.host.everyone(line(`land.${space.type}`, { player: who.name, coins: count(Math.abs(change), "coin") }));
     this.host.changed();
     try {
@@ -1087,6 +1127,10 @@ export class BoardLoop {
       else if (space.type === "happening") await this.spacePlay.happening(who);
     } catch (error) {
       log.warn(`blockparty: ${who.name}'s ${space.type} space failed: ${describeError(error)}`);
+    }
+    for (const [key, was] of luck ?? []) {
+      const now = this.seats.get(key);
+      if (now) this.stats.lucky(key, Math.max(0, now.coins - was.coins) + Math.max(0, now.stars - was.stars) * starPrice(this.host.turns));
     }
     this.unfeature();
     this.host.changed();
@@ -1139,6 +1183,7 @@ export class BoardLoop {
     await this.host.playMinigame("duel", def, [[who], [rival]], pool, onlookers, (outcome) => {
       const winners = "places" in outcome ? (outcome.places[0] ?? []) : [];
       winnerKey = winners.length === 1 ? winners[0] : undefined;
+      this.stats.duel(winnerKey);
       this.settleBets(bets, winnerKey);
       if (winnerKey === undefined) return { title: line("versus.draw.title"), subtitle: line("versus.draw.subtitle") };
       const winner = winnerKey === who.key ? who : rival;
@@ -1180,6 +1225,7 @@ export class BoardLoop {
       });
       if (picked === undefined || picked >= options.length) continue;
       bets.push({ who: bettor, side: options[picked].side.key, amount: options[picked].amount });
+      this.stats.risk(bettor.key);
     }
     if (bets.length > 0) {
       const odds = [a, b].map((side) => `${side.name} ${bets.filter((bet) => bet.side === side.key).length}`).join(", ");
@@ -1294,6 +1340,10 @@ export class BoardLoop {
       else if (format === "2v2") title = line(outcome.winner === 0 ? "minigame.won.red" : "minigame.won.blue");
       else title = outcome.winner === 0 ? line("minigame.won.one", { player: sides[0][0]?.name ?? "?" }) : line("minigame.won.group", { count: sides[1].length });
     }
+    this.stats.minigame(
+      sides.map((side) => side.map((who) => who.key)),
+      outcome,
+    );
     // The winners celebrate and those who came away with nothing are sad, there over the arena.
     for (const [key, mood] of minigameMoods(format, sides.map((side) => side.map((who) => who.key)), outcome)) this.react(key, mood);
     const factor = (doubled && format !== "battle" ? 2 : 1) * (bonus ? 2 : 1);
@@ -1312,19 +1362,204 @@ export class BoardLoop {
     return { title };
   }
 
-  /** The end: most Stars, then coins; a tie still standing goes to chance. */
-  private finish(): Result {
-    const standings: Standing[] = [...this.seats.values()];
-    const tied = leaders(standings);
-    if (tied.length === 0) return { kind: "draw", reason: "nobody played" };
-    const winner = tied.length === 1 ? tied[0] : tied[Math.floor(this.host.random() * tied.length)];
-    if (tied.length > 1) this.host.everyone(line("end.tie", { players: tied.map((seat) => seat.name).join(" and ") }));
-    this.host.notice(line("end.title", { player: winner.name }), line("end.subtitle", { stars: count(winner.stars, "Star"), coins: count(winner.coins, "coin") }), END_NOTICE);
-    const winnerKey = [...this.seats].find(([, seat]) => seat === winner)?.[0];
-    if (winnerKey) this.react(winnerKey, "Celebration");
+  /** Every seat's place after this round's minigame (ties share a place), for the bonus Stars. */
+  private placesAfterRound(): void {
+    const seats = this.snapshot();
+    const places = placesOf(seats);
+    this.stats.roundOver(this.round, new Map(seats.map((seat, i) => [seat.key, places[i]])));
+  }
+
+  /**
+   * The end of the game (pass 8; docs/plans/block-party.md, "End-of-game bonus Stars" and
+   * "Tiebreaker"), in the order of the user's End of game scene:
+   *   1. Behind a fade to black everyone is back on the pre-game podium, Chris at his spot, and he
+   *      says the game is over (end.chris.over); the bonus Stars (end.bonus.intro), the Allay flying
+   *      in (end.allay.hello) and over to each winner in turn, the Star flying from it to them as it
+   *      says what for (end.bonus.award). A cutscene everyone can vote to skip: skipped, every bonus
+   *      Star is still given. Then the results screen, from before the bonus Stars to after.
+   *   2. A tie for first (Stars, then coins): Chris calls a sudden death (end.tie.chris), a minigame
+   *      from the tiebreaker's pool for the tied alone (a duel for two), the rest watching, played
+   *      from the podium's shot. If that decides nothing, everyone is back on the podium and the
+   *      Allay flies round the tied and lands on the one it picks (end.tie.allay).
+   *   3. The final podium, best first: the camera eases slowly in, the winner celebrates and last
+   *      place is sad, each holding the pose, Chris names the champion (end.podium), the camera goes
+   *      round the winner, Chris thanks everyone (end.thanks), and the screen fades to black for the
+   *      lobby. A cutscene too.
+   * Only the seats here at the end are ranked: someone who left isn't on the podium.
+   */
+  private async endGame(): Promise<Result> {
+    const { stage } = this.host;
+    this.turn = undefined;
+    this.turnNow = undefined;
+    this.unfeature();
+    // No zombie follows anyone onto the podium.
+    for (const key of this.seats.keys()) {
+      const seat = this.seats.get(key);
+      if (seat) seat.effects.zombie = 0;
+      this.host.zombies.remove(key);
+    }
+    this.host.changed();
+    const here = this.here();
+    if (here.length === 0) {
+      this.running = false;
+      return { kind: "draw", reason: "nobody was left at the end" };
+    }
+    const before = this.snapshot();
+    const draws = this.drawBonus(here);
+    await stage.endLineup(here);
+    await this.host.cutscene(true, async () => {
+      await this.host.say("end.chris.over");
+      if (draws.length === 0) return;
+      await this.host.say("end.bonus.intro", { stars: count(draws.length, "Star") });
+      await stage.allayArrives();
+      await this.host.say("end.allay.hello");
+      for (const draw of draws) await this.giveBonus(draw);
+      await stage.allayBack();
+    });
+    await this.showResults(before);
+    this.tieForTests(this.here());
+    let places = finalPlaces(this.standingsOf(this.here()));
+    if ((places[0]?.length ?? 0) > 1) places = await this.tiebreak(places);
+    return this.finalPodium(places);
+  }
+
+  /** The bonus Stars for those here (end-game.ts): what the game kept on each, and where they stand now. */
+  private drawBonus(here: readonly Who[]): BonusStar[] {
+    const standings = here.flatMap((who) => {
+      const seat = this.seats.get(who.key);
+      return seat ? [{ key: who.key, seat }] : [];
+    });
+    const places = placesOf(standings.map((one) => one.seat));
+    const worst = Math.max(0, ...places);
+    const seats: DrawSeat[] = standings.map((one, i) => ({
+      key: one.key,
+      stats: this.stats.of(one.key),
+      end: { place: places[i], last: places[i] === worst && worst > 1, held: one.seat.hands.items.length + one.seat.hands.dice.length, rounds: this.host.turns },
+    }));
+    return drawBonusStars(seats, bonusStarCount(standings.length), this.host.random);
+  }
+
+  /**
+   * One bonus Star: the Allay flies over to its winner (the camera easing to the two of them), the
+   * Star flies from it to them as it says what for, and they celebrate as it lands. Skipped, it's
+   * just theirs (it drops in over their head).
+   */
+  private async giveBonus(draw: BonusStar): Promise<void> {
+    const { stage } = this.host;
+    const seat = this.seats.get(draw.key);
+    if (!seat) return;
+    const who = this.whoOf(draw.key);
+    if (who) await stage.allayTo(who, true);
+    seat.stars++;
+    const landing = who && !stage.skipping ? this.transfer(stage.allay(), who, "star", 1) : Promise.resolve();
+    this.host.changed();
+    await Promise.all([this.host.say("end.bonus.award", { award: line(`bonus.${draw.award}`), player: seat.name }), landing]);
+  }
+
+  /** The standings of those here, as the end ranks them. */
+  private standingsOf(here: readonly Who[]): { key: string; stars: number; coins: number }[] {
+    return here.flatMap((who) => {
+      const seat = this.seats.get(who.key);
+      return seat ? [{ key: who.key, stars: seat.stars, coins: seat.coins }] : [];
+    });
+  }
+
+  /** Tests' end tie: the top seats made level with the leader, after the bonus Stars. */
+  private tieForTests(here: readonly Who[]): void {
+    const tie = Math.min(this.endTest.tie, here.length);
+    if (tie < 2) return;
+    const top = ranked(this.standingsOf(here).map((one) => ({ name: one.key, stars: one.stars, coins: one.coins }))).slice(0, tie);
+    const leader = top[0];
+    for (const one of top) {
+      const seat = this.seats.get(one.name);
+      if (!seat) continue;
+      seat.stars = leader.stars;
+      seat.coins = leader.coins;
+    }
+    this.host.changed();
+    this.host.everyone(`Test: the top ${tie} are tied at ${count(leader.stars, "Star")} and ${count(leader.coins, "coin")}${this.endTest.stillTied ? ", and the sudden death will decide nothing" : ""}.`);
+  }
+
+  /**
+   * A tie for first: Chris calls a sudden death, a minigame from the tiebreaker's pool for the tied
+   * alone (end-game.ts), played from the podium's shot, the rest watching; if it decides nothing, the
+   * Allay flies round the tied and picks one. Resolves with the final places, the tie decided.
+   */
+  private async tiebreak(places: readonly (readonly string[])[]): Promise<string[][]> {
+    const { stage } = this.host;
+    const tiedKeys = places[0] ?? [];
+    const tied = tiedKeys.flatMap((key) => this.here().filter((who) => who.key === key));
+    const names = tied.map((who) => who.name);
+    stage.lineupShot();
+    await this.host.say("end.tie.chris", { players: names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : (names[0] ?? "") });
+    let top: string[][] = [tied.map((who) => who.key)];
+    const pool = tiebreakPool(this.host.minigames);
+    const def = pickMinigame(pool, this.played, this.host.random);
+    if (def && tied.length >= 2) {
+      const keys = tied.map((who) => who.key);
+      const onlookers = this.here().filter((who) => !keys.includes(who.key));
+      const nameOf = (key: string) => tied.find((who) => who.key === key)?.name ?? key;
+      await this.host.playMinigame(
+        tiebreakFormat(tied.length),
+        def,
+        tied.map((who) => [who]),
+        pool,
+        onlookers,
+        (outcome) => {
+          top = this.endTest.stillTied ? [keys] : tiebreakPlaces(keys, outcome);
+          const winners = top[0] ?? [];
+          for (const key of keys) this.react(key, winners.length === 1 && winners[0] === key ? "Celebration" : "Sad");
+          return { title: winners.length === 1 ? line("minigame.won.one", { player: nameOf(winners[0]) }) : line("minigame.won.tie", { count: winners.length }) };
+        },
+        { label: line("format.sudden"), here: true },
+      );
+    }
+    if ((top[0]?.length ?? 0) > 1) {
+      // Still tied: back on the podium, the Allay flies round them and lands on the one it picks.
+      const still = (top[0] ?? []).flatMap((key) => this.here().filter((who) => who.key === key));
+      const pick = still[Math.floor(this.host.random() * still.length)];
+      if (pick) {
+        await stage.endLineup(this.here());
+        await this.host.cutscene(true, async () => {
+          if (!stage.allay()) await stage.allayArrives();
+          // Round them twice (once for three or more, so it doesn't drag), then to the pick.
+          for (let lap = 0; lap < (still.length > 2 ? 1 : 2); lap++) for (const who of still) await stage.allayTo(who, false);
+          await stage.allayTo(pick, true);
+          this.react(pick.key, "Celebration");
+          await this.host.say("end.tie.allay", { player: pick.name });
+        });
+        top = withWinner(top, pick.key);
+      }
+    }
+    return finalPlaces(this.standingsOf(this.here()), top);
+  }
+
+  /**
+   * The final podium, best first (`places`, groups tied for a place): the camera eases in, the winner
+   * celebrates and last place is sad, each holding the pose, Chris names the champion, the camera
+   * goes round the winner, Chris thanks everyone, and the screen fades to black for the lobby.
+   */
+  private async finalPodium(places: readonly (readonly string[])[]): Promise<Result> {
+    const { stage } = this.host;
+    const here = this.here();
+    const groups = places.map((group) => group.flatMap((key) => here.filter((who) => who.key === key))).filter((group) => group.length > 0);
+    const winner = groups[0]?.[0];
+    const seat = winner ? this.seats.get(winner.key) : undefined;
+    await this.host.cutscene(true, async () => {
+      await stage.finalPodium(groups);
+      if (winner) this.react(winner.key, "Celebration", true);
+      if (groups.length > 1) for (const who of groups[groups.length - 1]) this.react(who.key, "Sad", true);
+      await this.host.say("end.podium", { player: winner?.name ?? "" });
+      if (winner) await stage.orbit(winner);
+      stage.finalShot();
+      await this.host.say("end.thanks");
+    });
     this.host.everyone(line("end.standings", { standings: this.standings().join("; ") }));
+    stage.fadeOut(END_FADE_TICKS / 20, END_BLACK);
+    await this.host.scope.wait(END_FADE_TICKS + 2);
     this.running = false;
-    return { kind: "win", players: [winner.name], reason: `${count(winner.stars, "Star")} and ${count(winner.coins, "coin")}` };
+    if (!winner || !seat) return { kind: "draw", reason: "nobody was left at the end" };
+    return { kind: "win", players: [winner.name], reason: `${count(seat.stars, "Star")} and ${count(seat.coins, "coin")}` };
   }
 
   /** A space's name: its id on a map, else its place on the test board. */
