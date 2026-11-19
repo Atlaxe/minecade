@@ -269,9 +269,9 @@
     },
     {
       "name": "Minigame: the announcement",
-      "about": "Minigame! over the full star field (its layers slide in game, not here), the format under it, the wheel's light on its way down.",
+      "about": "Minigame! over the full star field (its stars zoom in game, not here), the format under it, the wheel's light on its way down.",
       "hud": {
-        "actionbar": "§r§m§c§r§k§d§8§k§g§0§0",
+        "actionbar": "§r§m§c§r§k§d§8§k§x§0§0",
         "sidebar": {
           "title": "§r§m§g§r§b§p§a§b§p§c",
           "lines": [
@@ -294,7 +294,7 @@
       "name": "Minigame: the wheel lands",
       "about": "The wheel has landed on the pick.",
       "hud": {
-        "actionbar": "§r§m§c§r§k§d§8§k§g§0§0",
+        "actionbar": "§r§m§c§r§k§d§8§k§x§0§0",
         "sidebar": {
           "title": "§r§m§g§r§b§p§a§b§p§c",
           "lines": [
