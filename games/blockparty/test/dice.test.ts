@@ -350,10 +350,14 @@ describe("the die model", () => {
     expect(colorsIn(cellOf("loss", 5))).toEqual(new Set(["255,85,85"]));
     // An unused cell is see-through.
     expect(colorsIn(100).size).toBe(0);
-    // "5" with its shadow, 3 x 3, centered in its cell: its ink starts (24 - 3) / 2 = 10 across, (12 - 3) / 2 = 4 down.
+    // "5" with its shadow, 3 x 3, centered in its cell.
     const [left, top] = cellAt(cellOf("count", 5));
-    expect(pixel(left + 10, top + 4)).toEqual([255, 255, 255, 255]);
-    expect(pixel(left + 9, top + 4)[3]).toBe(0);
+    const [x, y] = [left + Math.floor((CELL.width - 3) / 2), top + Math.floor((CELL.height - 3) / 2)];
+    expect(pixel(x, y)).toEqual([255, 255, 255, 255]);
+    expect(pixel(x - 1, y)[3]).toBe(0);
+    // A clear margin round every cell, so drawing one never picks up its neighbors: "+99" is the widest.
+    expect(CELL.width - (6 + 1 + 7 + 1 + 7 + 1)).toBeGreaterThanOrEqual(4);
+    expect(CELL.height - (10 + 1)).toBeGreaterThanOrEqual(4);
     // The particle shows the cell its variables name, the size they say, and moves as they say.
     const particle = numberParticle() as { particle_effect: { description: { identifier: string; basic_render_parameters: { texture: string } }; components: Record<string, any> } };
     expect(particle.particle_effect.description.identifier).toBe(NUMBER_PARTICLE);

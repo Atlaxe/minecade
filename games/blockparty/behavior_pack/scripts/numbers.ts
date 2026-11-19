@@ -14,8 +14,12 @@ export const NUMBER_PARTICLE = "blockparty:number";
 export const NUMBER_ATLAS = "textures/blockparty/numbers";
 /** The biggest number a cell has (a bigger one shows this). */
 export const MAX_NUMBER = 99;
-/** A cell's size in the atlas's pixels: "+99" with its shadow is 22 across, 11 high. */
-export const CELL = { width: 24, height: 12 } as const;
+/**
+ * A cell's size in the atlas's pixels: "+99" with its shadow is 22 across and 11 high, so every number
+ * has a clear margin of at least 2 pixels all round. Packed tight (24 x 12), the game's sampling at a
+ * cell's edge picked up the tops of the next row's numbers: a line along the bottom (the user saw it).
+ */
+export const CELL = { width: 32, height: 16 } as const;
 export const COLUMNS = 16;
 /** The atlas's cells: the moves left (0 to 99), then the gains, then the losses (1 to 99, at their own 1 to 99). */
 export const CELLS = 300;
