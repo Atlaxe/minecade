@@ -122,6 +122,11 @@ const BURST_TICKS = 7;
 const NUMBER_TICKS = 16;
 /** Ticks between one throw's number and the die coming back for the next (a Triple Die's, Roll again's). */
 const NEXT_THROW_AFTER = 12;
+/**
+ * Ticks after the die comes out before jumping comes on and a jump hits it (the user, 2026-11-18:
+ * picking Dice block made them jump, the press that picked it still held as jumping came on).
+ */
+const DIE_JUMP_AFTER = 20;
 /** The puff the die bursts in, with its own chips (dice.ts, burstParticle). */
 const BURST_PUFF = "minecraft:large_explosion";
 /** The sound cues (the user's Sounds view, Item panel): the jump hits the die, and its number shows. */
@@ -235,9 +240,10 @@ interface PlayerTests {
   sentAt?: number;
   /**
    * Their die out: which die it is, the block over their head it floats in, and what shows there;
-   * `next` when it's back for another throw of the same roll (a Triple Die's), the jump that hits it.
+   * `next` when it's back for another throw of the same roll (a Triple Die's), the jump that hits it;
+   * `jumpAt`, the tick from which a jump hits it and jumping is on (DIE_JUMP_AFTER after it came out).
    */
-  rolling?: { die: DieDef; at: Vector3; over?: DieShown; next?: () => void };
+  rolling?: { die: DieDef; at: Vector3; over?: DieShown; next?: () => void; jumpAt?: number };
   /** What their keys were last set to do, and whether vanilla's hotbar was last shown (undefined: set them again). */
   controls?: Controls;
   hotbar?: boolean;
@@ -1202,7 +1208,8 @@ export class BlockPartySpike extends Minigame<Config> {
    * minigame, where its runner also stops everything till Go, or a ride) and on the pre-game podium
    * until their roll, unless Chris is asking them something (the movement keys steer the box's
    * buttons); nothing at all on their turn (they face the turn shot) or while their piece walks, but
-   * a real jump while their die is out; else only looking round, a jump and sneak being buttons. Back
+   * a real jump while their die is out (from DIE_JUMP_AFTER after it came out); else only looking
+   * round, a jump and sneak being buttons. Back
    * from a minigame the locks go out again a few times (LOCKS_RESEND). A jump test's lock stands in
    * until it's set back to Nothing locked.
    * And vanilla's hotbar, shown only while they play a minigame.
@@ -1222,7 +1229,7 @@ export class BlockPartySpike extends Minigame<Config> {
     }
     if (tests.jumpMode !== "free") return;
     let controls: Controls = "held";
-    if (tests.rolling) controls = "rolling";
+    if (tests.rolling) controls = system.currentTick < (tests.rolling.jumpAt ?? 0) ? "locked" : "rolling";
     else if (this.pieces.isWalking(player)) controls = "locked";
     else if (this.pieces.isOff(player) || (this.podium.has(key) && this.dialogue.steerer !== key)) controls = "free";
     else if (this.loop?.whoseTurn === key) controls = "turn";
@@ -1381,12 +1388,14 @@ export class BlockPartySpike extends Minigame<Config> {
     }
     if (this.pieces.isWalking(player)) return;
     const feet = player.location;
-    tests.rolling = { die, at: feet, over: this.putDie(player.dimension, feet, die) };
+    tests.rolling = { die, at: feet, over: this.putDie(player.dimension, feet, die), jumpAt: system.currentTick + DIE_JUMP_AFTER };
     // Rolling for turn order ends the pre-game podium's walking. The jump that hits the die is a real
-    // jump (the plan's turn shot: a jump makes them jump). The camera stays: the turn shot on a turn,
-    // the podium's while everyone rolls for turn order.
+    // jump (the plan's turn shot: a jump makes them jump), but only DIE_JUMP_AFTER after the die comes
+    // out: till then jumping stays off (keepControls turns it on) and a jump does nothing, so the
+    // press that picked Dice block doesn't jump them. The camera stays: the turn shot on a turn, the
+    // podium's while everyone rolls for turn order.
     this.podium.delete(player.name.toLowerCase());
-    lock(player, true);
+    lock(player);
     this.tell(player, line("turn.roll.hint"));
   }
 
@@ -1834,6 +1843,8 @@ export class BlockPartySpike extends Minigame<Config> {
     if (this.dialogue.jumped(player)) return;
     // A minigame's rules: a jump is Ready.
     if (this.runner.jumped(player)) return;
+    // The die just out (DIE_JUMP_AFTER): a jump doesn't hit it yet.
+    if (tests.rolling && system.currentTick < (tests.rolling.jumpAt ?? 0)) return;
     // The board menu and item panel: the active player's pick, and in the dice panel the hit.
     if (this.boardMenu.jumped(player)) return;
     // The turn order's roll (no menu): the standard die.

@@ -78,7 +78,10 @@ going.
 - **Select:** jump (`playerButtonInput`, as now). Picking a button doesn't make the player jump (the
   user, 2026-11-18, after the first ask the other way): on the board jumping is off (`hold()` in
   `pieces.ts`; the jump still reaches the script, as the spike found with jumping off). The one real
-  jump is the roll: while the die is out, the jump hits it (`lock(player, true)`). Back from a
+  jump is the roll: while the die is out, the jump hits it (`lock(player, true)`). Jumping comes on
+  only 1 s after the die comes out, and a jump before that does nothing (`DIE_JUMP_AFTER` in
+  `spike.ts`): the user saw picking Dice block make them jump, the press still held as jumping came
+  on. Back from a
   minigame the user saw a turn's first press really jump (the next didn't): the client seems to miss
   the locks sent while it loads after the long teleport, so they go out again 5, 20 and 40 ticks
   after a player is back on the board (`resendLocks()` in `pieces.ts`).
