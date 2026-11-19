@@ -105,10 +105,15 @@ export interface LoopHost {
    */
   notice(text: string, more?: string, ticks?: number): () => void;
   /**
-   * A title (and a subtitle under it) on everyone's screen for `ticks`. Only a turn's start and a
-   * round's show this way (the user, 2026-11-18); everything else the game says is a notice.
+   * A title (and a subtitle under it) on everyone's screen for `ticks`. Only a round's start shows
+   * this way (the user, 2026-11-18); everything else the game says is a notice.
    */
   headline(title: string, subtitle: string, ticks: number): void;
+  /**
+   * Words above the hotbar (the action bar's own place) on everyone's screen for `ticks`: a turn's
+   * start, "Alex's turn" (the user, 2026-11-18, in place of its title and subtitle).
+   */
+  barText(text: string, ticks: number): void;
   /** Whose turn, coins or Stars changed: the HUD and the cards follow. */
   changed(): void;
   /** The results screen (results.ts) from the standings `before` to `after`; resolves once it's gone. */
@@ -160,9 +165,9 @@ const BEAM_TICKS = 10;
 /** How often the loop looks for coins and Stars won or lost, to make their players celebrate or look sad. */
 const MOOD_TICKS = 2;
 const PLACES = ["1st", "2nd", "3rd", "4th"];
-/** Ticks a round's title stays (the round waits as long before going on), a turn's, and a Star's or the end's notice. */
+/** Ticks a round's title stays (the round waits as long before going on), a turn's words above the hotbar, and a Star's or the end's notice. */
 const ROUND_NOTICE = 40;
-const TURN_TITLE = 50;
+const TURN_BAR = 50;
 const STAR_NOTICE = 40;
 /** The champion's confetti on the final podium: how many bursts, and the ticks between them. */
 const CHAMPION_BURSTS = 3;
@@ -918,8 +923,8 @@ export class BoardLoop {
     this.lastTurn = who.key;
     this.turnNow = { key: who.key, item: false, bonus: false };
     this.host.changed();
-    // Whose turn, as a title: "Alex's", and "turn" under it (the user's words: turn.title, turn.subtitle).
-    this.host.headline(line("turn.title", { player: who.name }), line("turn.subtitle", { player: who.name }), TURN_TITLE);
+    // Whose turn, above the hotbar: "Alex's turn" (the user's words: turn.bar).
+    this.host.barText(line("turn.bar", { player: who.name }), TURN_BAR);
     // A zombie on them takes its coins; a curse says which die they'll roll; a bot may use an item.
     await this.items.zombieBite(who);
     const seat = this.seats.get(who.key);

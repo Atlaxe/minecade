@@ -262,10 +262,12 @@ player.
   row for each line of it (`dialogue.ts`, `notify`). It stays for its time, or until the game takes it down. A line said meanwhile takes
   the box, and the notice comes back after it while it's still up. The core's own titles (the
   start's countdown, Go) become notices too.
-- **Titles,** only two (the user, 2026-11-18): a turn's start (`turn.title`, "Alex's", with
-  `turn.subtitle`, "turn", under it) and a round's start (`round.title`, "Round 3 / 10", no
-  subtitle), sent as real titles (`spike.ts`, `headline`). Coins doubling and the final round are
-  Chris's announcements right after.
+- **Titles,** only one (the user, 2026-11-18): a round's start (`round.title`, "Round 3 / 10", no
+  subtitle), sent as a real title (`spike.ts`, `headline`). Coins doubling and the final round are
+  Chris's announcements right after. A turn's start is "Alex's turn" above the hotbar for 2.5
+  seconds (`turn.bar`, `barText`; the user, 2026-11-18, in place of its title and subtitle): the
+  action bar line without the core's HUD mark, which the core pack draws where vanilla's action bar
+  sits, the board's codes after the words.
 - **Out of the way of the item panel** (the user, 2026-11-18): while the item panel is up (a die or
   an item to pick), the box doesn't show; it comes back as the panel goes (`sidebar-rows.ts`,
   `compose`). Using an item goes back to the menu before any question, so no question waits behind

@@ -302,6 +302,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private transfers!: Transfers;
   /** The minigame's line top right while one is on (it takes the board's place). */
   private minigameStatus: string | undefined;
+  /** The board's words above the hotbar (barText: a turn's start) and the tick they go at. */
+  private barWords: { text: string; until: number } | undefined;
   /** Players put on the pre-game podium who haven't rolled for turn order yet (by key): they may walk. */
   private readonly podium = new Set<string>();
   /** On a turn, everyone else fades away (fade.ts). */
@@ -547,6 +549,7 @@ export class BlockPartySpike extends Minigame<Config> {
       tell: (who, text) => who.player && this.tell(who.player, text),
       notice: (text, more, ticks) => this.notice(text, more, ticks),
       headline: (title, subtitle, ticks) => this.headline(title, subtitle, ticks),
+      barText: (text, ticks) => (this.barWords = text.trim() === "" ? undefined : { text, until: system.currentTick + ticks }),
       changed: () => this.loopChanged(),
       results: (before, after) => this.results.show(before, after),
       // On the minigame podium a mood is held until everyone goes back (the user), and on the final podium too.
@@ -689,8 +692,8 @@ export class BlockPartySpike extends Minigame<Config> {
 
   /**
    * The game's own words in the dialogue box with no speaker (dialogue.ts, notify), `more` in a row
-   * under `text`: Block Party's titles are only a turn's and a round's (headline). Nothing for empty
-   * text (lines the user hasn't written).
+   * under `text`: Block Party's only title is a round's (headline). Nothing for empty text (lines
+   * the user hasn't written).
    */
   private notice(text: string, more = "", ticks?: number): () => void {
     const joined = [text, more].filter((part) => part.trim() !== "").join("\n");
@@ -698,8 +701,8 @@ export class BlockPartySpike extends Minigame<Config> {
   }
 
   /**
-   * A real title for everyone, up `ticks` then fading: a turn's start ("Alex's", "turn" under it) and
-   * a round's ("Round 3 / 10", alone) are the only ones (the user, 2026-11-18). Nothing for a title
+   * A real title for everyone, up `ticks` then fading: a round's ("Round 3 / 10", alone) is the only
+   * one (the user, 2026-11-18; a turn's start shows above the hotbar, barWords). Nothing for a title
    * the user hasn't written.
    */
   private headline(title: string, subtitle: string, ticks: number): void {
@@ -1259,8 +1262,11 @@ export class BlockPartySpike extends Minigame<Config> {
    * frame every tick, so it's sent every tick then), and their own results screen when they've
    * dropped for it. Never empty (KEEP_UP): every screen rides the action bar's panel. Sent when it
    * changes, and every BAR_RESEND ticks so it doesn't fade.
+   * The board's words above the hotbar (barWords, "Alex's turn") go out without the core's HUD mark,
+   * so the core pack shows them where vanilla's action bar sits; the codes after them never render.
    */
   private sendLine(player: Player, tests: PlayerTests, force = false): void {
+    if (this.barWords && system.currentTick >= this.barWords.until) this.barWords = undefined;
     const status = this.minigameStatus ?? "";
     const name = player.name.toLowerCase();
     const tutorial = this.tutorialView;
@@ -1270,7 +1276,8 @@ export class BlockPartySpike extends Minigame<Config> {
       (tutorial?.secondSide.has(name) ? SIDE_TWO_CODE : "") +
       (tutorial?.readyKeys.has(name) ? READY_CODE : "");
     const codes = this.stars.codes() + own;
-    const line = hudLine(undefined, status, undefined, "", codes || (status ? "" : KEEP_UP));
+    const words = !status && this.barWords ? this.barWords.text : "";
+    const line = words ? `${words}§r${codes}` : hudLine(undefined, status, undefined, "", codes || (status ? "" : KEEP_UP));
     if (!force && line === tests.sentLine && system.currentTick - (tests.sentAt ?? 0) < BAR_RESEND) return;
     tests.sentLine = line;
     tests.sentAt = system.currentTick;

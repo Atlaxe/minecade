@@ -355,11 +355,8 @@
     "round.title": [
       "Round §2{round}§r / §q{rounds}"
     ],
-    "turn.title": [
-      "§b{player}§r's"
-    ],
-    "turn.subtitle": [
-      "turn"
+    "turn.bar": [
+      "§b{player}§r's turn"
     ],
     "round.hud": [
       "Round §2{round}§r / §q{rounds}"
@@ -1566,13 +1563,9 @@
       "character": "Game",
       "delivery": "Title"
     },
-    "turn.title": {
+    "turn.bar": {
       "character": "Game",
-      "delivery": "Title"
-    },
-    "turn.subtitle": {
-      "character": "Game",
-      "delivery": "Subtitle"
+      "delivery": "Action bar"
     },
     "round.hud": {
       "character": "Game",
