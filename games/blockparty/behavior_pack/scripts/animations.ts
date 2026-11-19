@@ -187,13 +187,15 @@ export const NPC_MOVES: Readonly<Record<string, Readonly<Record<string, NpcMove>
     Roar: { animation: "animation.warden.roar" },
     "Sonic boom": { animation: "animation.warden.sonic_boom" },
     Sniff: { animation: "animation.warden.sniff" },
-    // He's hidden until his emerge is well under way (it starts 4 blocks down and is still 3.5 down
-    // at half a second; moves.ts shows him APPEAR_AFTER ticks in, so a late start on the client never
-    // shows him standing first), and hidden once his dig has him all the way under: vanilla's dig ends
-    // 2.5 blocks down with the top of his head still out, so the pack's sink carries his body and legs
-    // 3 blocks further down over its last 0.7 s (the user saw his head over the floor before and after).
-    Emerge: { animation: "animation.warden.emerge", appear: true },
-    "Dig away": { animation: "animation.warden.dig", also: "animation.blockparty.warden.sink", hold: "stays", vanish: 5.1 },
+    // He's hidden until his emerge is under way (it starts 4 blocks down; moves.ts shows him
+    // APPEAR_AFTER ticks in, so a late start on the client never shows him standing first). Vanilla's
+    // emerge holds him 2 blocks down for 1.7 seconds with his head out on the floor, and its dig
+    // keeps his head out for seconds before he's under: the pack's rise and sink, played with them on
+    // a controller of their own, keep him 2 more blocks down through that hold and take him under
+    // as the dig goes on, so he comes up and goes down in one go (the user saw his head sitting on the
+    // floor before and after, 2026-11-18). Hidden once the sink has him under.
+    Emerge: { animation: "animation.warden.emerge", also: "animation.blockparty.warden.rise", appear: true },
+    "Dig away": { animation: "animation.warden.dig", also: "animation.blockparty.warden.sink", hold: "stays", vanish: 4.1 },
   },
   Enderman: {
     Teleport: { deed: "teleport" },

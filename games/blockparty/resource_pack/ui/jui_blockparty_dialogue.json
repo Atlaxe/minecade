@@ -37,6 +37,7 @@
       0.004,
       0.365
     ],
+    "$atext": "$actionbar_text",
     "visible": false,
     "bindings": [
       {
@@ -471,7 +472,7 @@
                         0,
                         -14
                       ],
-                      "visible": "(($actionbar_text - '§k§v') = $actionbar_text)",
+                      "visible": "(($atext - '§k§v') = $atext)",
                       "layer": 41
                     }
                   },
@@ -501,7 +502,7 @@
                         0,
                         -14
                       ],
-                      "visible": "(not (($actionbar_text - '§k§v§0') = $actionbar_text))",
+                      "visible": "(not (($atext - '§k§v§0') = $atext))",
                       "layer": 48
                     }
                   },
@@ -531,7 +532,7 @@
                         0,
                         -14
                       ],
-                      "visible": "(not (($actionbar_text - '§k§v§1') = $actionbar_text))",
+                      "visible": "(not (($atext - '§k§v§1') = $atext))",
                       "layer": 55
                     }
                   },
@@ -561,7 +562,7 @@
                         0,
                         -14
                       ],
-                      "visible": "(not (($actionbar_text - '§k§v§2') = $actionbar_text))",
+                      "visible": "(not (($atext - '§k§v§2') = $atext))",
                       "layer": 62
                     }
                   },
@@ -591,7 +592,7 @@
                         0,
                         -14
                       ],
-                      "visible": "(not (($actionbar_text - '§k§v§3') = $actionbar_text))",
+                      "visible": "(not (($atext - '§k§v§3') = $atext))",
                       "layer": 69
                     }
                   },
@@ -1901,7 +1902,7 @@
                               {
                                 "b_d1a10013": {
                                   "type": "label",
-                                  "text": "Punch",
+                                  "text": "Use",
                                   "size": [
                                     "default",
                                     "default"

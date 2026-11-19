@@ -423,14 +423,17 @@ describe("the dialogue box", () => {
     await ticks(2);
     expect(dialogue.holdStep("Alex")).toBeUndefined();
     using.add("Alex");
-    await ticks(2);
+    // A press (a few ticks) shows nothing: it goes on.
+    await ticks(5);
+    expect(dialogue.holdStep("Alex")).toBeUndefined();
+    await ticks(7);
     expect(dialogue.holdStep("Alex")).toBe(0);
     expect(dialogue.holdStep("Sam")).toBeUndefined();
     await ticks(40);
     expect(dialogue.holdStep("Alex")).toBe(2);
     expect(holdingCode(2)).toBe(`${HOLDING_CODE}§2`);
     expect(holdingCode(undefined)).toBe("");
-    await ticks(40);
+    await ticks(30);
     // Voted: the strip says what everyone's says again.
     expect(dialogue.holdStep("Alex")).toBeUndefined();
     using.delete("Alex");
@@ -520,9 +523,13 @@ describe("the pack's dialogue box", () => {
     for (let step = 0; step < 4; step++) expect(ui).toContain(`'${holdingCode(step)}'`);
     expect(ui).toContain(`'${HOLDING_CODE}'`);
     expect(ui).toContain("$actionbar_text");
-    // The wide box for long button labels, and the prompt is a punch now.
+    // The strips read the line through $atext, which the layout copies from $actionbar_text (used
+    // straight in an expression, it never matched).
+    expect(ui).toContain('"$atext": "$actionbar_text"');
+    expect(ui).not.toMatch(/\(\$actionbar_text -/);
+    // The wide box for long button labels, and the prompt is a press of use now.
     expect(ui).toContain(`'${BOX_WIDE}'`);
-    expect(ui).toContain('"Punch"');
+    expect(ui).toContain('"Use"');
   });
 
   it("has the fork box, reading the codes the game writes", () => {

@@ -5,11 +5,13 @@
 //     private icons pack's models) or an item's or die's icon (a flat picture: the build copies each
 //     one's icon to its slot's picture, textures/blockparty/icons/token_<slot>, items first in the
 //     game's order, then the dice in the dice file's).
-//   - It flies on its own client: put at the middle of its way, turned to face where it goes, its
-//     reach, rise and arc as properties, and the pack's animation (animation.blockparty.token.fly)
-//     carries it over its own life from the giver's head, up in an arc, down into the taker's head,
-//     spinning, popping in as it leaves and shrinking away as it lands. Nothing moves it from the
-//     server, so it never jitters. The properties are whole numbers, hundredths of a block
+//   - It flies on its own client: put at the middle of its way, its heading (the way it goes), reach,
+//     rise and arc as properties, and the pack's animation (animation.blockparty.token.fly) carries
+//     it over its own life from the giver's head, up in an arc, down into the taker's head, spinning,
+//     popping in as it leaves and shrinking away as it lands. Nothing moves it from the server, so it
+//     never jitters. Its model's bone "upright" undoes whatever way the entity's body faces (a spawned
+//     entity's body doesn't keep the turn it's given, so the coins flew off any which way, the user saw
+//     2026-11-18) and "heading" turns it the way it goes, as the moves left face the camera. The properties are whole numbers, hundredths of a block
 //     (flightProperties): float properties never reached the client (the first tokens stood still as
 //     the first slot's picture, the client logging "query.property called on an actor without a
 //     property component" every frame), as the RPG's rocket's didn't (guns, 1ab028e).
@@ -106,13 +108,23 @@ export function flightOf(from: Vec, to: Vec): Flight {
   return { at: [from[0] + dx / 2, from[1] - MODEL_MIDDLE, from[2] + dz / 2], yaw, reach: round(reach), rise: round(to[1] - from[1]), arc: round(arc) };
 }
 
-/** The flight's properties' ranges on the entity (behavior_pack/entities/token.json), in hundredths of a block. */
-export const FLIGHT_RANGES = { reach: [0, 6400], rise: [-6400, 6400], arc: [0, 800] } as const;
+/** The flight's properties' ranges on the entity (behavior_pack/entities/token.json): reach, rise and arc in hundredths of a block, heading in degrees. */
+export const FLIGHT_RANGES = { reach: [0, 6400], rise: [-6400, 6400], arc: [0, 800], heading: [-180, 180] } as const;
 
-/** A flight's reach, rise and arc as the token's properties hold them: hundredths of a block, cut to their ranges (a far flight is cut short rather than refused). */
-export function flightProperties(flight: Flight): { reach: number; rise: number; arc: number } {
+/**
+ * A flight as the token's properties hold it: reach, rise and arc in hundredths of a block, cut to
+ * their ranges (a far flight is cut short rather than refused), and its heading (Minecraft's yaw
+ * toward the taker) in whole degrees.
+ */
+export function flightProperties(flight: Flight): { reach: number; rise: number; arc: number; heading: number } {
   const hundredths = (value: number, [low, high]: readonly [number, number]) => Math.max(low, Math.min(high, Math.round(value * 100)));
-  return { reach: hundredths(flight.reach, FLIGHT_RANGES.reach), rise: hundredths(flight.rise, FLIGHT_RANGES.rise), arc: hundredths(flight.arc, FLIGHT_RANGES.arc) };
+  const [low, high] = FLIGHT_RANGES.heading;
+  return {
+    reach: hundredths(flight.reach, FLIGHT_RANGES.reach),
+    rise: hundredths(flight.rise, FLIGHT_RANGES.rise),
+    arc: hundredths(flight.arc, FLIGHT_RANGES.arc),
+    heading: Math.max(low, Math.min(high, Math.round(flight.yaw))) + 0,
+  };
 }
 
 /** How many tokens fly for `count`: each coin up to 10, each Star up to 5, each item or die up to 3. */

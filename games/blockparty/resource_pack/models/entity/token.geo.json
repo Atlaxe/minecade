@@ -16,6 +16,23 @@
       },
       "bones": [
         {
+          "name": "upright",
+          "pivot": [
+            0,
+            8,
+            0
+          ]
+        },
+        {
+          "name": "heading",
+          "parent": "upright",
+          "pivot": [
+            0,
+            8,
+            0
+          ]
+        },
+        {
           "name": "root",
           "pivot": [
             0,
@@ -97,7 +114,8 @@
                 }
               }
             }
-          ]
+          ],
+          "parent": "heading"
         }
       ]
     }

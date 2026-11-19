@@ -33,7 +33,6 @@
 import {
   ButtonState,
   EntityComponentTypes,
-  EntitySwingSource,
   HudElement,
   HudVisibility,
   InputButton,
@@ -160,12 +159,15 @@ const SELECT_AFTER = 10;
  * own results screen (the user's ask); the item never leaves.
  */
 const STANDINGS_ITEM = "blockparty:standings";
-/** A punch within this many ticks of the last swing is the same press (holding left click on a block swings again and again). */
-const PUNCH_GAP = 8;
-/** Ticks a right click on a block counts as use held (it repeats while the button stays down). */
-const USE_ON_BLOCK = 6;
-/** The swings that are a punch: at the air, at a block, at an entity. */
-const PUNCHES = new Set<string>([EntitySwingSource.Attack, EntitySwingSource.Mine, EntitySwingSource.None]);
+/**
+ * Use (right click) is the board's button (the user, 2026-11-18): a press goes on, a hold skips. A
+ * press is let go within PRESS_TICKS; anything longer is a hold, toward the skip vote (dialogue.ts).
+ */
+const PRESS_TICKS = 8;
+/** Ticks a right click on a block or a mob counts as held: a block's repeats while the button stays down. */
+const USE_ON_TARGET = 6;
+/** Ticks a plain use (no start of a lasting use after it) waits before it counts as a press. */
+const PLAIN_USE_WAIT = 2;
 /** Ticks a player's own results screen stays up unless they drop again. */
 const STANDINGS_TICKS = 160;
 /** Ticks between checks that every player on the board has STANDINGS_ITEM in every hotbar slot. */
@@ -317,11 +319,13 @@ export class BlockPartySpike extends Minigame<Config> {
   private readonly chatOn = new Set<string>();
   /** Who stands square to where they look (keepSquared), by key, and the tick it was last played. */
   private readonly squared = new Map<string, number>();
-  /** Who holds use (right click) with the board's item now, by key (the skip vote's button), and until when a right click on a block counts. */
-  private readonly usingItem = new Set<string>();
-  private readonly usingOnBlock = new Map<string, number>();
-  /** Each player's last swing, by key: a punch is a swing after a pause (PUNCH_GAP). */
-  private readonly lastSwing = new Map<string, number>();
+  /**
+   * Who holds use (right click) down now, by key: the tick it went down, and for a right click on a
+   * block or a mob (no lasting use, just events while it's held) until when it counts as down.
+   */
+  private readonly useDown = new Map<string, { since: number; until?: number }>();
+  /** Each player's last press, by key: one press can come both as a use's start and stop and as a plain use. */
+  private readonly lastPress = new Map<string, number>();
   /** Who has the results screen up for themselves (a drop), by key, and the tick it goes. */
   private readonly viewing = new Map<string, number>();
   /** The standings last put on the sidebar for them, so they're sent only when they change. */
@@ -569,30 +573,27 @@ export class BlockPartySpike extends Minigame<Config> {
       ({ player }) => this.jumped(player),
       { buttons: [InputButton.Jump], state: ButtonState.Pressed },
     );
-    // A punch (left click) is the board's button (the user, 2026-11-18): picks in the board menu, the
-    // dialogue box, the results and a minigame's rules. The board's item swings in a blink
-    // (items/standings.json, swing_duration), so the arm hardly moves.
-    this.scope.subscribe(world.afterEvents.playerSwingStart, ({ player, swingSource }) => {
-      if (!PUNCHES.has(swingSource)) return;
-      const key = player.name.toLowerCase();
-      const last = this.lastSwing.get(key);
-      this.lastSwing.set(key, system.currentTick);
-      if (last !== undefined && system.currentTick - last <= PUNCH_GAP) return;
-      this.punched(player);
-    });
-    // Holding use (right click) with the board's item is the skip vote's button: the item has a use
-    // that lasts (items/standings.json, use_modifiers), so its start and stop say when it's held.
+    // Use (right click) is the board's button (the user, 2026-11-18): a press goes on (picks in the
+    // board menu, the dialogue box, the results, a minigame's Ready), a hold skips. The board's item
+    // has a use that lasts (items/standings.json, use_modifiers), so its start and stop say when the
+    // button goes down and up; a right click on a block or a mob uses that instead, its events
+    // coming again while it's held (a block's), so it's down till they stop.
     this.scope.subscribe(world.afterEvents.itemStartUse, ({ source, itemStack }) => {
-      if (itemStack.typeId === STANDINGS_ITEM) this.usingItem.add(source.name.toLowerCase());
+      if (itemStack.typeId === STANDINGS_ITEM) this.useGoesDown(source);
     });
     for (const signal of [world.afterEvents.itemStopUse, world.afterEvents.itemReleaseUse, world.afterEvents.itemCompleteUse]) {
-      this.scope.subscribe(signal, ({ source }: { source: Player }) => this.usingItem.delete(source.name.toLowerCase()));
+      this.scope.subscribe(signal, ({ source }: { source: Player }) => this.useGoesUp(source));
     }
-    this.scope.subscribe(world.afterEvents.playerHotbarSelectedSlotChange, ({ player }) => this.usingItem.delete(player.name.toLowerCase()));
-    // A right click on a block uses the block instead, again and again while it's held.
-    this.scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player }) => {
-      this.usingOnBlock.set(player.name.toLowerCase(), system.currentTick + USE_ON_BLOCK);
+    // A use with no lasting use after it (should the item's not start): a press.
+    this.scope.subscribe(world.afterEvents.itemUse, ({ source, itemStack }) => {
+      if (itemStack.typeId !== STANDINGS_ITEM) return;
+      this.scope.timeout(() => {
+        if (source.isValid && !this.useDown.has(source.name.toLowerCase())) this.pressed(source);
+      }, PLAIN_USE_WAIT);
     });
+    this.scope.subscribe(world.afterEvents.playerHotbarSelectedSlotChange, ({ player }) => this.useDown.delete(player.name.toLowerCase()));
+    this.scope.subscribe(world.afterEvents.playerInteractWithBlock, ({ player }) => this.useOnTarget(player));
+    this.scope.subscribe(world.afterEvents.playerInteractWithEntity, ({ player }) => this.useOnTarget(player));
     // Sneak is the dialogue box's back button (Not now), else the board menu's back.
     this.scope.subscribe(
       world.afterEvents.playerButtonInput,
@@ -603,9 +604,8 @@ export class BlockPartySpike extends Minigame<Config> {
     this.scope.subscribe(world.afterEvents.entitySpawn, ({ entity }) => this.dropped(entity));
     this.scope.subscribe(world.afterEvents.playerLeave, ({ playerName }) => {
       this.viewing.delete(playerName.toLowerCase());
-      this.usingItem.delete(playerName.toLowerCase());
-      this.usingOnBlock.delete(playerName.toLowerCase());
-      this.lastSwing.delete(playerName.toLowerCase());
+      this.useDown.delete(playerName.toLowerCase());
+      this.lastPress.delete(playerName.toLowerCase());
       if (this.boardMenu.active === playerName.toLowerCase()) this.boardMenu.close();
       this.pendingRolls.get(playerName.toLowerCase())?.resolve(undefined);
       this.pendingRolls.delete(playerName.toLowerCase());
@@ -1071,6 +1071,7 @@ export class BlockPartySpike extends Minigame<Config> {
     this.keepFade();
     if (system.currentTick % STANDINGS_EVERY === 0) this.keepStandingsItems();
     this.keepSquared();
+    this.keepUse();
   }
 
   /**
@@ -1763,24 +1764,64 @@ export class BlockPartySpike extends Minigame<Config> {
     this.everyone(failed.length === 0 ? "NPCs out in the middle of the board. Hit one for its animations and variants." : `Some NPCs failed: ${failed.join("; ")}`);
   }
 
-  // ---- Punches, jumps and use ---------------------------------------------------------------
+  // ---- Use and jumps ---------------------------------------------------------------------------
 
-  /** A punch: the board's button (the user, 2026-11-18; it was a jump). */
-  private punched(player: Player): void {
+  /** A press of use: the board's button (the user, 2026-11-18; it was a jump, then a punch). */
+  private pressed(player: Player): void {
+    const key = player.name.toLowerCase();
+    const last = this.lastPress.get(key);
+    if (last !== undefined && system.currentTick - last <= PRESS_TICKS) return;
+    this.lastPress.set(key, system.currentTick);
     // The results screen once its changes have played: going on from it.
     if (this.results.jumped(player)) return;
     // The dialogue box: its steerer's pick, or going on.
     if (this.dialogue.jumped(player)) return;
-    // A minigame's rules: a punch is Ready.
+    // A minigame's rules: a press is Ready.
     if (this.runner.jumped(player)) return;
     // The board menu and item panel: the active player's pick.
-    this.boardMenu.punched(player);
+    this.boardMenu.pressed(player);
   }
 
-  /** Whether a player holds use down now: the board's item in use, or a right click on a block still repeating. */
-  private holdingUse(player: Player): boolean {
+  /** Use goes down (the board's item's lasting use starts). */
+  private useGoesDown(player: Player): void {
     const key = player.name.toLowerCase();
-    return this.usingItem.has(key) || (this.usingOnBlock.get(key) ?? 0) >= system.currentTick;
+    if (!this.useDown.has(key)) this.useDown.set(key, { since: system.currentTick });
+  }
+
+  /** Use comes up: let go soon enough, it was a press. */
+  private useGoesUp(player: Player): void {
+    const key = player.name.toLowerCase();
+    const down = this.useDown.get(key);
+    this.useDown.delete(key);
+    if (down && system.currentTick - down.since <= PRESS_TICKS && player.isValid) this.pressed(player);
+  }
+
+  /** A right click on a block or a mob: use is down till its events stop coming (keepUse lets it go). */
+  private useOnTarget(player: Player): void {
+    const key = player.name.toLowerCase();
+    const down = this.useDown.get(key);
+    const until = system.currentTick + USE_ON_TARGET;
+    if (down) {
+      if (down.until !== undefined) down.until = until;
+      return;
+    }
+    this.useDown.set(key, { since: system.currentTick, until });
+  }
+
+  /** Each tick: a right click on a block or a mob whose events have stopped is let go. */
+  private keepUse(): void {
+    for (const [key, down] of [...this.useDown]) {
+      if (down.until === undefined || down.until >= system.currentTick) continue;
+      const player = world.getAllPlayers().find((one) => one.name.toLowerCase() === key);
+      // Its events stopped USE_ON_TARGET ticks ago: that's when it came up.
+      this.useDown.delete(key);
+      if (player && down.until - USE_ON_TARGET - down.since <= PRESS_TICKS) this.pressed(player);
+    }
+  }
+
+  /** Whether a player holds use down now (the skip vote's button: dialogue.ts counts how long). */
+  private holdingUse(player: Player): boolean {
+    return this.useDown.has(player.name.toLowerCase());
   }
 
   /** A jump: the one that hits the die over their head (the dice panel's, the turn order's), or a test's. */

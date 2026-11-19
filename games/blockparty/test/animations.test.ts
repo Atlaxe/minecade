@@ -145,14 +145,21 @@ describe("Block Party's animation names", () => {
     expect(client.scripts.animate).toContainEqual({ hide: `!q.property('${SHOWN}')` });
     expect(NPC_MOVES.Warden.Emerge.appear).toBe(true);
     expect(NPC_MOVES.Warden["Dig away"]).toMatchObject({ hold: "stays" });
-    // Vanilla's dig leaves him 2.5 blocks down with the top of his head out: the pack's sink, played
-    // with it, carries him 3 blocks further by 5 s, held, and he's hidden only after that.
-    const sink = NPC_MOVES.Warden["Dig away"].also;
-    expect(sink).toBe("animation.blockparty.warden.sink");
-    const clip = (gamePack.animations as Record<string, { loop?: unknown; animation_length?: number; bones: Record<string, { position: Record<string, number[]> }> }>)[sink!];
-    expect(clip.loop).toBe("hold_on_last_frame");
-    for (const bone of ["body", "right_leg", "left_leg"]) expect(Object.values(clip.bones[bone].position).at(-1)![1]).toBeLessThanOrEqual(-48);
-    expect(NPC_MOVES.Warden["Dig away"].vanish).toBeGreaterThanOrEqual(clip.animation_length!);
+    // Vanilla's emerge holds his head out on the floor and his dig keeps it out: the pack's rise keeps
+    // him 2 blocks lower through the emerge's hold and lets him climb, and its sink takes him 3 blocks
+    // under as the dig goes on, held; he's hidden only once it has.
+    type Clip = { loop?: unknown; animation_length?: number; bones: Record<string, { position: Record<string, number[]> }> };
+    const clips = gamePack.animations as Record<string, Clip>;
+    const rise = clips[NPC_MOVES.Warden.Emerge.also!];
+    expect(NPC_MOVES.Warden.Emerge.also).toBe("animation.blockparty.warden.rise");
+    expect(rise.bones.root.position["1.2"][1]).toBe(-32);
+    expect(rise.bones.root.position["2.88"][1]).toBe(-32);
+    expect(Object.values(rise.bones.root.position).at(-1)![1]).toBe(0);
+    const sink = clips[NPC_MOVES.Warden["Dig away"].also!];
+    expect(NPC_MOVES.Warden["Dig away"].also).toBe("animation.blockparty.warden.sink");
+    expect(sink.loop).toBe("hold_on_last_frame");
+    expect(Object.values(sink.bones.root.position).at(-1)![1]).toBeLessThanOrEqual(-48);
+    expect(NPC_MOVES.Warden["Dig away"].vanish).toBeGreaterThanOrEqual(sink.animation_length!);
   });
 
   it("move only bones each model has", () => {

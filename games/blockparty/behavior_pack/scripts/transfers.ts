@@ -5,11 +5,10 @@
 //
 // The count over a head is blockparty:tally, drawn as the moves left are (counts.ts): "+3" or "-3" in
 // Minecraft Ten, in the dice file's gain or loss look, facing each player's camera, with no name tag
-// plate. It stands where the moves left would, over the moves left when they're showing, and rises
-// a little as it comes (its own animation, animation.blockparty.tally_rise); nothing moves it.
+// plate. It stands just over the head (over the moves left when they're showing), and rises a little
+// as it comes (its own animation, animation.blockparty.tally_rise); nothing moves it.
 import type { Dimension, Entity, Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { COUNT_OVER } from "./counts.ts";
 import { MAX_COUNT, TALLY_ENTITY, TALLY_PROPERTY, TONE_GAIN, TONE_LOSS, TONE_PROPERTY } from "./dice.ts";
 import { eventCue, playCue } from "./sounds.ts";
 import { FLIGHT_TICKS, LAUNCH_EVERY, SKY, TOKEN_TICKS, counted, flightOf, flightProperties, isSeat, labelSteps, lookOf, shownCount, soundOf, type Party, type Token } from "./tokens.ts";
@@ -20,10 +19,16 @@ const LOOK = "blockparty:look";
 const REACH = "blockparty:reach";
 const RISE = "blockparty:rise";
 const ARC = "blockparty:arc";
+const HEADING = "blockparty:heading";
 /** How far over a head a token comes in or goes out. */
 const OVER_HEAD = 0.3;
-/** How much higher a count stands while the moves left show over the same head (the moves left's height and a little). */
-const OVER_MOVES = 0.9;
+/**
+ * How far over the feet a count's entity stands (its number's middle half a block higher, a little
+ * over the head: the user asked for it closer, 2026-11-18), and how much higher while the moves left
+ * show over the same head.
+ */
+const TALLY_OVER = 1.6;
+const OVER_MOVES = 1.2;
 /** Ticks a count stays after the last token lands. */
 const TALLY_LINGER = 24;
 
@@ -97,6 +102,7 @@ export class Transfers {
       token.setProperty(REACH, properties.reach);
       token.setProperty(RISE, properties.rise);
       token.setProperty(ARC, properties.arc);
+      token.setProperty(HEADING, properties.heading);
     } catch (error) {
       remove(token);
       this.warnOnce(`blockparty: a transfer's token failed: ${describeError(error)}`);
@@ -111,7 +117,7 @@ export class Transfers {
     if (!body.isValid) return undefined;
     try {
       const feet = body.location;
-      const over = COUNT_OVER + (this.deps.movesShown?.(key) ? OVER_MOVES : 0);
+      const over = TALLY_OVER + (this.deps.movesShown?.(key) ? OVER_MOVES : 0);
       const tally = this.deps.dimension().spawnEntity(TALLY_ENTITY, { x: feet.x, y: feet.y + over, z: feet.z });
       // Like the moves left, it never turns of its own accord (the model undoes any turn anyway).
       tally.setRotation({ x: 0, y: 0 });

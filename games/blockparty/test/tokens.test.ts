@@ -36,6 +36,7 @@ import token from "../resource_pack/entity/token.entity.json";
 import controllers from "../resource_pack/render_controllers/blockparty.render_controllers.json";
 import tokenBehavior from "../behavior_pack/entities/token.json";
 import animations from "../resource_pack/animations/blockparty.animation.json";
+import tokenGeometry from "../resource_pack/models/entity/token.geo.json";
 
 describe("Block Party's transfer tokens", () => {
   it("show a coin, a Star, or an item's or die's icon from its slot, items first, then the dice", () => {
@@ -67,16 +68,29 @@ describe("Block Party's transfer tokens", () => {
     expect(flightOf([1, 72, 1], [1, 69.4, 1])).toMatchObject({ reach: 0, rise: -2.6, yaw: 0 });
   });
 
-  it("hand the token its flight in hundredths of a block, cut to the entity's ranges", () => {
-    expect(flightProperties(flightOf([0, 70, 0], [0, 66, 6]))).toEqual({ reach: 600, rise: -400, arc: 142 });
-    expect(flightProperties({ at: [0, 0, 0], yaw: 0, reach: 90, rise: -80, arc: 12 })).toEqual({ reach: 6400, rise: -6400, arc: 800 });
+  it("hand the token its flight in hundredths of a block and its heading in degrees, cut to the entity's ranges", () => {
+    expect(flightProperties(flightOf([0, 70, 0], [0, 66, 6]))).toEqual({ reach: 600, rise: -400, arc: 142, heading: 0 });
+    expect(flightProperties(flightOf([0, 0, 0], [5, 0, 0])).heading).toBe(-90);
+    expect(flightProperties({ at: [0, 0, 0], yaw: 179.6, reach: 90, rise: -80, arc: 12 })).toEqual({ reach: 6400, rise: -6400, arc: 800, heading: 180 });
     // The entity holds the same ranges, as whole numbers.
     const properties = tokenBehavior["minecraft:entity"].description.properties as Record<string, { type: string; range: number[] }>;
     for (const [name, range] of Object.entries(FLIGHT_RANGES)) expect(properties[`blockparty:${name}`]).toMatchObject({ type: "int", range });
-    // The pack's flight reads them back in model units (16 a block: 0.16 a hundredth).
-    const [, up, along] = animations.animations["animation.blockparty.token.fly"].bones.root.position;
+    // The pack's flight reads them back in model units (16 a block: 0.16 a hundredth), from the giver
+    // (half its reach back) to the taker (half on), along a bone turned to its heading under one that
+    // undoes the entity's own turn.
+    const bones = animations.animations["animation.blockparty.token.fly"].bones;
+    const [, up, along] = bones.root.position;
     expect(up).toMatch(/^0\.16 \* \(q\.property\('blockparty:rise'\) .* \+ q\.property\('blockparty:arc'\) /);
-    expect(along).toMatch(/^0\.16 \* q\.property\('blockparty:reach'\) /);
+    expect(along).toBe("0.16 * q.property('blockparty:reach') * (math.clamp(q.life_time / 0.7, 0, 1) - 0.5)");
+    expect(bones.upright.rotation).toEqual([0, "-q.body_y_rotation", 0]);
+    expect(bones.heading.rotation).toEqual([0, "q.property('blockparty:heading')", 0]);
+    // The icon's model has the same bones, root under heading under upright.
+    const geometry = tokenGeometry["minecraft:geometry"].find((one) => one.description.identifier === "geometry.blockparty.token")!;
+    expect(geometry.bones.map((bone) => [bone.name, (bone as { parent?: string }).parent])).toEqual([
+      ["upright", undefined],
+      ["heading", "upright"],
+      ["root", "heading"],
+    ]);
   });
 
   it("are never float properties on any of the game's entities (the client never gets them)", () => {

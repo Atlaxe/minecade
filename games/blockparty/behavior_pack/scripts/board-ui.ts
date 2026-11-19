@@ -131,11 +131,11 @@ export class BoardMenu {
   }
 
   /**
-   * A punch (left click; the user, 2026-11-18, in place of a jump): the active player picking in the
-   * menu, using an item from the panel, or going back from Board. In the dice panel the die is hit
-   * with a jump (jumped), so a punch does nothing there. True when the menu took it.
+   * A press of use (right click; the user, 2026-11-18, in place of a jump): the active player picking
+   * in the menu, using an item from the panel, or going back from Board. In the dice panel the die is
+   * hit with a jump (jumped), so a press does nothing there. True when the menu took it.
    */
-  punched(player: Player): boolean {
+  pressed(player: Player): boolean {
     const turn = this.mine(player);
     if (!turn) return false;
     if (turn.view === "dice") return true;
@@ -168,7 +168,7 @@ export class BoardMenu {
       this.host.use(turn.who, item);
       return true;
     }
-    // Board is a toggle: a punch goes back to the menu.
+    // Board is a toggle: a press goes back to the menu.
     this.host.boardView(false);
     turn.view = "menu";
     playCue(eventCue(MENU_EVENTS.back));

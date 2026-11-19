@@ -769,22 +769,26 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 
 ### The user's look at the board, as built (2026-11-18, evening)
 
-- **The board's button is a punch** (left click, `playerSwingStart`): picking in the board menu
-  (Dice, Items, Board, an item to use, back from Board), a dialogue box's choice or going on, the
-  results' Go on, and Ready before a minigame. The jump only hits the die over the head (the dice
-  panel's, the turn order's, and each throw after the first). A swing within 8 ticks of the last is
-  the same press (holding left click on a block swings again and again). The board's item
-  (`blockparty:standings`) swings in a blink (`swing_duration` 0.05 s), so the arm hardly moves. The
-  prompts (the dialogue box's, the results') are a "Punch" key cap on every device: Minecraft has no
-  picture for a trigger or a mouse button.
-- **Skipping is holding use** (right click) for 4 seconds: the board's item has a use that lasts
-  (`use_modifiers`), so `itemStartUse` and `itemStopUse` say when it's held (a right click on a
-  block counts while it repeats). The skip strip says, for everyone (`skipText`): "Hold use to skip"
-  before anyone has voted, "Waiting to skip 1 / 3" while some have, "Waiting for Alex to skip" when
-  one is left, "Skipping" once all have. A player holding use sees "Skipping..." instead, its three
-  dots lighting up white as the hold goes on (their action bar's `§k§v` and the step's digit,
-  `holdingCode`; four strips in the `blockparty_dialogue` component). The old code, `§k§e`, was the
-  core's "Capture the flag!" bubble, which showed whenever a player held sneak to skip.
+- **The board's button is use** (right click; the user's second answer, after a punch): a press
+  (let go within 8 ticks) picks in the board menu (Dice, Items, Board, an item to use, back from
+  Board), a dialogue box's choice or going on, the results' Go on, and Ready before a minigame; a
+  hold is the skip vote. The jump only hits the die over the head (the dice panel's, the turn
+  order's, and each throw after the first). The board's item (`blockparty:standings`, format
+  1.21.120: at 1.21.60 its newer components kept it from loading, so nothing could be held) has a use
+  that lasts (`use_modifiers`), so `itemStartUse` and `itemStopUse` say when the button goes down and
+  up; a right click on a block or a mob is down while its events keep coming; a plain `itemUse` with
+  no lasting use after it is a press. The prompts (the dialogue box's, the results') are a "Use" key
+  cap on every device: Minecraft has no picture for a trigger or a mouse button.
+- **Skipping is holding use** for 4 seconds. The skip strip says, for everyone (`skipText`): "Hold
+  use to skip" before anyone has voted, "Waiting to skip 1 / 3" while some have, "Waiting for Alex to
+  skip" when one is left, "Skipping" once all have. A player holding use (past half a second, so a
+  press shows nothing) sees "Skipping..." instead, its three dots lighting up white as the hold goes
+  on (their action bar's `§k§v` and the step's digit, `holdingCode`; four strips in the
+  `blockparty_dialogue` component). The old code, `§k§e`, was the core's "Capture the flag!" bubble,
+  which showed whenever a player held sneak to skip. The strips never showed at first: the builder
+  wrote `$actionbar_text` straight into their expressions, which only work on a copy
+  (`"$atext": "$actionbar_text"`), so its sidebar pieces' layouts now make one and their expressions
+  read it (workshop json-ui `compile.mjs`).
 - **Long button labels** (over 14 characters: the Shop's goods, a rival to pick, a trade) put a
   question in the wide box (title code `§k§9`, BOX_WIDE): the words on top and the buttons under
   them, the box's whole width, in place of the narrow column beside the words.
@@ -798,7 +802,13 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
   top-level `number` has), and the Mystery Die's faces show "?".
 - **The numbers over heads** were mirrored (their backs to the camera): they're drawn on the
   model's north side now, the side the billboard turns to the camera. A transfer's count is half
-  the size of the moves left.
+  the size of the moves left and stands just over the head (its entity 1.6 over the feet, 1.2 higher
+  while the moves left show).
+- **Tokens fly to the taker:** a spawned entity's body doesn't keep the turn it's given, so the
+  tokens flew off any which way. Their models (the icon's, and the private icons pack's coin and
+  Star) have the moves left's bones: `upright` undoes the body's turn, `heading` turns to the token's
+  heading property (Minecraft's yaw toward the taker, whole degrees), and `root` flies from half the
+  reach back to half on.
 - **Players stand square** to where they look on the board: a teleport turns only the head, so the
   pack's `animation.blockparty.square_up` (on controller `blockparty.square`, played again every 5
   seconds, stopped in minigames) turns the whole model by the head's turn from the body
@@ -808,10 +818,12 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 - **Zombies** come and go in the Witch's puff of smoke (events `npc.zombie.appear` and `.vanish`),
   and one leaving says `zombie.leaves` in the dialogue box (chat is hidden on the board), after the
   results when a minigame shakes it off.
-- **The Warden** is shown 9 ticks into his emerge (still 3.5 blocks down; 2 ticks could show him
-  standing first) and hidden 5.1 seconds into his dig, after the pack's `warden.sink` (played with
-  the dig on a second controller, `NpcMove.also`) has carried his body and legs 3 blocks under the
-  2.5 vanilla's dig leaves him, where the top of his head still showed.
+- **The Warden** comes up and goes down in one go: vanilla's emerge holds him 2 blocks down with
+  his head out on the floor for 1.7 seconds, and its dig keeps his head out for seconds, so the
+  pack's `warden.rise` (2 blocks lower through that hold, then easing back as he climbs) and
+  `warden.sink` (3 blocks under from 2.4 to 4 seconds into the dig), played with them on a second
+  controller (`NpcMove.also`) on the model's `root`, keep his head under. He's shown 9 ticks into
+  the emerge and hidden 4.1 seconds into the dig.
 - **The crying Sad** has its arms come in over the face (their sideways turn had the wrong sign, so
   a raised arm swung out), a little lower.
 - **The round bottom right** is "Round 3 /" light gray (`§7`) and the rounds in all dark gray (`§8`),

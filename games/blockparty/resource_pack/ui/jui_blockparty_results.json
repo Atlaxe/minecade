@@ -32,6 +32,7 @@
       1,
       1
     ],
+    "$atext": "$actionbar_text",
     "visible": false,
     "bindings": [
       {
@@ -168,7 +169,7 @@
                               {
                                 "b_5ae90014": {
                                   "type": "label",
-                                  "text": "Punch",
+                                  "text": "Use",
                                   "size": [
                                     "default",
                                     "default"
