@@ -467,7 +467,7 @@ and underscores). Each die:
 | Setting | What it does |
 |---|---|
 | `name` | Its name, in the item panel and the roll's title |
-| `letters` | One or two characters standing in for its icon in the item panel |
+| `letters` | One or two capitals (a digit can be the second), never another die's or an item's: they stand in for its icon in the item panel and name its icon file. Never a digit first: the game reads text starting with a digit as a number in the panel's picture path, and the icon shows as the missing texture (the One Die's `1D`, 2026-11-20) |
 | `block` | The block floating over the roller's head while it's out, until it has a texture |
 | `ink` | The color of the numbers on its model's faces, `"#rrggbb"` (`#1e1e1e` if left out); a face can have its own |
 | `shadow` | A shadow under the numbers on its faces (the user, 2026-11-18), as Minecraft draws one under text: `true` for Minecraft's own (the ink at a quarter of its brightness, so white's is `#3f3f3f`), a color `"#rrggbb"`, or `false` (none, the default). It sits a pixel right of and below the number, raised half as far off the face, and the item panel's icon shows it too. A face can have its own (`false` takes it off one face) |

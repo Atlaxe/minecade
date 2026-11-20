@@ -125,9 +125,10 @@ const NUMBER_TICKS = 16;
 const NEXT_THROW_AFTER = 12;
 /**
  * Ticks after the die comes out before jumping comes on and a jump hits it (the user, 2026-11-18:
- * picking Dice block made them jump, the press that picked it still held as jumping came on).
+ * picking Dice block made them jump, the press that picked it still held as jumping came on). Half a
+ * second (the user, 2026-11-20: half what it was).
  */
-const DIE_JUMP_AFTER = 20;
+const DIE_JUMP_AFTER = 10;
 /** The puff the die bursts in, with its own chips (dice.ts, burstParticle). */
 const BURST_PUFF = "minecraft:large_explosion";
 /** The sound cues (the user's Sounds view, Item panel): the jump hits the die, and its number shows. */

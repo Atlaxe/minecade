@@ -31,8 +31,6 @@ const FACE_UNITS = 8;
 
 /** An icon smaller than this many pixels across is drawn larger, a whole number of times. */
 export const ICON_MIN_SIZE = 64;
-/** Letters that can name a file: a die's may be any two plain characters, an item's are capitals. */
-const FILE_LETTERS = /^[A-Za-z0-9]{1,2}$/;
 
 /** `image` drawn `times` as large, each pixel a square. */
 export function scaleUp(image: Image, times: number): Image {
@@ -177,10 +175,6 @@ export async function addDiceIcons(out: string, dice: readonly DieDef[] = Object
   const missing: string[] = [];
   for (const die of dice) {
     if (die.texture === undefined) continue;
-    if (!FILE_LETTERS.test(die.letters)) {
-      console.warn(`blockparty: the ${die.name}'s letters "${die.letters}" can't name its icon's file, so the item panel has no picture for it (letters and digits only)`);
-      continue;
-    }
     const icon = dieIcon(die, out, from);
     if (icon) await writeIcon(out, die.letters, icon);
     else missing.push(`${die.name} (${die.texture})`);

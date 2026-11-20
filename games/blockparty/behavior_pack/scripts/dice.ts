@@ -193,7 +193,10 @@ function readDie(id: string, entry: unknown, problem: (text: string) => void): D
   };
   const name = text("name");
   const letters = text("letters");
-  if (!/^[\x20-\x7e]{1,2}$/.test(letters)) problem('"letters" must be one or two plain characters');
+  // The item panel finds a die's icon by its letters (textures/blockparty/icons/<letters>), and the
+  // game reads text that starts with a digit as a number in the panel's binding and shows nothing
+  // for it: the One Die's "1D" came out as the missing-texture picture (the user, 2026-11-20).
+  if (!/^[A-Z][A-Z0-9]?$/.test(letters)) problem('"letters" must be one or two capitals (a digit can be the second)');
   const block = text("block");
   const texture = die.texture === undefined || die.texture === "" ? undefined : text("texture");
   if (texture !== undefined && (!texture.startsWith("textures/") || texture.endsWith(".png"))) problem('"texture" is a path in the pack, like "textures/blockparty/dice/golden" (no .png)');

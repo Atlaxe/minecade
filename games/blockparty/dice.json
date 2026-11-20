@@ -103,7 +103,7 @@
     },
     "one": {
       "name": "One Die",
-      "letters": "1D",
+      "letters": "OD",
       "block": "minecraft:light_blue_concrete",
       "texture": "textures/blockparty/dice/one",
       "number": { "ink": "#ffffff", "shadow": false },

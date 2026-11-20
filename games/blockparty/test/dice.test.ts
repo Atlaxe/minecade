@@ -79,6 +79,7 @@ describe("the dice file", () => {
         Bad: { name: "Bad", letters: "BAD", block: "minecraft:stone", panel: "pictures", faces: [{ move: 1 }] },
         odd: { name: "Odd", letters: "O", block: "minecraft:stone", faces: [{ move: -1 }, { move: 1, event: "fly" }, { move: 1, show: "ABC" }, { move: 1, ink: "red" }, { move: 1 }, { move: 1, say: "Not An Id" }] },
         pale: { name: "Pale", letters: "P", block: "minecraft:stone", ink: "#fff", faces: [1, 2, 3, 4, 5, 6].map((move) => ({ move })) },
+        digit: { name: "Digit", letters: "1D", block: "minecraft:stone", faces: [1, 2, 3, 4, 5, 6].map((move) => ({ move })) },
       },
     });
     expect(read.dice.map((die) => die.id)).toEqual(["standard"]);
@@ -94,6 +95,7 @@ describe("the dice file", () => {
         expect.stringMatching(/^odd: face 4: "ink"/),
         expect.stringMatching(/^odd: face 6: "say"/),
         expect.stringMatching(/^pale: "ink"/),
+        expect.stringMatching(/^digit: "letters"/),
       ]),
     );
     expect(readDice({ dice: {} }).problems).toEqual([expect.stringMatching(/"standard" die/)]);

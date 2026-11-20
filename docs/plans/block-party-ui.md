@@ -79,7 +79,8 @@ going.
   user, 2026-11-18, after the first ask the other way): on the board jumping is off (`hold()` in
   `pieces.ts`; the jump still reaches the script, as the spike found with jumping off). The one real
   jump is the roll: while the die is out, the jump hits it (`lock(player, true)`). Jumping comes on
-  only 1 s after the die comes out, and a jump before that does nothing (`DIE_JUMP_AFTER` in
+  only 0.5 s after the die comes out (1 s until the user halved it, 2026-11-20), and a jump before
+  that does nothing (`DIE_JUMP_AFTER` in
   `spike.ts`): the user saw picking Dice block make them jump, the press still held as jumping came
   on. Back from a
   minigame the user saw a turn's first press really jump (the next didn't): the client seems to miss
@@ -147,7 +148,7 @@ generator). Proposed letters and paths:
 | Star | (done) | the game's nether star, `textures/items/nether_star` (the user's call, 2026-11-18) |
 | Coin | (done) | `textures/blockparty/ui/coin`, the user's Minecoin, in the private icons pack |
 | Items | Stone Totem ST, Golden Totem GT, Ender Pearl EP, Cursed Totem CT, Dueling Glove DG, Lightning Strike LS, Zombie Spawn ZS, Iron Golem IG, Villager V | `textures/blockparty/icons/<letters>`, which the build writes from each item's `texture` in `games/blockparty/items.json` (block-party.md, "The items file") |
-| Dice | Standard D, Slow SD, Triple TD, Risk RD, Golden GD, Mystery MD, Cursed CD, the test One Die 1D | `textures/blockparty/ui/dice/<id>` |
+| Dice | Standard D, Slow SD, Triple TD, Risk RD, Golden GD, Mystery MD, Cursed CD, the test One Die OD | `textures/blockparty/ui/dice/<id>` |
 | A die's face | its number | `textures/blockparty/ui/dice/<id>_<face>` |
 | Chevrons | `<` and `>`, yellow, regular font (the user's call for now) | |
 | Player heads | see "Player heads" | |
