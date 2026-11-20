@@ -6,9 +6,9 @@
 // Teleporting each tick, gliding an invisible mount and a stand-in figure all stuttered (20 stops a
 // second), a jump threw the player off the mount, and slowing down into corners looked worse than
 // walking on at one speed, so the walk is:
-//   - one speed all the way: each tick a push along the leg the player is on, made a little smaller
-//     than asked (a push moves a player about 1.375 times what it asks, measured), plus a pull back
-//     onto the leg's line for any drift sideways;
+//   - one speed all the way: each tick a push along the leg the player is on that takes them a
+//     tick's step from the speed they have (a push keeps part of it: walk-follow.ts), plus a pull
+//     back onto the leg's line for any drift sideways;
 //   - legs followed by where the player is, not by the clock: a leg ends when the player is within
 //     a tick's step of its end, so a corner is turned exactly on the space's block middle;
 //   - a turn is one teleport onto that middle with the new facing (setRotation doesn't turn a player
@@ -19,8 +19,10 @@
 // Over the ground (the user, 2026-11-19: walk off ledges, stairs, jump before a block, and more):
 // each leg is planned from the blocks along it when it starts (walk-plan.ts, terrain.ts: slopes up
 // and down small steps, jumps up blocks and over gaps, falls off drops, climbs ladders and vines),
-// and each tick's push carries the plan's height for that tick: a push sets how fast a player goes up
-// (or down: docs/spike-results.md, "A push down"), so pieces never fall or step up by themselves.
+// and each tick's push carries the plan's height for that tick (walk-follow.ts): a push sets how fast
+// a player goes up (or down: docs/spike-results.md, "A push down"), so pieces never fall or step up
+// by themselves. A piece that gets stuck anyway is put at the leg's end. The headless check walks a
+// SimulatedPlayer and a bot over the test board with the same code (spike/blockparty/walk.ts).
 // No names over the pieces (the user: a label lags behind the player, and a HUD will say whose turn
 // it is), and the players' own name tags are hidden on the board.
 //
@@ -31,7 +33,8 @@ import { describeError, log, type Scope } from "@minecade/minigame-core";
 import { angleGap, distance, route, standAt, yawTo, type Space, type Vec3 } from "./board.ts";
 import { isPlayer, moveBot, nameOf, stepBot } from "./bots.ts";
 import { eventCue, playCue } from "./sounds.ts";
-import { CLIMB_SPEED, PIECE_HALF, airAt, climbAt, heightAt, planLeg, pushUp, type LegPlan, type TerrainReader } from "./walk-plan.ts";
+import { followTick, knockbackFor, legOf, newFollow } from "./walk-follow.ts";
+import { planLeg, type LegPlan, type TerrainReader } from "./walk-plan.ts";
 
 /** The sound cue for a piece getting to each space on its walk (the user's Sounds view, Board). */
 const WALK_STEP = "walk.step";
@@ -52,21 +55,6 @@ export interface PieceSettings {
 
 export const DEFAULT_SETTINGS: PieceSettings = { camera: "chase", speed: 8 };
 
-/** applyKnockback's horizontal speed is 0.4 times the force's length (docs/spike-results.md, "Knockback"). */
-const KNOCKBACK_SPEED = 0.4;
-/**
- * A push moves a player this many times what it asks, once going (0.55 a tick for 0.4, docs/spike-results.md,
- * "Block Party"): it keeps half of the speed they had after friction (0.546 a tick on the ground, 0.91 in
- * the air), so 1 / (1 - 0.273) on the ground and 1 / (1 - 0.455) in the air ("A push down").
- */
-const PUSH_GAIN = 1.375;
-const AIR_GAIN = 1.835;
-/** How much of the sideways drift off a leg's line is taken back each tick. */
-const STEER = 0.4;
-/** How much of the gap between the piece's height and the plan's is made up each tick (on top of the plan's own change). */
-const FOLLOW = 0.5;
-/** A piece this far under its plan has fallen (a jump that missed): it's put at the leg's end. */
-const FELL = 2.5;
 /** Ticks a leg may run past its length at full speed before the piece is put at its end (something in the way). */
 const STUCK_SLACK = 30;
 /** How much of the gap to the piece's height the chase camera makes up each move (so a jump doesn't bob it). */
@@ -211,7 +199,7 @@ export class Pieces {
     state.walking = true;
     const startedAt = system.currentTick;
     let turns = 0;
-    let drift = 0;
+    const follow = newFollow();
     let stuck = 0;
     let miss = 0;
     try {
@@ -225,13 +213,12 @@ export class Pieces {
       for (let leg = 0; leg < points.length - 1; leg++) {
         const a = points[leg];
         const b = points[leg + 1];
-        const span = Math.hypot(b[0] - a[0], b[2] - a[2]);
+        const line = legOf(a, b);
+        const span = line.span;
         if (span < 0.05) {
           this.reached(passed[leg], options.reached);
           continue;
         }
-        const ux = (b[0] - a[0]) / span;
-        const uz = (b[2] - a[2]) / span;
         const yaw = yawTo(a, b);
         // The first leg's turn, where the player stands (later ones are made on arriving at a corner).
         if (Math.abs(angleGap(facing, yaw)) > TURN_OVER) {
@@ -247,28 +234,14 @@ export class Pieces {
         let ticks = 0;
         for (; ticks < budget && !this.scope.disposed && player.isValid; ticks++) {
           const at = player.location;
-          const along = (at.x - a[0]) * ux + (at.z - a[2]) * uz;
-          if (span - along <= perTick) break;
-          const side = (at.x - a[0]) * -uz + (at.z - a[2]) * ux;
-          drift = Math.max(drift, Math.abs(side));
-          const climb = climbAt(plan, along, at.y);
-          if (climb) {
-            // On a ladder or vines: held at the climbing spot, up or down at a climb's speed (a little
-            // over the top, so the feet clear its edge).
-            const forward = Math.max(-perTick, Math.min(perTick, (climb.at - along) * 0.5));
-            const up = climb.to > climb.from ? Math.min(CLIMB_SPEED, climb.to + 0.05 - at.y) : -Math.min(CLIMB_SPEED, at.y - climb.to);
-            this.push(player, { x: ux * forward + uz * side * STEER, z: uz * forward - ux * side * STEER }, up, true);
-          } else {
+          const next = followTick(plan, line, follow, at, perTick);
+          if (next.kind === "end") break;
+          if (next.kind === "skip") {
             // Fallen off (a jump that missed), or at what nothing gets it over: on to the leg's end.
-            if (at.y < heightAt(plan, along) - FELL || (plan.blocked !== undefined && along >= plan.blocked - PIECE_HALF)) {
-              ticks = budget;
-              break;
-            }
-            // The plan's change in height over this tick's step, and half the gap to it.
-            const here = heightAt(plan, along);
-            const up = heightAt(plan, along + perTick) - here + FOLLOW * (here - at.y);
-            this.push(player, { x: ux * perTick + uz * side * STEER, z: uz * perTick - ux * side * STEER }, up, airAt(plan, along));
+            ticks = budget;
+            break;
           }
+          this.push(player, next.want, next.up);
           if (settings.camera === "chase" && tick % CHASE_EVERY === 0) {
             cameraYaw += Math.max(-CAMERA_TURN * CHASE_EVERY, Math.min(CAMERA_TURN * CHASE_EVERY, angleGap(cameraYaw, yaw)));
             cameraY = cameraY === undefined ? at.y : cameraY + (at.y - cameraY) * CAMERA_RISE;
@@ -298,7 +271,7 @@ export class Pieces {
       state.space = landing.index;
       const seconds = ((system.currentTick - startedAt) / 20).toFixed(1);
       if (options.quiet) return;
-      this.host.report(player, `Walked ${steps} to space ${landing.index + 1} (${landing.type}) in ${seconds} s, ${length.toFixed(1)} blocks (${(length / ((system.currentTick - startedAt) / 20)).toFixed(1)} a second), ${turns} turns; at most ${drift.toFixed(2)} off a leg's line; ${miss.toFixed(2)} off the spot before it was put on it.`);
+      this.host.report(player, `Walked ${steps} to space ${landing.index + 1} (${landing.type}) in ${seconds} s, ${length.toFixed(1)} blocks (${(length / ((system.currentTick - startedAt) / 20)).toFixed(1)} a second), ${turns} turns; at most ${follow.drift.toFixed(2)} off a leg's line; ${miss.toFixed(2)} off the spot before it was put on it.`);
       await this.scope.wait(20);
       if (settings.camera !== "none") for (const watcher of this.host.watchers()) watcher.camera.clear();
     } catch (error) {
@@ -327,23 +300,19 @@ export class Pieces {
       return planLeg(this.host.terrain, a, b, perTick);
     } catch (error) {
       log.warn(`blockparty: planning a piece's walk failed: ${describeError(error)}`);
-      return { span: Math.hypot(b[0] - a[0], b[2] - a[2]), step: Math.max(0.05, Math.hypot(b[0] - a[0], b[2] - a[2])), heights: [a[1], b[1]], air: [false, false], climbs: [], climbTicks: 0 };
+      return { span: Math.hypot(b[0] - a[0], b[2] - a[2]), step: Math.max(0.05, Math.hypot(b[0] - a[0], b[2] - a[2])), heights: [a[1], b[1]], air: [false, false], ground: [a[1], b[1]], climbs: [], climbTicks: 0 };
     }
   }
 
   /**
-   * One tick's push: `step` blocks along the ground this tick (asked for less, as a push keeps part of
-   * the speed a player had: more of it in the air), and `up` blocks up (down when less than 0), the
-   * push's upward strength worked out from how fast they go up now (pushUp). A bot is set moving at
-   * both.
+   * One tick's push: `want` blocks along the ground this tick and `up` blocks up (down when less than
+   * 0), worked out from the speed the player has (knockbackFor). A bot is set moving at both.
    */
-  private push(player: Entity, step: { x: number; z: number }, up: number, air: boolean): void {
-    if (!isPlayer(player)) return moveBot(player, step.x, up, step.z);
+  private push(player: Entity, want: { x: number; z: number }, up: number): void {
+    if (!isPlayer(player)) return moveBot(player, want.x, up, want.z);
     try {
-      const gain = air ? AIR_GAIN : PUSH_GAIN;
-      // Along level ground nothing goes up (as before the plan).
-      const strength = !air && Math.abs(up) < 0.005 ? 0 : pushUp(up, player.getVelocity().y);
-      player.applyKnockback({ x: step.x / gain / KNOCKBACK_SPEED, z: step.z / gain / KNOCKBACK_SPEED }, strength);
+      const push = knockbackFor(want, up, player.getVelocity(), player.isOnGround);
+      player.applyKnockback({ x: push.x, z: push.z }, push.strength);
     } catch (error) {
       log.warn(`blockparty: pushing a piece failed: ${describeError(error)}`);
     }

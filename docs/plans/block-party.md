@@ -1114,47 +1114,77 @@ run. Then merge and Restart.
 
 **Built 2026-11-20** (the user asked for pieces that walk off ledges to the next spot, take stairs,
 jump before they hit a block, "and more", and picked gaps, ladders and vines, and slabs and partial
-blocks from the list; not a leap up 2 blocks or more). Not yet seen in game.
+blocks from the list; not a leap up 2 blocks or more).
+
+**The user's first look (2026-11-20):** almost none of it worked. Pieces stuck on the stairs' last
+step, at the bottom and the top of the ladders and on the void gap's far ledge; they seemed to jump
+to the space after the partial blocks and the water, and to teleport to the marker after the hurdle.
+Down the stairs and the drop of 2 were fine, and the camera's following worked great. **Pass 2**
+(the same day, not yet seen in game) found why with a headless check that walks a SimulatedPlayer
+over the test board exactly as the game does (`spike/blockparty/walk.ts`; with server-authoritative
+movement the server moves a real player the same way, and 6 of the 12 stretches failed there too):
+the server's raycast reports a full block's top as 0 inside it, so every full block read a block
+low and the plans dove into the floor; a ray goes through water; following half the gap to the plan
+each tick never reached a step's top (the feet stopped at 1.995 under 2.0, held by its edge); a
+finished climb was pulled back on to it; and a push asked the same along in the air as on the
+ground, so a piece in the air sped up to 0.5 a tick and fell behind its plan. All 12 stretches now
+get there in the check, a player and a bot, at 0.4 a tick with no stops (`docs/spike-results.md`,
+"Walking the test board").
 
 **What a piece does**, on each stretch (one space to the next, in a straight line), as a player
 would (`walk-plan.ts`):
 
 - **Steps up or down 0.6 blocks or less** (a slab, a stair, a carpet, snow, a space's marker): walked
-  on a slope, lifted a little before a step up (all the way up by the time its front meets it) and
-  let down just after a step down. Straight stairs are a slope of half-block steps.
+  on a slope, lifted before a step up (0.1 over its edge by the time its front meets it) and let
+  down once all of it is past a step down. Straight stairs are a slope of half-block steps.
 - **A step up of more than 0.6, up to 1.3** (a block): jumped before the piece gets to it. The jump
-  is picked from takeoffs up to 2.2 blocks before it and upward speeds 0.28 to 0.62 a tick (a
-  player's own is 0.42, which the pick leans to), flown as a player flies: it must clear everything
-  by 0.05 on the way up and come down about 0.9 onto the top.
+  is picked from takeoffs up to 2.2 blocks before it and upward speeds 0.28 to 0.62 a tick, leaning
+  hard to a player's own 0.42 (so it looks like a jump), flown as a player flies: it must clear
+  everything by 0.1 on the way up and come down onto the top (over its edge by 0.1), never into its
+  side, about 0.9 onto it.
 - **A block in the way it could only stand on for a moment** (a hurdle, a block deep): one arc over
-  it, not up and straight back down.
+  it, not up and straight back down, staying over it until all of the piece is past (a player moves
+  down before along, so the hurdle's back would catch it).
 - **A gap** (nothing under it, or water or lava, up to 4.5 ahead): jumped, landing about 0.9 onto the
   far side. A crack it's over for no more than 0.2 (under 0.8 wide) is walked over, as a running
   player does. Pieces never walk into water.
 - **A drop** (down more than 0.6, down to 10): walked off and fallen down, as a player falls
   (gravity 0.08 a tick, drag 0.98), still walking at its speed.
 - **A rise taller than a jump with a ladder or vines on it** (any of ladder, vine, twisting, weeping
-  and cave vines, scaffolding, in the block in front of the wall): it walks to 0.25 from the wall and
-  climbs at 0.15 a tick (vanilla's ladder speed), on up until its feet are over the top, then walks
-  on. **A drop with a ladder or vines** below its edge: it goes over the edge into the ladder's block
-  and climbs down.
+  and cave vines, scaffolding, in the block in front of the wall): it walks to 0.25 from the wall at
+  the height it's on and climbs at 0.15 a tick (vanilla's ladder speed), on up until its feet are 0.1
+  over the top, then walks on over it, never back onto the climb. **A drop with a ladder or vines**
+  below its edge: it goes over the edge into the ladder's block and climbs down.
 - **A rise taller than a jump with nothing to climb, or a fall into nothing**: nothing gets it over,
   so the walk puts the piece on the next space when it gets there (as a stuck walk always was).
 
 **How:** when a piece sets off on a stretch, the game reads the ground along it (`terrain.ts`): every
 0.1 blocks, the highest ground under the piece's width (it's 0.6 wide, so it stands on anything any
-part of it is over), each a ray straight down from 1.6 over its feet (a slab's half, a carpet's
-sixteenth), or from the first open block over a wall when that's inside one. Stairs are read from
-their states (a ray meets a stair's whole block), fences and walls stand 1.5 high, plants and vines
-aren't ground, and water and lava are no footing. A space's marker is ground at its top. From that
-ground it plans the feet's height all along the stretch, then each tick's push carries the plan's
-change in height over that tick's step, plus half the gap between where the piece is and the plan:
-a push sets how fast a player goes up, and down too (`docs/spike-results.md`, "A push down"), so the
-game works out the push that moves them as planned (`pushUp`), and asks less along in the air, where
-a push keeps more of the speed they had. A piece that falls 2.5 under its plan (a jump that missed)
-is put on the next space. A bot is set moving at the plan's speeds; a zombie following hops up to a
-block. The board camera and the chase camera follow a piece's height eased (30% of the gap a move),
-so a jump doesn't bob them.
+part of it is over), each a ray straight down from 1.6 over its feet (a slab's half, a daylight
+detector's 6 pixels, snow at its collision; a full block's top, which the server reports as 0 inside
+it, is its top; carpet the ray goes through, so its floor), or from the first open block over a wall
+when that's inside one. Stairs are read from their states (a ray meets a stair's whole block), fences
+and walls stand 1.5 high, plants and vines aren't ground, and water and lava are no footing (a ray
+goes through them, so the blocks over the ground it meets are looked at). A space's marker is ground
+at its top. From that ground it plans the feet's height all along the stretch, and each tick
+(`walk-follow.ts`):
+
+- **Along**, the push asks for what takes the piece a tick's step from the speed it has: a push keeps
+  part of it (half of what's left after friction, so more in the air), which the game reads
+  (`getVelocity`, on the ground or not).
+- **Up**, the plan's change in height over the step plus 70% of the gap to the plan: a push sets how
+  fast a player goes up, and down too (`docs/spike-results.md`, "A push down"), so the game works out
+  the push that moves them as planned (`pushUp`). Never under the ground its front sweeps that tick
+  (0.1 over it where it rises: a player moves up or down before along, so a dip under an edge it's
+  about to meet stops it there). Over walked ground, a piece over the plan is let straight down onto
+  it, a little under so it lands rather than hovers.
+- **Climbs** in order: it walks to a ladder's foot at the height it's on (the plan never looks past
+  the climb before it starts), climbs at its spot, and once off it walks on at its end.
+- **Stuck:** a piece that barely moves for 2 ticks is lifted 0.1 over what's ahead; 10 ticks more and
+  it's put on the next space. So is one that falls 2.5 under its plan (a jump that missed).
+
+A bot is set moving at the same speeds; a zombie following hops up to a block. The board camera and
+the chase camera follow a piece's height eased (30% of the gap a move), so a jump doesn't bob them.
 
 **Building for it:** keep each stretch between two spaces straight (a space at every corner, as
 always), and put what a piece gets over on that line, the path wide enough round it (3 is good).
@@ -1187,14 +1217,17 @@ each stretch:
 | 12 to 1 | A hurdle, jumped over | 0 to 0 |
 
 The types, Stars and openings are the old test board's. `test/walk-plan.test.ts` plans every stretch
-of it with each block's shape and checks each does what it has.
+of it with each block's shape (as the server's rays see them) and checks each does what it has, and
+follows each plan with a model of a pushed piece (down before along, stopped by any edge) to its end
+without a stop. `npx tsx spike/blockparty/walk.ts` (`--bot` for a bot) lays it on a throwaway server
+and walks it for real, printing each stretch's outcome and writing every tick to
+`spike/results/walk.json`: run it after changing the walk.
 
-**Not yet seen in game:** all of it. In particular: a push down on a real client (measured on the
-server's simulated players, as the push along was); a piece on a ladder (a client on a ladder slows
-to 0.15 along and down, which the climb keeps to); the ray's top for a slab, carpet, snow and the
-daylight detector; whether a ray meets a ladder (either way the climb is found); the stair and
-ladder states (`weirdo_direction`, `facing_direction`, `vine_direction_bits`) placing as written;
-corner stairs' left and right as Java's.
+**Not yet seen in game:** pass 2. The headless check runs the server's own physics, which moves a
+real player too (server-authoritative movement), so what's left for a look is how it looks on a
+client: the jumps' height, the stepped way down stairs (a player can't go down while any of them is
+over the step above), the climbs, and the pieces' speed (the walk's report says it: about 8 a
+second). Corner stairs' left and right as Java's aren't checked.
 
 ### /boardcheck
 
@@ -1668,4 +1701,6 @@ Every question is answered. These were taken without one; the user can change an
   tick at 0.25 from the wall, slopes 1 up and 1.6 down); a hurdle hopped over in one arc; no leap up
   a wall with nothing to climb (not picked): the piece is put on the next space; pieces never walk
   into water; the cameras' height eased; the test board's layout, 8 blocks apart, and its blocks
-  (stone brick stairs, smooth stone slabs, white carpet).
+  (stone brick stairs, smooth stone slabs, white carpet). Pass 2: the lip of 0.1 over edges and
+  climbs' tops, jumps leaning hard to 0.42, 70% of the gap to the plan each tick, lifted after 2
+  stalled ticks and put on the next space after 10 more.

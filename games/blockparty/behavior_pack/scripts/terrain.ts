@@ -1,9 +1,11 @@
 // Block Party: the board's ground as the walk reads it (walk-plan.ts plans each leg from it), out of
 // the world's blocks.
 //   - The ground at a point is found by a ray straight down (getBlockFromRay, its faceLocation on the
-//     top it meets: a slab's half, a carpet's sixteenth), from LOOK_UP over the piece's feet, or from
-//     the first open block over a wall when that's inside one. Plants, flowers and vines aren't
-//     ground (passable blocks); water and lava are no footing (a gap to jump).
+//     top it meets: a slab's half, snow at its collision; a full block's top comes back as 0), from
+//     LOOK_UP over the piece's feet, or from the first open block over a wall when that's inside
+//     one. Plants, flowers, vines and carpet aren't ground (passable blocks: a ray goes through);
+//     water and lava are no footing (a gap to jump), though a ray goes through them too
+//     (docs/spike-results.md, "Walking the test board").
 //   - Stairs are read from their states (stairTop): a ray meets a stair's whole block.
 //   - Fences and walls stand 1.5 high (a ray meets their block's top, a piece their collision's).
 //   - A space's marker is stood on (its invisible floor blocks, which rays don't meet), so the ground
@@ -42,6 +44,11 @@ export class WorldTerrain implements TerrainReader {
       if (cell?.isLiquid) return undefined;
       const hit = this.dimension.getBlockFromRay({ x, y: from, z }, DOWN, { maxDistance: from - near + MAX_DROP, includeLiquidBlocks: true, includePassableBlocks: false });
       if (!hit || hit.block.isLiquid) return undefined;
+      // The ray goes through water and lava (passable blocks, checked 2026-11-20): over the ground it
+      // met, they're no footing.
+      for (let y = hit.block.location.y + 1; y <= Math.floor(from); y++) {
+        if (this.dimension.getBlock({ x: bx, y, z: bz })?.isLiquid) return undefined;
+      }
       return onMarker(this.spaces(), x, z, surface(hit.block, hit.faceLocation.y, x, z));
     } catch {
       // unloaded, or out of the world
@@ -75,5 +82,7 @@ function surface(block: Block, faceY: number, x: number, z: number): number {
   if (id === FLOOR_BLOCK) return base;
   if (id.endsWith("_stairs")) return base + stairTop(block.permutation.getAllStates(), x - Math.floor(x), z - Math.floor(z));
   if (TALL.test(id)) return base + 1.5;
-  return base + faceY;
+  // A full block's top comes back as 0, not 1 (the server's raycast, checked 2026-11-20: a slab's is
+  // 0.5), and nothing a ray down stops on has its top at its block's bottom.
+  return base + (faceY < 0.001 ? 1 : faceY);
 }

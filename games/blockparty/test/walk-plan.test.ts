@@ -1,13 +1,16 @@
 // Block Party's walk over the ground (walk-plan.ts): what a leg's plan does over each kind of ground
 // (steps, blocks, hurdles, gaps, cracks, drops, ladders, walls, stairs), the push that carries a
-// tick's height, the world reader (terrain.ts) on the fake world, and the test board (test-board.ts):
-// its layout, its blocks, and a walk over every stretch of it doing what that stretch has.
+// tick's height, the world reader (terrain.ts) on the fake world and on the server's raycast
+// results, the test board (test-board.ts): its layout, its blocks, and a walk over every stretch of
+// it doing what that stretch has, and following each stretch's plan tick by tick (walk-follow.ts)
+// with a model of a pushed piece.
 import { afterEach, describe, expect, it } from "vitest";
-import { BlockPermutation, world } from "@minecraft/server";
+import { BlockPermutation, world, type Dimension } from "@minecraft/server";
 import { STAND, boardBox, type Space, type Vec3 } from "../behavior_pack/scripts/board.ts";
 import { WorldTerrain, onMarker } from "../behavior_pack/scripts/terrain.ts";
 import { TEST_SPACES, TEST_SPACING, layTestBoard, testBoardBlocks, testBoardSpaces } from "../behavior_pack/scripts/test-board.ts";
-import { CLIMBABLE, LOOK_UP, MAX_DROP, climbAt, heightAt, planLeg, pushUp, stairTop, type LegPlan, type TerrainReader } from "../behavior_pack/scripts/walk-plan.ts";
+import { AIR_KEEP, GROUND_KEEP, KNOCKBACK_SPEED, followTick, knockbackFor, legOf, newFollow } from "../behavior_pack/scripts/walk-follow.ts";
+import { CLIMBABLE, LIP, LOOK_UP, MAX_DROP, PIECE_HALF, heightAt, planLeg, pushUp, stairTop, type LegPlan, type TerrainReader } from "../behavior_pack/scripts/walk-plan.ts";
 
 const PER_TICK = 0.4;
 
@@ -131,12 +134,9 @@ describe("a leg's plan over the ground", () => {
     expect(leg.air.some(Boolean)).toBe(false);
     expect(leg.blocked).toBeUndefined();
     expect(heightAt(leg, climb.at - 0.2)).toBeCloseTo(0);
-    expect(heightAt(leg, climb.at + 0.2)).toBeCloseTo(3);
-    expect(climbAt(leg, climb.at, 0.5)).toBe(climb);
-    // Done once the feet are over the top, not a lip short of it.
-    expect(climbAt(leg, climb.at, 2.995)).toBe(climb);
-    expect(climbAt(leg, climb.at, 3.02)).toBeUndefined();
-    expect(climbAt(leg, 1, 0)).toBeUndefined();
+    // Past the spot, a lip over the top until all of the piece is over it, then the top.
+    expect(heightAt(leg, climb.at + 0.2)).toBeCloseTo(3 + LIP);
+    expect(heightAt(leg, 4)).toBeCloseTo(3);
     expect(leg.climbTicks).toBeGreaterThanOrEqual(20);
   });
 
@@ -159,8 +159,6 @@ describe("a leg's plan over the ground", () => {
     expect(leg.air.some(Boolean)).toBe(false);
     expect(heightAt(leg, climb.at - 0.15)).toBeCloseTo(2);
     expect(heightAt(leg, climb.at + 0.15)).toBeCloseTo(0);
-    expect(climbAt(leg, climb.at, 1.5)).toBe(climb);
-    expect(climbAt(leg, climb.at, 0)).toBeUndefined();
   });
 
   it("stops at a wall taller than a jump with nothing to climb", () => {
@@ -170,15 +168,27 @@ describe("a leg's plan over the ground", () => {
     expect(leg.climbs).toEqual([]);
   });
 
-  it("goes up straight stairs on a slope", () => {
+  it("goes up straight stairs on a slope, a lip over each edge as its front gets there", () => {
     const east = { weirdo_direction: 0, upside_down_bit: false };
-    const leg = plan(eastward((x) => (x < 3 ? 0 : x < 4 ? stairTop(east, x - 3, 0.5) : x < 5 ? 1 + stairTop(east, x - 4, 0.5) : 2)), 8);
+    const ground = (x: number) => (x < 3 ? 0 : x < 4 ? stairTop(east, x - 3, 0.5) : x < 5 ? 1 + stairTop(east, x - 4, 0.5) : 2);
+    const leg = plan(eastward(ground), 8);
     expect(leg.air.some(Boolean)).toBe(false);
     for (let i = 1; i < leg.heights.length; i++) {
-      expect(leg.heights[i]).toBeGreaterThanOrEqual(leg.heights[i - 1] - 1e-9);
+      // Up a step at most each sample, and down only off a lip.
+      expect(leg.heights[i]).toBeGreaterThanOrEqual(leg.heights[i - 1] - LIP - 1e-9);
       expect(leg.heights[i] - leg.heights[i - 1]).toBeLessThanOrEqual(leg.step + 1e-9);
     }
+    // At each edge (every half block from 3 to 4.5, where the top stair's high half is the top), over
+    // it by a lip as the piece's front meets it.
+    for (const edge of [3, 3.5, 4, 4.5]) expect(heightAt(leg, edge - PIECE_HALF - leg.step), `edge ${edge}`).toBeGreaterThanOrEqual(ground(edge) + LIP - 1e-6);
     expect(leg.heights.at(-1)).toBeCloseTo(2);
+  });
+
+  it("comes down onto a far side's top, never its side", () => {
+    // A gap of 2 to ground at the same height: the arc is over the far edge by a lip as it gets there.
+    const leg = plan(eastward((x) => (x >= 3 && x < 5 ? undefined : 0)), 8);
+    expect(airRuns(leg)).toHaveLength(1);
+    expect(heightAt(leg, 5 - PIECE_HALF - leg.step)).toBeGreaterThanOrEqual(LIP - 1e-6);
   });
 
   it("gives a stair's high half the side it faces, Java's shape for corners, and a full top upside down", () => {
@@ -235,6 +245,33 @@ describe("the ground as the world has it", () => {
     expect(terrain.ground(4.5, 0.5, 64)).toBeCloseTo(67);
     expect(terrain.ground(5.5, 0.5, 64)).toBeUndefined();
     expect(terrain.ground(20.5, 0.5, 64)).toBeUndefined();
+  });
+
+  it("reads a full block's top the server reports as 0 inside it, and no footing in water a ray goes through", () => {
+    // The server's raycast (checked 2026-11-20): a full block's top comes back as faceLocation.y 0, a
+    // slab's as 0.5, and a ray passes through water to the ground under it.
+    const blocks = new Map<string, { typeId: string; isAir: boolean; isLiquid: boolean }>();
+    const put = (x: number, y: number, typeId: string) => blocks.set(`${x},${y}`, { typeId, isAir: false, isLiquid: typeId === "minecraft:water" });
+    for (let x = 0; x <= 6; x++) put(x, 63, "minecraft:stone");
+    put(2, 64, "minecraft:smooth_stone_slab");
+    put(4, 64, "minecraft:water");
+    const air = { typeId: "minecraft:air", isAir: true, isLiquid: false };
+    const blockAt = (x: number, y: number) => blocks.get(`${Math.floor(x)},${Math.floor(y)}`) ?? air;
+    const stub = {
+      getBlock: (at: { x: number; y: number; z: number }) => ({ ...blockAt(at.x, at.y), location: { x: Math.floor(at.x), y: Math.floor(at.y), z: Math.floor(at.z) } }),
+      getBlockFromRay: (from: { x: number; y: number; z: number }) => {
+        for (let y = Math.floor(from.y); y > 50; y--) {
+          const block = blockAt(from.x, y);
+          if (block.isAir || block.isLiquid) continue;
+          return { block: { ...block, location: { x: Math.floor(from.x), y, z: 0 } }, faceLocation: { x: 0.5, y: block.typeId.endsWith("_slab") ? 0.5 : 0, z: 0.5 } };
+        }
+        return undefined;
+      },
+    } as unknown as Dimension;
+    const terrain = new WorldTerrain(stub, () => []);
+    expect(terrain.ground(0.5, 0.5, 64)).toBeCloseTo(64);
+    expect(terrain.ground(2.5, 0.5, 64)).toBeCloseTo(64.5);
+    expect(terrain.ground(4.5, 0.5, 64)).toBeUndefined();
   });
 
   it("reads stairs by their states, stands a piece on a marker's top, and knows a ladder", () => {
@@ -341,7 +378,112 @@ describe("the test board", () => {
     // The hurdle is one arc, the gaps are each one jump.
     for (const i of [3, 8, 11]) expect(airRuns(planLeg(reader, spaces[i].at, spaces[(i + 1) % 12].at, PER_TICK))).toHaveLength(1);
   });
+
+  it("follows every stretch's plan to its end without ever being stopped, a pushed piece moving down before along", () => {
+    const reader = boardReader(spaces, middle);
+    spaces.forEach((space, i) => {
+      const next = spaces[(i + 1) % spaces.length];
+      const walk = followModel(reader, space.at, next.at);
+      const what = `stretch ${i + 1} to ${((i + 1) % spaces.length) + 1}`;
+      expect(walk.outcome, what).toBe("end");
+      expect(walk.stopped, what).toBe(0);
+      expect(walk.y, what).toBeCloseTo(next.at[1], 1);
+    });
+  });
 });
+
+describe("a tick's push", () => {
+  it("asks along for what takes the piece a step from the speed it has (a push keeps part of it)", () => {
+    // A push gives 0.4 x its force plus what's kept of the speed before it (the rig's rule).
+    for (const onGround of [true, false])
+      for (const velocity of [{ x: 0, y: 0, z: 0 }, { x: 0.4, y: 0, z: 0 }, { x: 0.5, y: 0.2, z: -0.1 }]) {
+        const push = knockbackFor({ x: 0.4, z: 0 }, 0, velocity, onGround);
+        const keep = onGround ? GROUND_KEEP : AIR_KEEP;
+        expect(velocity.x * keep + KNOCKBACK_SPEED * push.x).toBeCloseTo(0.4);
+        expect(velocity.z * keep + KNOCKBACK_SPEED * push.z).toBeCloseTo(0);
+      }
+    // On the ground with nothing to go up, nothing goes up; else the strength that moves it as asked.
+    expect(knockbackFor({ x: 0.4, z: 0 }, 0, { x: 0.4, y: 0, z: 0 }, true).strength).toBe(0);
+    expect(knockbackFor({ x: 0.4, z: 0 }, 0.3, { x: 0.4, y: 0, z: 0 }, true).strength).toBe(pushUp(0.3, 0));
+  });
+
+  it("walks to a ladder's foot at the height it's on, climbs it to a lip over the top, and walks off without going back on", () => {
+    const reader = eastward(
+      (x) => (x < 3 ? 0 : 3),
+      (x, y) => x >= 2 && x < 3 && y >= 0 && y < 3,
+    );
+    const walk = followModel(reader, [0, 0, 0.5], [8, 3, 0.5]);
+    expect(walk.outcome).toBe("end");
+    expect(walk.stopped).toBe(0);
+    // Up at a climb's speed from the floor, never more than a climb's step a tick near the wall.
+    const climbing = walk.ticks.filter((tick) => tick.climbing);
+    expect(climbing.length).toBeGreaterThanOrEqual(20);
+    expect(climbing[0].y).toBeCloseTo(0, 1);
+    for (const tick of walk.ticks) if (tick.s > 2 && tick.s < 3) expect(Math.abs(tick.dy)).toBeLessThanOrEqual(0.16);
+    // One climb: once off it, never on it again.
+    const firstOff = walk.ticks.findIndex((tick, k) => k > 0 && !tick.climbing && walk.ticks[k - 1].climbing);
+    expect(walk.ticks.slice(firstOff).some((tick) => tick.climbing)).toBe(false);
+    expect(walk.y).toBeCloseTo(3, 1);
+  });
+
+  it("is lifted when it stops getting anywhere, and put at the leg's end when that doesn't help", () => {
+    // A wall the plan doesn't know about (the ground changed after it was planned): stopped there.
+    const planned = planLeg(eastward(() => 0), [0, 0, 0.5], [8, 0, 0.5], PER_TICK);
+    const walk = followModel(eastward((x) => (x >= 4 && x < 5 ? 3 : 0)), [0, 0, 0.5], [8, 0, 0.5], planned);
+    expect(walk.outcome).toBe("stuck");
+    expect(walk.ticks.some((tick) => tick.dy > 0.05)).toBe(true);
+  });
+});
+
+/** The ground under a piece at `s` along a leg (the highest under its footprint), looked for from about `near`. */
+function footGround(reader: TerrainReader, leg: ReturnType<typeof legOf>, s: number, near: number): number | undefined {
+  let best: number | undefined;
+  for (let d = -PIECE_HALF; d <= PIECE_HALF + 1e-9; d += 0.1)
+    for (const c of [-0.25, 0, 0.25]) {
+      const g = reader.ground(leg.a[0] + leg.ux * (s + d) - leg.uz * c, leg.a[2] + leg.uz * (s + d) + leg.ux * c, near);
+      if (g !== undefined && (best === undefined || g > best)) best = g;
+    }
+  return best;
+}
+
+/**
+ * A pushed piece following a leg's plan tick by tick (walk-follow.ts), as the server moves a pushed
+ * player (spike/blockparty/walk.ts): each push moves it as asked, up or down first (not into the
+ * ground still under it), then along, stopped by anything higher than its feet on the way (no step
+ * up, as for a piece in the air); on a climb it goes where it's pushed. `stopped`: the ticks it was
+ * stopped along.
+ */
+function followModel(reader: TerrainReader, from: Vec3, to: Vec3, given?: LegPlan) {
+  const leg = legOf(from, to);
+  const plan = given ?? planLeg(reader, from, to, PER_TICK);
+  const state = newFollow();
+  let s = 0;
+  let y = from[1];
+  let stopped = 0;
+  const ticks: { s: number; y: number; dy: number; climbing: boolean }[] = [];
+  for (let tick = 0; tick < 200; tick++) {
+    const step = followTick(plan, leg, state, { x: leg.a[0] + leg.ux * s, y, z: leg.a[2] + leg.uz * s }, PER_TICK);
+    if (step.kind === "end") return { outcome: "end", y, stopped, ticks };
+    if (step.kind === "skip") return { outcome: step.why, y, stopped, ticks };
+    let y2 = y + step.up;
+    const under = footGround(reader, leg, s, y);
+    if (!step.climbing && under !== undefined && y2 < under) y2 = under;
+    let s2 = s + step.want.x * leg.ux + step.want.z * leg.uz;
+    if (!step.climbing)
+      for (let m = s + 0.05; m <= s2 + 1e-9; m += 0.05) {
+        const g = footGround(reader, leg, m, y2);
+        if (g !== undefined && g > y2 + 1e-6) {
+          s2 = s;
+          stopped++;
+          break;
+        }
+      }
+    ticks.push({ s, y, dy: y2 - y, climbing: step.climbing });
+    s = s2;
+    y = y2;
+  }
+  return { outcome: "out of time", y, stopped, ticks };
+}
 
 /**
  * The test board's blocks as a piece stands on them in game: a look down meets each block's top (a
@@ -357,12 +499,13 @@ function boardReader(spaces: readonly Space[], middle: Vec3): TerrainReader {
   for (const { from, to, block } of fills)
     for (let x = from[0]; x <= to[0]; x++) for (let y = from[1]; y <= to[1]; y++) for (let z = from[2]; z <= to[2]; z++) cells.set(key(x, y, z), { block, states: {} });
   for (const { at, block, states } of blocks) cells.set(key(at[0], at[1], at[2]), { block, states });
-  const passable = (cell: Cell) => cell.block === "minecraft:ladder" || cell.block === "minecraft:vine";
+  // As the server's raycast has them (spike/blockparty/walk.ts): it passes through carpet, and meets
+  // snow at its collision, a layer under its look.
+  const passable = (cell: Cell) => cell.block === "minecraft:ladder" || cell.block === "minecraft:vine" || cell.block === "minecraft:white_carpet";
   const top = (cell: Cell, fx: number, fz: number): number => {
     if (cell.block.endsWith("_stairs")) return stairTop(cell.states, fx, fz);
     if (cell.block === "minecraft:smooth_stone_slab") return 0.5;
-    if (cell.block === "minecraft:white_carpet") return 1 / 16;
-    if (cell.block === "minecraft:snow_layer") return (Number(cell.states.height) + 1) / 8;
+    if (cell.block === "minecraft:snow_layer") return Number(cell.states.height) / 8;
     if (cell.block === "minecraft:daylight_detector") return 6 / 16;
     return 1;
   };

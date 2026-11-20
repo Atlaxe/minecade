@@ -1,12 +1,14 @@
 // Block Party's walk over the ground between spaces (docs/plans/block-party.md, "Moving over the
 // board"): what a piece does on each stretch of its walk (a leg: one space to the next, in a straight
 // line), planned once from the blocks along it when the leg starts, then followed tick by tick
-// (pieces.ts). Like a player would:
+// (walk-follow.ts). Like a player would:
 //   - anything up or down by STEP at most (a slab, a stair, a carpet, a space's marker) is walked,
-//     on a slope: lifted a little before a step up, let down a little after a step down;
+//     on a slope: lifted before a step up (to a lip over its edge as the piece's front gets there),
+//     let down a little after a step down;
 //   - a step up of more than STEP, up to JUMP_UP (a block), is jumped before the piece gets to it,
-//     on an arc picked to clear it and land a block on; a block in the way that it can't stand on
-//     (a hurdle) is jumped over in one arc;
+//     on an arc picked to clear it and come down onto its top (never its side), as near a player's
+//     own jump as fits; a block in the way that it can't stand on (a hurdle) is jumped over in one
+//     arc, clear of its back (a player moves down before along, so the back would catch it);
 //   - a gap (nothing under it, or water or lava) is jumped when its far side is within MAX_GAP; a
 //     crack narrower than WALK_OVER is walked over, as a running player does;
 //   - a drop is walked off and fallen down;
@@ -32,6 +34,11 @@ export const MAX_GAP = 4.5;
 export const LOOK_UP = 1.6;
 /** How far down the ground is looked for (deeper is a fall into nothing). */
 export const MAX_DROP = 10;
+/**
+ * How far over a step's edge a piece is lifted as it gets there, and over a climb's top: a pushed
+ * piece in the air doesn't step up even a hair, and the walk follows its plan only so closely.
+ */
+export const LIP = 0.1;
 /** A climb's speed (a ladder or vines), in blocks a tick: vanilla's own on a ladder. */
 export const CLIMB_SPEED = 0.15;
 /** The blocks a piece climbs. */
@@ -60,10 +67,8 @@ const PLAIN_JUMP = 0.42;
 const TAKEOFF_REACH = 2.2;
 /** Where a jump best lands: this far past where the far side's ground first comes under the piece (all of it on, and a little more). */
 const LAND_PAST = 0.9;
-/** A jump that meets the ground this far under its top hit its side, not its top. */
-const SIDE_HIT = 0.3;
-/** How far over anything a rising jump stays (a pushed piece doesn't step up even a lip). */
-const CLEAR = 0.05;
+/** How far over anything a jump stays, rising, and over an edge it comes down past. */
+const CLEAR = LIP;
 /** A landing on ground that changes again within this far (a hurdle's top: a block deep is 1.6 under a piece) counts BRIEF against it, so a jump over it wins. */
 const MIN_STAY = 2;
 const BRIEF = 3;
@@ -108,6 +113,8 @@ export interface LegPlan {
   heights: number[];
   /** Whether the piece is off the ground there (in a jump or a fall). */
   air: boolean[];
+  /** The ground under the piece there (the highest anywhere under it), null for none (a gap). */
+  ground: (number | null)[];
   climbs: Climb[];
   /** Where nothing gets the piece on: the walk puts it at the leg's end when it gets there. */
   blocked?: number;
@@ -130,7 +137,7 @@ interface Arc {
  */
 export function planLeg(reader: TerrainReader, from: Vec3, to: Vec3, perTick: number): LegPlan {
   const span = Math.hypot(to[0] - from[0], to[2] - from[2]);
-  if (span < 0.05) return { span, step: 1, heights: [from[1], to[1]], air: [false, false], climbs: [], climbTicks: 0 };
+  if (span < 0.05) return { span, step: 1, heights: [from[1], to[1]], air: [false, false], ground: [from[1], to[1]], climbs: [], climbTicks: 0 };
   const n = Math.max(1, Math.round(span / SAMPLE));
   const ds = span / n;
   const ux = (to[0] - from[0]) / span;
@@ -208,6 +215,8 @@ export function planLeg(reader: TerrainReader, from: Vec3, to: Vec3, perTick: nu
   while (j < n) {
     const next = ground[j + 1];
     if (next !== undefined && Math.abs(next - level) <= STEP) {
+      // A step up: over its edge by a lip as the piece's front gets to it (the slope lifts it there).
+      if (next > level + 0.01) heights[j] = Math.max(heights[j], next + LIP);
       level = next;
       j++;
       heights[j] = level;
@@ -231,9 +240,10 @@ export function planLeg(reader: TerrainReader, from: Vec3, to: Vec3, perTick: nu
         }
         const spot = Math.max(since * ds, face - PIECE_HALF - CLIMB_GAP);
         climbs.push({ at: spot, from: level, to: top });
-        // Up the climb, then on over the top: the heights past the climbing spot are the top's.
+        // Up the climb, then on over the top: the heights past the climbing spot are the top's, and a
+        // lip over it until all of the piece is over it.
         for (let k = Math.floor(spot / ds) + 1; k <= j; k++) {
-          heights[k] = top;
+          heights[k] = top + LIP;
           walked[k] = false;
         }
         level = top;
@@ -302,7 +312,7 @@ export function planLeg(reader: TerrainReader, from: Vec3, to: Vec3, perTick: nu
   // A step on a slope: each walked height is lifted toward a step up just ahead and kept up after a
   // step down just behind, within the same stretch of walking.
   const smooth = heights.slice();
-  const upReach = Math.ceil(STEP / SLOPE_UP / ds);
+  const upReach = Math.ceil((STEP + LIP) / SLOPE_UP / ds);
   const downReach = Math.ceil(STEP / SLOPE_DOWN / ds);
   for (let k = 0; k <= n; k++) {
     if (!walked[k]) continue;
@@ -312,7 +322,7 @@ export function planLeg(reader: TerrainReader, from: Vec3, to: Vec3, perTick: nu
     smooth[k] = h;
   }
   const climbTicks = climbs.reduce((sum, climb) => sum + Math.ceil(Math.abs(climb.to - climb.from) / CLIMB_SPEED) + 10, 0);
-  return { span, step: ds, heights: smooth, air, climbs, ...(blocked !== undefined ? { blocked } : {}), climbTicks };
+  return { span, step: ds, heights: smooth, air, ground: ground.map((g) => g ?? null), climbs, ...(blocked !== undefined ? { blocked } : {}), climbTicks };
 
   /** The first sample from `k` on where the ground is back within a step of the walking height. */
   function backAt(k: number): number | undefined {
@@ -346,7 +356,7 @@ export function planLeg(reader: TerrainReader, from: Vec3, to: Vec3, perTick: nu
       for (const up of JUMP_SPEEDS) {
         const arc = flight(t, heights[t], up, farSide);
         if (!arc) continue;
-        const score = 4 * Math.abs(up - PLAIN_JUMP) + Math.abs(arc.land * ds - (farSide * ds + LAND_PAST)) + 0.3 * (edge - t) * ds + (brief(arc) ? BRIEF : 0);
+        const score = 10 * Math.abs(up - PLAIN_JUMP) + Math.abs(arc.land * ds - (farSide * ds + LAND_PAST)) + 0.3 * (edge - t) * ds + (brief(arc) ? BRIEF : 0);
         if (!best || score < best.score) best = { arc, score };
       }
     }
@@ -369,6 +379,9 @@ export function planLeg(reader: TerrainReader, from: Vec3, to: Vec3, perTick: nu
     let y = y0;
     let v = up;
     let k = t + 1;
+    let before = y0;
+    /** Samples in a tick's step. */
+    const lag = Math.max(1, Math.round(perTick / ds));
     for (let tick = 0; tick < 200; tick++) {
       const s2 = s + perTick;
       const y2 = y + v;
@@ -376,11 +389,21 @@ export function planLeg(reader: TerrainReader, from: Vec3, to: Vec3, perTick: nu
         const yk = y + (y2 - y) * ((k * ds - s) / perTick);
         const g = ground[k];
         if (g !== undefined && v > 0 && yk < g + CLEAR) return undefined;
+        if (v <= 0) {
+          // Coming down, a player moves down before along, so it can't go under ground that was under
+          // it a tick back: higher ground there (a hurdle's back) would catch it.
+          let behind = -Infinity;
+          for (let m = Math.max(t + 1, k - lag); m < k; m++) behind = Math.max(behind, ground[m] ?? -Infinity);
+          if (behind > (g ?? -Infinity) + 0.01 && yk < behind - 0.01) return undefined;
+        }
         if (g !== undefined && yk < g - 0.01) {
-          if (k < farSide || g - yk > SIDE_HIT) return undefined;
+          // Down onto its top: over it the sample before (and by a lip over an edge there), else into its side.
+          const edge = (ground[k - 1] ?? -Infinity) < g - 0.01;
+          if (k < farSide || before < g + (edge ? CLEAR : 0)) return undefined;
           return { from: t, land: k, landY: g, heights: path };
         }
         path.push(yk);
+        before = yk;
         k++;
       }
       if (k > n || y2 < y0 - MAX_DROP) return undefined;
@@ -431,17 +454,6 @@ export function heightAt(plan: LegPlan, s: number): number {
   const a = Math.floor(i);
   const b = Math.min(heights.length - 1, a + 1);
   return heights[a] + (heights[b] - heights[a]) * (i - a);
-}
-
-/** Whether the piece is planned off the ground at `s` (a jump or a fall). */
-export function airAt(plan: LegPlan, s: number): boolean {
-  const i = Math.round(Math.max(0, Math.min(plan.air.length - 1, s / plan.step)));
-  return plan.air[i] ?? false;
-}
-
-/** The climb a piece at `s` along the leg, its feet at `y`, is on, if any (at its spot, and not at its end yet: up, its feet over the top, as a pushed piece doesn't step up even a lip). */
-export function climbAt(plan: LegPlan, s: number, y: number): Climb | undefined {
-  return plan.climbs.find((climb) => s >= climb.at - 0.15 && s <= climb.at + 0.4 && (climb.to > climb.from ? y < climb.to + 0.01 : y > climb.to + 0.03));
 }
 
 /**

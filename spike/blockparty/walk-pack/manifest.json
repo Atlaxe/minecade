@@ -1,0 +1,18 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Minecade Block Party Walk Check",
+    "description": "Spike: a SimulatedPlayer walked over Block Party's test board as the game walks a piece",
+    "uuid": "6b1e9d47-3c25-4f8a-a0d6-92e4b7c13f58",
+    "version": [1, 0, 0],
+    "min_engine_version": [1, 26, 60]
+  },
+  "modules": [
+    { "type": "script", "language": "javascript", "uuid": "c4a8f2e6-9d13-4b70-8e5a-1f7d3b6c9a24", "version": [1, 0, 0], "entry": "scripts/main.js" },
+    { "type": "data", "uuid": "e2d7b5a1-6f48-4c93-b1e0-7a9c4d2f8e65", "version": [1, 0, 0] }
+  ],
+  "dependencies": [
+    { "module_name": "@minecraft/server", "version": "2.11.0" },
+    { "module_name": "@minecraft/server-gametest", "version": "1.0.0-beta" }
+  ]
+}

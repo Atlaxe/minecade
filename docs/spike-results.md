@@ -140,6 +140,23 @@ Same rig, BDS 1.26.60.6, two more case fields: `up` (the victim starts that many
 
 Rerun: `npx tsx spike/knockback/run.ts <cases.json>` with cases like `{ "id": "air-neg02", "mode": "vanilla", "hits": [], "up": 3, "pushes": [0, 20, 0.5, -0.2], "ticks": 20 }`. The first pushed tick after the `up` teleport moved 1.2 x `v` (the teleport's settling ticks); the rule holds from the second.
 
+### Walking the test board (checked 2026-11-20)
+
+`npx tsx spike/blockparty/walk.ts [--bot] [--only 0,3]` boots a throwaway BDS (`minecade-bpwalk`, no published ports) on a void world, lays Block Party's test board with its markers' floors, and walks a SimulatedPlayer (`--bot`: the game's bot entity, moved as `bots.ts` moves it) over each of the 12 stretches with the game's own code: `walk-pack/main.ts` bundles `test-board.ts`, `terrain.ts`, `walk-plan.ts` and `walk-follow.ts`. It prints each stretch's outcome and writes every tick (place, speed, the plan's target, the push) to `spike/results/walk.json`. Asked after the user's first look at the walk over the ground, where almost nothing worked; 6 of the 12 stretches failed the same way here (the server moves a real player with the same physics: server-authoritative movement).
+
+| Question | Finding |
+|---|---|
+| A ray down onto a full block's top | `getBlockFromRay` reports the block and face `Up` with **`faceLocation.y` 0, not 1** (the hit's fraction of a block): smooth stone, and a stair's high half. A slab's top is 0.5 and a daylight detector's 0.375, so only tops at a block's edge wrap. `terrain.ts` read every full block a block low, and the plans dove into the floor: the main cause of the user's look. It now takes 0 as 1 (nothing a ray down stops on has its top at its block's bottom). `packages/guns/src/arsenal.ts`'s `groundUnder` adds `faceLocation.y` the same way. |
+| A ray down over water | With `includeLiquidBlocks: true` and `includePassableBlocks: false`, the ray goes **through** the water to the basin's floor (a liquid is passable). `terrain.ts` now looks at the blocks over the ground it meets. |
+| Carpet and snow | A ray goes through carpet (passable) to the block under it, and meets snow layers at their collision (4 layers deep: 0.375, a layer under its look). |
+| Down before along | A player's tick moves up or down first, where they are, then along. A piece still partly over an edge can't go down that tick, and one asked under an edge it's about to meet stops against it: coming off a slab toward a marker, feet 0.007 under the marker's top held it 2 ticks. The walk keeps over whatever its front sweeps, and jumps stay over a hurdle until all of the piece is past. |
+| Following half the gap | Never gets there: on the stairs' last step the feet crept to 1.995 under the top's 2.0 and its edge held them for good. A lip of 0.1 over every edge (and over a climb's top) and 70% of the gap a tick fix it. |
+| A finished climb | With the plan's height at the ladder's spot halfway between its foot and its top, the follow pulled the piece back onto the climb, again and again (the user's stuck at the top and bottom of the ladders). Climbs now go in order, and the plan never looks past one before it starts. |
+| Stepping up | A pushed player on the ground **does** step up by themselves: asked 0.307 up at a marker's edge, they went the marker's full 0.375. In the air (any push up), not at all. |
+| `getVelocity` on a pushed player | Reads the last tick's move. A push keeps it x 0.273 on the ground (half of friction's 0.546) and x 0.455 in the air (half of 0.91), then adds 0.4 x the force. Asking the ground's fixed 1 / 1.375 everywhere let a piece in the air (any slope up) speed up to 0.5 a tick and fall behind its plan; each push now asks for exactly a step from the speed read. |
+| Before | The ladders (down 2, up 3), the block up, the void gap and the hurdle: stuck (plans a block low); the partial blocks: blocked (read as walls); the other 6 got there. With only the reader fixed, the stairs up stuck on their last step (half the gap) and the water's plan walked into it. |
+| After | All 12 get there, a player and a bot alike, at 0.4 a tick with no stops; within 0.16 of the plan going up and on jumps; jumps peak 0.9 to 1.25 over their takeoff; climbs 0.15 a tick from the foot, 0.1 over the top, then on. Going down lags the plan by up to half a block (down before along): a stepped way down, a stair at a time. |
+
 ## Block physics (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-11)
 
 Measured on a throwaway BDS (`npx tsx spike/physics/run.ts`): red concrete powder, sand and an anvil
