@@ -78,6 +78,7 @@ import { Moves, PLAYER_ANIMATION } from "./moves.ts";
 import { Transfers } from "./transfers.ts";
 import { ITEM_IDS } from "./items.ts";
 import type { Token } from "./tokens.ts";
+import type { Pass } from "./handovers.ts";
 import { TEST_WORDS, type TestWord } from "./tests-menu.ts";
 import { TurnFade } from "./fade.ts";
 import { SpaceMarkers } from "./space-markers.ts";
@@ -510,6 +511,7 @@ export class BlockPartySpike extends Minigame<Config> {
       toStart: (who) => (who.player ? this.backOnBoard(who) : this.scope.timeout(() => this.backOnBoard(who), BOTS_AFTER)),
       cameraTaken: (seconds) => this.boardCamera?.take(seconds),
       cameraBack: () => this.boardCamera?.giveBack() ?? false,
+      shotUp: () => this.boardCamera?.held ?? true,
       moves: this.moves,
       select: (space) => this.markers.select(space),
     });
@@ -559,6 +561,8 @@ export class BlockPartySpike extends Minigame<Config> {
       // On the minigame podium a mood is held until everyone goes back (the user), and on the final podium too.
       react: (who, set, hold) => this.moves.player(who.body, set, hold ?? this.runner.onPodium),
       transfer: (from, to, token, count) => this.transfers.give(from, to, token, count),
+      leave: (from, ways, token) => this.transfers.leave(from, ways, token),
+      arrive: (to, from, token, count) => this.transfers.arrive(to, from, token, count),
       confetti: (who) => confettiOver(who.body),
       zombies: this.zombies,
       random: () => this.ctx.random(),
@@ -1725,13 +1729,23 @@ export class BlockPartySpike extends Minigame<Config> {
   /**
    * Transfer animations (Tests): each kind of transfer played round the player, shown only (nobody's
    * coins or hands change). An NPC that gives or takes stands a few blocks in front of them for it.
+   * Seat to seat ones are hand-overs (handovers.ts): the camera on the giver, then on each taker.
    */
   private async transfersForm(player: Player): Promise<void> {
     const random = () => this.ctx.random();
     const item = (): Token => ({ kind: "item", id: ITEM_IDS[Math.floor(random() * ITEM_IDS.length)] });
     const dieIds = Object.keys(DICE);
     const die = (): Token => ({ kind: "die", id: dieIds[Math.floor(random() * dieIds.length)] });
-    const other = () => [...world.getAllPlayers().filter((one) => one.name !== player.name).map(whoOf), ...this.bots.all()][0];
+    const others = () => [...world.getAllPlayers().filter((one) => one.name !== player.name).map(whoOf), ...this.bots.all()];
+    // A hand-over between seats, shown only: the camera's cuts and the tokens (the loop plays it as a pass would).
+    const handOver = async (passes: (them: readonly Who[], me: Who) => Pass[], me: Who) => {
+      const them = others();
+      if (them.length === 0) {
+        this.tell(player, "Nobody else is here: start with a bot, or have someone join.");
+        return;
+      }
+      await this.loop.playPasses(passes(them, me));
+    };
     const demos: [string, string | undefined, (npc: Entity | undefined, me: Who) => Promise<void>][] = [
       ["10 coins from Chris", "chris", (npc, me) => this.transfers.give(npc, me, "coin", 10)],
       ["25 coins to Chris", "chris", (npc, me) => this.transfers.give(me, npc, "coin", 25)],
@@ -1746,11 +1760,13 @@ export class BlockPartySpike extends Minigame<Config> {
       ["3 coins from the bank (a Blue space)", undefined, (_npc, me) => this.transfers.give(undefined, me, "coin", 3)],
       ["3 coins lost (a Red space)", undefined, (_npc, me) => this.transfers.give(me, undefined, "coin", 3)],
       ["A Star lost", undefined, (_npc, me) => this.transfers.give(me, undefined, "star", 1)],
-      ["5 coins to another player or a bot", undefined, async (_npc, me) => {
-        const them = other();
-        if (them) await this.transfers.give(me, them, "coin", 5);
-        else this.tell(player, "Nobody else is here: start with a bot, or have someone join.");
-      }],
+      ["Hand-over: 5 coins to another player or a bot", undefined, (_npc, me) => handOver((them) => [{ from: me.key, to: them[0].key, token: "coin", count: 5 }], me)],
+      ["Hand-over: 3 coins to each of the others", undefined, (_npc, me) => handOver((them) => them.map((one) => ({ from: me.key, to: one.key, token: "coin" as const, count: 3 })), me)],
+      ["Hand-over: a Star from another player or a bot", undefined, (_npc, me) => handOver((them) => [{ from: them[0].key, to: me.key, token: "star", count: 1 }], me)],
+      ["Hand-over: items passed round (Gift Exchange)", undefined, (_npc, me) => handOver((them) => {
+        const ring = [me, ...them];
+        return ring.map((one, i) => ({ from: one.key, to: ring[(i + 1) % ring.length].key, token: item(), count: 1 }));
+      }, me)],
     ];
     const form = new ActionFormData().title("Transfer animations").body("Each one plays round you. Shown only: nobody's coins change.");
     for (const [label] of demos) form.button(label);

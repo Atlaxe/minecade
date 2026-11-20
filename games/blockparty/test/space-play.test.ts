@@ -60,6 +60,8 @@ function fake(round = 5, of = 15): Fake {
     bonusRoll: vi.fn(async () => {}),
     duel: vi.fn(async () => {}),
     transfer: vi.fn(async () => {}),
+    pass: vi.fn(),
+    handOver: vi.fn(async () => {}),
     showResults: vi.fn(async () => {}),
   };
   const here = () => names.map((name) => who[name.toLowerCase()]);
@@ -158,6 +160,19 @@ describe("Block Party's Chance Time", () => {
     await f.spaces.chanceOutcome(f.who.alex, "shooting_star", true);
     expect(f.seats.get("sam")!.stars).toBe(1);
     expect(f.seats.get("kim")!.stars).toBe(1);
+    // A hand-over: the camera on Sam as the Star goes, then on Kim as it lands (the results show it).
+    expect(f.calls.pass).toHaveBeenCalledWith(f.who.sam, f.who.kim, "star", 1);
+    expect(f.calls.transfer).not.toHaveBeenCalled();
+  });
+
+  it("hands the difference from the richer to the poorer with a Coin Swap", async () => {
+    const f = fake();
+    f.seats.get("sam")!.coins = 25;
+    f.answers.push(0);
+    await f.spaces.chanceOutcome(f.who.alex, "coin_swap", false);
+    expect(f.seats.get("alex")!.coins).toBe(25);
+    expect(f.seats.get("sam")!.coins).toBe(10);
+    expect(f.calls.pass).toHaveBeenCalledWith(f.who.sam, f.who.alex, "coin", 15);
   });
 
   it("gives last place a coupon with a Half-price Star, and sends a zombie to the leader with Zombie Outbreak", async () => {
@@ -171,7 +186,7 @@ describe("Block Party's Chance Time", () => {
     expect(f.zombies.add).toHaveBeenCalledWith("sam");
   });
 
-  it("passes everyone's item on with Gift Exchange, all at once", async () => {
+  it("passes everyone's item on with Gift Exchange, all at once, shown giver by giver", async () => {
     const f = fake();
     f.seats.get("alex")!.hands.items.push("glove");
     f.seats.get("sam")!.hands.items.push("lightning");
@@ -179,9 +194,12 @@ describe("Block Party's Chance Time", () => {
     expect(f.seats.get("alex")!.hands.items).toEqual([]);
     expect(f.seats.get("sam")!.hands.items).toEqual(["glove"]);
     expect(f.seats.get("kim")!.hands.items).toEqual(["lightning"]);
-    // Each item flies from the giver's head to the taker's (chat is hidden on the board).
-    expect(f.calls.transfer).toHaveBeenCalledWith(f.who.alex, f.who.sam, { kind: "item", id: "glove" }, 1);
-    expect(f.calls.transfer).toHaveBeenCalledWith(f.who.sam, f.who.kim, { kind: "item", id: "lightning" }, 1);
+    // A hand-over: the camera on each giver as their item goes, then on its taker as it lands.
+    expect(f.calls.pass.mock.calls).toEqual([
+      [f.who.alex, f.who.sam, { kind: "item", id: "glove" }, 1],
+      [f.who.sam, f.who.kim, { kind: "item", id: "lightning" }, 1],
+    ]);
+    expect(f.calls.handOver).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -204,6 +222,8 @@ describe("Block Party's Warden", () => {
     await f.spaces.warden(f.who.alex);
     expect(f.seats.get("alex")!.coins).toBe(4);
     expect(f.seats.get("sam")!.coins).toBe(13);
+    // Shown after its line, while the Warden is still there.
+    expect(f.calls.handOver).toHaveBeenCalled();
     const g = fake();
     g.seats.get("alex")!.stars = 2;
     g.spaces.forced.warden = "star_tax";

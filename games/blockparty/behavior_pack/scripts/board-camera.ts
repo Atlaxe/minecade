@@ -172,6 +172,11 @@ export class BoardCamera {
     return this.host.engaged();
   }
 
+  /** Whether another shot has the camera (take) and it hasn't been given back, or taken back after a minigame. */
+  get held(): boolean {
+    return this.taken;
+  }
+
   /** The shot on screen now (the board view's), if it's up. */
   get shot(): CameraShot | undefined {
     return this.wasEngaged && !this.taken ? this.last : undefined;

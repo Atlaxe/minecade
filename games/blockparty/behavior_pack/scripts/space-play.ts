@@ -18,7 +18,6 @@
 import type { BoardLoop, LoopHost } from "./board-loop.ts";
 import { addCoins, count } from "./board-rules.ts";
 import type { Who } from "./bots.ts";
-import type { ItemId } from "./dice-items.ts";
 import type { ButtonIcon } from "./dialogue-codes.ts";
 import type { ItemPlay } from "./item-play.ts";
 import { button, line } from "./lines.ts";
@@ -396,10 +395,10 @@ export class SpacePlay {
         const theirs = target ? this.loop.seatOf(target.key) : undefined;
         if (!target || !theirs) break;
         [seat.coins, theirs.coins] = [theirs.coins, seat.coins];
-        // The difference flies from the one who had more to the one who had less.
+        // The difference goes from the one who had more to the one who had less (a hand-over, after the line).
         const gained = seat.coins - theirs.coins;
-        if (gained > 0) void this.loop.transfer(target, who, "coin", gained);
-        else if (gained < 0) void this.loop.transfer(who, target, "coin", -gained);
+        if (gained > 0) this.loop.pass(target, who, "coin", gained);
+        else if (gained < 0) this.loop.pass(who, target, "coin", -gained);
         this.host.changed();
         await this.host.stage.twoSeats(who, target, "chance.coin-swap");
         await this.host.say("chance.coin-swap", { player: who.name, other: target.name }, false, who);
@@ -473,7 +472,7 @@ export class SpacePlay {
         if (!from || !to || from.stars <= 0) break;
         from.stars--;
         to.stars++;
-        void this.loop.transfer(ends.leader, ends.last, "star", 1);
+        this.loop.pass(ends.leader, ends.last, "star", 1);
         this.host.changed();
         await this.host.stage.twoSeats(ends.leader, ends.last, "chance.shooting-star", "Pan");
         await this.host.say("chance.shooting-star", { player: ends.leader.name, other: ends.last.name }, false, who);
@@ -485,11 +484,10 @@ export class SpacePlay {
     if (results) await this.loop.showResults(before);
   }
 
-  /** Gift Exchange: everyone with an item passes one (at random) to the next in turn order, all at once. */
   /**
    * Gift Exchange: each holder passes a random item of theirs to the next in turn order, all at once.
-   * The camera rises to take everyone in and each item flies from the giver's head to the taker's
-   * (the user asked: chat is hidden on the board); then back to the Witch and the lander.
+   * Shown as a hand-over (the user, 2026-11-20; handovers.ts): the camera on each giver in turn order
+   * as their item leaves, then on its taker as it lands; then back to the Witch and the lander.
    */
   private async giftExchange(lander: Who, here: readonly Who[]): Promise<void> {
     const order = this.loop.turnOrder().flatMap((key) => here.filter((who) => who.key === key));
@@ -501,22 +499,21 @@ export class SpacePlay {
       const gift = gifts[i];
       if (gift) take(this.loop.seatOf(who.key)!.hands, { kind: "item", id: gift });
     });
-    const passes: [Who, Who, ItemId][] = [];
+    let passed = false;
     order.forEach((who, i) => {
       const gift = gifts[i];
       const next = order[(i + 1) % order.length];
       if (!gift || !next) return;
       put(this.loop.seatOf(next.key)!.hands, { kind: "item", id: gift });
       this.host.everyone(line("chance.gift.passed", { player: who.name, other: next.name, item: prizeName({ kind: "item", id: gift }) }));
-      passes.push([who, next, gift]);
+      this.loop.pass(who, next, { kind: "item", id: gift }, 1);
+      passed = true;
     });
     this.host.changed();
-    if (passes.length === 0) return;
-    const { stage } = this.host;
-    await stage.group(order, "chance.gift.passed");
-    await Promise.all(passes.map(([from, to, gift]) => this.loop.transfer(from, to, { kind: "item", id: gift }, 1)));
+    if (!passed) return;
+    await this.loop.handOver();
     await this.host.scope.wait(10);
-    await stage.meet(WITCH, lander, "chance.bye");
+    await this.host.stage.meet(WITCH, lander, "chance.bye");
   }
 
   private richest(candidates: readonly Who[]): number {
@@ -570,6 +567,7 @@ export class SpacePlay {
           let paid = 0;
           for (const other of here) if (other.key !== who.key) paid += this.loop.pay(who.key, other.key, HUSH_MONEY);
           await this.host.say("warden.hush-money", { player: who.name, coins: count(HUSH_MONEY, "coin") }, false, who);
+          await this.loop.handOver();
           results = paid > 0;
           break;
         }
@@ -671,10 +669,11 @@ export class SpacePlay {
         take(theirs.hands, { kind: "item", id: got });
         put(seat.hands, { kind: "item", id: got });
         put(theirs.hands, { kind: "item", id: mine });
-        void this.loop.transfer(who, other, { kind: "item", id: mine }, 1);
-        void this.loop.transfer(other, who, { kind: "item", id: got }, 1);
+        this.loop.pass(who, other, { kind: "item", id: mine }, 1);
+        this.loop.pass(other, who, { kind: "item", id: got }, 1);
         this.host.changed();
         await this.host.say("happening.swap-item", { ...fills, other: other.name, item: prizeName({ kind: "item", id: got }) }, false, who);
+        await this.loop.handOver();
         break;
       }
       case "roll_again":

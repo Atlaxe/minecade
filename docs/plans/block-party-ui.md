@@ -547,7 +547,33 @@ Party. Built for every change of hands, which also covers the pops above (`token
   minigame's coins, a die's face, a Battle's pot, a bet) drop in from above the head or fly up off
   it, found by the loop's watcher (it shows only what no transfer showed). Items from an Item space
   or a Happening drop in from above too.
-- **Tests:** Transfer animations plays each kind round the player (shown only).
+- **Hand-overs (2026-11-20, the user's ask, not yet seen in game):** when a player loses coins,
+  Stars or items to another player, the cutscene shows it in cuts, not in one shot (`handovers.ts`;
+  `board-loop.ts` pass, handOver):
+  - The camera cuts to the one losing them (a shot of them alone, from in front of them the way they
+    face, the whole of them with room over their head; the first way round them with room for the
+    camera), and they leave their head with "-X" over it, rising toward the taker and out of the top
+    of the shot. Losing coins or a Star makes them sad then.
+  - Then a cut to the one gaining them: they come down from over their head, on the giver's side,
+    and "+X" counts them in. A Star brings a celebration and confetti as it lands.
+  - With several gaining from the same one (Hush Money pays each of the others), the giver's shot
+    sends everything at once, its "-X" counting the lot, and then the camera cuts to each taker in
+    turn. Then the next one losing something, in the order they lost it (Gift Exchange goes round
+    the turn order: a player who gains an item and then passes one on is one shot). After the last,
+    the camera cuts back to the scene's own shot, or the board view takes it back.
+  - The change is made (and the cards change) when it happens; the hand-over plays after the line
+    that tells of it: Coin Swap, Reverse Fortune, the Shooting Star, Lightning Strike and the Iron
+    Golem's shakedown just before their results screen, Hush Money after the Warden's line and
+    before he leaves, Gift Exchange before the Witch's goodbye (in place of the shot from high over
+    everyone), Happening's item swap after its line, the Mystery Die's coin swap after the face's
+    line, and a duel's stake back on the board before its results (it no longer flies on the
+    minigame podium). Anything one missed is shown at the end of the space's or the item's scene.
+    Nothing plays while a cutscene is skipped.
+  - Seat to NPC and bank ones (the Star's price to Chris, the Witch, the Warden's taxes, the zombie,
+    the Villager) fly as before, in the shot that's up.
+- **Tests:** Transfer animations plays each kind round the player (shown only), and hand-overs:
+  5 coins to another player or a bot, 3 coins to each of the others, a Star from another player or
+  bot, and items passed round as Gift Exchange does. Start with a bot when playing alone.
 - **Not checked in game yet:** that a model's animation can move it this far from its entity (the
   token's picture has wide visible bounds, the coin's and Star's models 2 blocks), the facing (an
   entity's front is its model's -z, from vanilla's sneaking pose), and that the label rises (an
@@ -622,6 +648,7 @@ stays as proposals.
 | **Board view** | Whenever nobody is rolling, on the player whose turn it is. Two modes: **follow** (turns as the board turns) or **fixed** (follows the players but never turns). Distance, angle, zoom and the rest are settings, changed in both editors. Pieces stand facing their next space. |
 | **Player's turn** | The board view zoomed in, eased with no cut either way. The player turns to face the camera, body first, then head. The die over their head while Dice block is picked; a jump makes them jump. |
 | **NPC dialogue** | A pan from the board camera to the NPC, or a jump cut. Each conversation has a default and can be set either way, per moment in the dialogue tool (Camera: Pan to speaker, Cut to speaker, Camera stays, or the default): Chris at the Star pans; the intro to Chris at the podium cuts. |
+| **Hand-over** | A player losing coins, Stars or items to another player (the user, 2026-11-20): the camera on the one losing them as they leave their head, then a cut to the one gaining them as they land; with several gaining from the same one, a cut to each in turn before the next one losing anything ("Transfers, as built", Hand-overs). |
 | **Minigame announcement** | The zoom out, the stars and the wheel, and the zoom into the arena ("The minigame announcement"). |
 | **Minigame camera** | Fixed: the arena's rules camera, with the tutorial, until everyone is ready. |
 

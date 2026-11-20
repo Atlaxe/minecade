@@ -921,10 +921,11 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 
 The user's asks after seeing the end of the game, not yet seen in game:
 
-- **Gift Exchange shows its passes:** the camera rises to take everyone in (`stage.ts` group, a
-  shot from high over their middle), each item flies from the giver's head to the taker's at once
-  (the transfers' item tokens), and the camera goes back to the Witch and the lander for her
-  goodbye. Chat (hidden on the board) still lists them.
+- **Gift Exchange shows its passes:** each item flies from the giver's head to the taker's (the
+  transfers' item tokens), and the camera goes back to the Witch and the lander for her goodbye.
+  Chat (hidden on the board) still lists them. Since 2026-11-20 it's a hand-over (the user's ask:
+  `block-party-ui.md`, "Transfers, as built"): the camera on each giver in turn order as their item
+  leaves, then on its taker as it lands, in place of the one shot from high over everyone.
 - **Chris comes down under his balloon at the Star reveal** too, as he does whenever a Star moves:
   he starts 10 blocks over his spot beside the Star's space with the balloon out, comes straight
   down with no gravity (eased, about 3 seconds), and the balloon pops as he lands (`balloonIn`,
@@ -1305,10 +1306,12 @@ shows players losing and gaining coins, and doing winning and sad emotes and the
   hold, the star transition back to the board starts from there (the camera rises over the arena,
   the stars).
 - **There the results come:** who won in the dialogue box, the coins each wins dropping in over
-  their head with the count (+3) rising over it, a duel's stake flying from the loser's head to the
-  winner's, and a bet lost flying off; the winners celebrate and those who came away with nothing
-  are sad (`minigameMoods`), and each **holds the pose** until everyone goes back to the board,
-  5.5 seconds on. Then the results screen on the board, as before.
+  their head with the count (+3) rising over it, and a bet lost flying off; the winners celebrate
+  and those who came away with nothing are sad (`minigameMoods`), and each **holds the pose** until
+  everyone goes back to the board, 5.5 seconds on. Then the results screen on the board, as before.
+  A duel's stake is a hand-over since 2026-11-20 (`block-party-ui.md`, "Transfers, as built"):
+  back on the board, the camera on the loser as the coins go, then on the winner as they land,
+  before the results screen.
 - **Held poses:** a Celebration or Sad animation plays to the point where its last move back to
   the resting pose starts (`animations.ts` holdPoint: arms still up, a head still hung), and the
   player goes into its held pose there, an animation named after it with `.hold` on the end

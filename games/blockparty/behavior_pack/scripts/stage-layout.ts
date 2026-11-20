@@ -171,6 +171,27 @@ export function faceShot(at: Vec3, yaw: number, away = 3.2): Shot {
   return { location: [at[0] + fx * away, at[1] + EYE + 0.1, at[2] + fz * away], facing: [at[0], at[1] + EYE - 0.15, at[2]] };
 }
 
+/** How far in front of a seat a hand-over's shot of them stands, how far over their eyes, and how far over their eyes it looks. */
+export const SEAT_SHOT_AWAY = 3.4;
+const SEAT_SHOT_UP = 0.35;
+const SEAT_SHOT_LOOK = 0.3;
+
+/**
+ * A hand-over's shot of one seat standing at `at` facing `yaw` (handovers.ts): in front of them,
+ * the whole of them in it with room over their head for the count there, so the tokens leave out of
+ * the top of it and come down into it from there.
+ */
+export function seatShot(at: Vec3, yaw: number, away = SEAT_SHOT_AWAY): Shot {
+  const radians = (yaw * Math.PI) / 180;
+  // Yaw 0 faces +z (south); their front is that way.
+  const fx = -Math.sin(radians);
+  const fz = Math.cos(radians);
+  return { location: [at[0] + fx * away, at[1] + EYE + SEAT_SHOT_UP, at[2] + fz * away], facing: [at[0], at[1] + EYE + SEAT_SHOT_LOOK, at[2]] };
+}
+
+/** The ways a seat shot is tried, by how far round from the seat's front (degrees): the front first, then further round either side, the back last. */
+export const SEAT_SHOT_TURNS: readonly number[] = [0, 40, -40, 80, -80, 125, -125, 180];
+
 // ---- The end of the game (pass 8) -------------------------------------------------------------
 
 /** The final podium: where each place stands (1st first) and the way they face, Chris's spot, and the camera. */

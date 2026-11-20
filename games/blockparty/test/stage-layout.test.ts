@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { mapRequirements } from "@minecade/minigame-core/config";
 import type { Space, Vec3 } from "../behavior_pack/scripts/board.ts";
-import { EYE, besideSpace, faceShot, finalPodium, groupShot, hoverBefore, introAround, markerShot, orbitShots, pathWay, podiumFromMarkup, podiumOnStart, pulledBack, spaceShot, twoShot, yawFrom } from "../behavior_pack/scripts/stage-layout.ts";
+import { EYE, SEAT_SHOT_AWAY, SEAT_SHOT_TURNS, besideSpace, faceShot, finalPodium, groupShot, hoverBefore, introAround, markerShot, orbitShots, pathWay, podiumFromMarkup, podiumOnStart, pulledBack, seatShot, spaceShot, twoShot, yawFrom } from "../behavior_pack/scripts/stage-layout.ts";
 import { STAGE_ADJUSTABLE, STAGE_MARKUP, chrisKey } from "../behavior_pack/scripts/stage-markup.ts";
 import config from "../game.config.ts";
 
@@ -89,6 +89,19 @@ describe("Block Party's stage", () => {
     expect(face.facing?.[2]).toBe(0);
     expect(yawFrom([0, 64, 0], [0, 64, 5])).toBeCloseTo(0);
     expect(yawFrom([0, 64, 0], [-5, 64, 0])).toBeCloseTo(90);
+  });
+
+  it("shoots a hand-over's seat from in front, a little over the eyes, looking just over them", () => {
+    // Facing east (yaw -90): the camera stands east of them.
+    const shot = seatShot([10, 64, 0], -90);
+    expect(shot.location[0]).toBeCloseTo(10 + SEAT_SHOT_AWAY);
+    expect(shot.location[2]).toBeCloseTo(0);
+    expect(shot.location[1]).toBeGreaterThan(64 + EYE);
+    expect(shot.facing?.[0]).toBe(10);
+    expect(shot.facing?.[1]).toBeGreaterThan(64 + EYE);
+    // The front is tried first and the back last.
+    expect(SEAT_SHOT_TURNS[0]).toBe(0);
+    expect(SEAT_SHOT_TURNS[SEAT_SHOT_TURNS.length - 1]).toBe(180);
   });
 
   it("asks a board for its pre-game podium, Chris by type, the podium camera, the intro and the final podium, each a row a map can turn off", () => {

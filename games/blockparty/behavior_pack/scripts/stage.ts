@@ -38,7 +38,7 @@ import { moment } from "./lines.ts";
 import { portalRing, type Moves } from "./moves.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
 import { eventCue, playCue } from "./sounds.ts";
-import { besideSpace, faceShot, finalPodium, groupShot, hoverBefore, introAround, markerShot, orbitShots, podiumFromMarkup, podiumOnStart, pulledBack, spaceShot, twoShot, yawFrom, type FinalPodium, type Marker, type Podium, type Shot } from "./stage-layout.ts";
+import { SEAT_SHOT_TURNS, besideSpace, faceShot, finalPodium, hoverBefore, introAround, markerShot, orbitShots, podiumFromMarkup, podiumOnStart, pulledBack, seatShot, spaceShot, twoShot, yawFrom, type FinalPodium, type Marker, type Podium, type Shot } from "./stage-layout.ts";
 
 /** The map's podium and intro markup (Block Party's config, map.points). */
 export interface StageMarkup {
@@ -74,6 +74,8 @@ export interface StageDeps {
   cameraTaken?(seconds: number): void;
   /** The stage is done with the camera: true when the board's own takes it back (else everyone gets their own view). */
   cameraBack?(): boolean;
+  /** Whether a shot of the stage's still has the camera (the board's own hasn't taken it back since, as it does after a minigame). */
+  shotUp?(): boolean;
   /** The space a shot is on lights up (space-markers.ts); undefined when the shot is on something else. */
   select?(space: Space | undefined): void;
   /** The characters' moves (moves.ts): what move() plays. */
@@ -157,6 +159,8 @@ export class Stage {
   private refereeNow: string | undefined;
   /** The final podium, once everyone is on it. */
   private finalNow: FinalPodium | undefined;
+  /** The last shot put up (shot), until clear. */
+  private current: Shot | undefined;
 
   constructor(deps: StageDeps) {
     this.deps = deps;
@@ -199,6 +203,7 @@ export class Stage {
     // A new shot: no space is in it unless the caller says so (spaceShotOf).
     this.deps.select?.(undefined);
     if (this.deps.dialogue.skipping) return;
+    this.current = shot;
     this.deps.cameraTaken?.(move === "Pan" ? ease : 0);
     const location = vec(shot.location);
     const easeOptions = move === "Pan" ? { easeOptions: { easeTime: ease, easeType: EasingType.InOutSine } } : {};
@@ -215,6 +220,7 @@ export class Stage {
   /** The board's own camera again (board-camera.ts) while the board game is on, else everyone's own view. */
   clear(): void {
     this.deps.select?.(undefined);
+    this.current = undefined;
     if (this.deps.cameraBack?.()) return;
     for (const player of world.getAllPlayers()) {
       try {
@@ -223,6 +229,17 @@ export class Stage {
         // gone
       }
     }
+  }
+
+  /** The stage's shot on screen now, if one is (none while the board's own camera, or everyone's own view, has it). */
+  get shotNow(): Shot | undefined {
+    return this.current && (this.deps.shotUp?.() ?? true) ? this.current : undefined;
+  }
+
+  /** Back to `shot` (shotNow, kept from before a hand-over) at once, or to the board's own camera with none. */
+  backTo(shot: Shot | undefined): void {
+    if (shot) this.shot(shot, "Cut");
+    else this.clear();
   }
 
   /** Whether a cutscene is being skipped (dialogue.ts): what's left of it shouldn't play. */
@@ -873,20 +890,38 @@ export class Stage {
     if (move !== "Stay") this.deps.select?.(space);
   }
 
-  /** Several seats in one shot, from high over them (Gift Exchange's passes): a pan by default, given time to get there. */
-  async group(seats: readonly Who[], lineId: string, fallback: Move = "Pan"): Promise<void> {
-    const at = seats.filter((who) => who.body.isValid).map((who) => arr(who.body.location));
-    if (at.length === 0) return;
-    const move = this.moveFor(lineId, fallback);
-    this.shot(groupShot(at), move);
-    if (move === "Pan") await this.deps.dialogue.wait(Math.round(PAN * 20));
-  }
-
   /** Two seats in one shot (an Ender Pearl's swap, Coin Swap): a cut by default. */
   async twoSeats(a: Who, b: Who, lineId: string, fallback: Move = "Cut"): Promise<void> {
     if (!a.body.isValid || !b.body.isValid) return;
     this.shot(twoShot(arr(a.body.location), arr(b.body.location), sideOf(a)), this.moveFor(lineId, fallback));
     await this.deps.dialogue.wait(10);
+  }
+
+  /**
+   * A cut to one seat alone (a hand-over's, handovers.ts): in front of them the way they face, or as
+   * near that as has room for the camera, the whole of them in shot with their head's count. Nothing
+   * while a cutscene is skipped.
+   */
+  onSeat(who: Who): void {
+    if (!who.body.isValid || this.deps.dialogue.skipping) return;
+    try {
+      const at = arr(who.body.location);
+      const yaw = who.body.getRotation().y;
+      const shots = SEAT_SHOT_TURNS.map((turn) => seatShot(at, yaw + turn));
+      this.shot(shots.find((shot) => this.roomFor(shot.location)) ?? shots[0], "Cut");
+    } catch {
+      // gone
+    }
+  }
+
+  /** Whether a camera has room at `at`: nothing but air or liquid where it is. */
+  private roomFor(at: Vec3): boolean {
+    try {
+      const block = this.deps.dimension.getBlock({ x: Math.floor(at[0]), y: Math.floor(at[1]), z: Math.floor(at[2]) });
+      return block === undefined || block.isAir || block.isLiquid;
+    } catch {
+      return true;
+    }
   }
 
   /**

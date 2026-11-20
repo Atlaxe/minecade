@@ -52,6 +52,7 @@ import { activeStars, addCoins, coinsFor, count, firstStars, nextStar, ranked, s
 import { bonusStarCount, drawBonusStars, finalPlaces, GameStats, RISKY_DICE, tiebreakFormat, tiebreakPlaces, tiebreakPool, withWinner, type BonusStar, type DrawSeat } from "./end-game.ts";
 import { moodOf, type CoinsAndStars, type PlayerSet } from "./animations.ts";
 import { isSeat, type Party, type Token } from "./tokens.ts";
+import { beatsOf, type Pass } from "./handovers.ts";
 import type { Who } from "./bots.ts";
 import { thrown, type DieFace, type RollOutcome } from "./dice.ts";
 import { button, line, type Fills } from "./lines.ts";
@@ -134,6 +135,13 @@ export interface LoopHost {
    * Resolves once the last has landed.
    */
   transfer?(from: Party, to: Party, token: Token, count: number): Promise<void>;
+  /**
+   * A hand-over's halves (handovers.ts, transfers.ts): `token` leaving a seat's head toward each of
+   * its takers, "-X" over it, and landing on a taker from their giver's side, "+X". Each resolves once
+   * the last has gone, or landed.
+   */
+  leave?(from: Who, ways: readonly { to: Who | undefined; count: number }[], token: Token): Promise<void>;
+  arrive?(to: Who, from: Who | undefined, token: Token, count: number): Promise<void>;
   /** Confetti bursts over a seat's head (the user, 2026-11-18): a Star gained, a minigame, duel or the game won. */
   confetti?(who: Who): void;
 }
@@ -164,6 +172,9 @@ export interface EndTest {
 const BEAM_TICKS = 10;
 /** How often the loop looks for coins and Stars won or lost, to make their players celebrate or look sad. */
 const MOOD_TICKS = 2;
+/** A hand-over (handOver): ticks a shot of a seat is up before anything flies, and ticks it stays once the last has gone or landed. */
+const HAND_OVER_LEAD = 5;
+const HAND_OVER_HOLD = 10;
 const PLACES = ["1st", "2nd", "3rd", "4th"];
 /** Ticks a round's title stays (the round waits as long before going on), a turn's words above the hotbar, and a Star's or the end's notice. */
 const ROUND_NOTICE = 40;
@@ -217,6 +228,10 @@ export class BoardLoop {
   private readonly spentSince = new Map<string, number>();
   /** Each seat's coins and Stars a transfer has shown coming in (above 0) or going out since watchMoods last looked: it shows only the rest. */
   private readonly shownSince = new Map<string, CoinsAndStars>();
+  /** Each seat's coins a hand-over has taken in (above 0) or given since watchMoods last looked: the hand-over plays their moods, not the watcher. */
+  private readonly handedSince = new Map<string, number>();
+  /** Seat to seat passes made and not yet shown (handOver). */
+  private readonly passes: Pass[] = [];
   private readonly host: LoopHost;
   /** The items in play, and the spaces past Blue, Red and Versus (pass 7). */
   readonly items: ItemPlay;
@@ -314,10 +329,82 @@ export class BoardLoop {
     const paid = Math.min(amount, payer.coins);
     payer.coins -= paid;
     payee.coins += paid;
-    // The coins fly from the payer's head to the payee's.
-    void this.transfer(this.whoOf(from), this.whoOf(to), "coin", paid);
+    // A hand-over (the camera on the payer, then on the payee) when both are here, else the bank's way.
+    const giver = this.whoOf(from);
+    const taker = this.whoOf(to);
+    if (giver && taker) this.pass(giver, taker, "coin", paid);
+    else void this.transfer(giver, taker, "coin", paid);
     this.host.changed();
     return paid;
+  }
+
+  /**
+   * Coins, Stars or an item going from one seat to another (the user, 2026-11-20): call it as the
+   * change is made. Both stay in sight (the turn fade leaves them), the change is marked as shown so
+   * the watcher doesn't show it coming from the bank, and it waits for the next handOver, after the
+   * line that tells of it (or the results screen, which shows any still waiting).
+   */
+  pass(from: Who, to: Who, token: Token, count: number): void {
+    if (count <= 0 || from.key === to.key) return;
+    this.markShown(from, to, token, count);
+    if (token === "coin") {
+      this.handedSince.set(from.key, (this.handedSince.get(from.key) ?? 0) - count);
+      this.handedSince.set(to.key, (this.handedSince.get(to.key) ?? 0) + count);
+    }
+    this.feature(from, to);
+    this.passes.push({ from: from.key, to: to.key, token, count });
+  }
+
+  /**
+   * The passes made since the last hand-over, shown now (the user, 2026-11-20; handovers.ts): giver
+   * by giver, the camera on the giver as what they lose leaves their head (sad if it's coins or a
+   * Star), then a cut to each of their takers in turn as theirs lands (a Star with a celebration and
+   * confetti), then a cut back to the scene's own shot (or the board's own camera). Nothing while a
+   * cutscene is skipped. Resolves once it's done.
+   */
+  async handOver(): Promise<void> {
+    const passes = this.passes.splice(0);
+    if (passes.length > 0 && !this.host.stage.skipping) await this.playPasses(passes);
+  }
+
+  /** Passes played as handOver plays them, changing nothing (it's done when they're made: pass). Tests show them this way too. */
+  async playPasses(passes: readonly Pass[]): Promise<void> {
+    const { stage } = this.host;
+    // The scene's own shot, to go back to after (none: the board's own camera takes it back).
+    const back = stage.shotNow;
+    let onNow: string | undefined;
+    // The camera to a seat, if it isn't on them already: a moment to see them before anything flies.
+    const onSeat = async (who: Who) => {
+      if (onNow === who.key) return;
+      onNow = who.key;
+      stage.onSeat(who);
+      await this.host.scope.wait(HAND_OVER_LEAD);
+    };
+    for (const beat of beatsOf(passes)) {
+      if (stage.skipping || this.host.scope.disposed) return;
+      const giver = this.whoOf(beat.from);
+      if (giver?.body.isValid) {
+        await onSeat(giver);
+        if (beat.out.some((flow) => flow.token === "coin" || flow.token === "star")) this.react(giver.key, "Sad");
+        for (const flow of beat.out) await this.host.leave?.(giver, flow.ways.map((way) => ({ to: this.whoOf(way.to), count: way.count })), flow.token);
+        await this.host.scope.wait(HAND_OVER_HOLD);
+      }
+      for (const taker of beat.takers) {
+        const who = this.whoOf(taker.to);
+        if (stage.skipping || !who?.body.isValid) continue;
+        await onSeat(who);
+        for (const land of taker.lands) {
+          await this.host.arrive?.(who, giver, land.token, land.count);
+          if (land.token === "star") {
+            this.react(who.key, "Celebration");
+            this.confetti(who.key);
+          }
+        }
+        await this.host.scope.wait(HAND_OVER_HOLD);
+      }
+    }
+    // The scene goes on from where it was.
+    if (onNow !== undefined && !stage.skipping) stage.backTo(back);
   }
 
   /** A seat by key, if they're here (else undefined: a transfer to or from them shows the bank's way). */
@@ -392,14 +479,16 @@ export class BoardLoop {
       const before = this.seen.get(key);
       const spent = this.spentSince.get(key) ?? 0;
       const shown = this.shownSince.get(key) ?? { coins: 0, stars: 0 };
+      const handed = this.handedSince.get(key) ?? 0;
       this.seen.set(key, now);
       this.spentSince.delete(key);
       this.shownSince.delete(key);
+      this.handedSince.delete(key);
       if (!before) continue;
       // The biggest coin swing (the bonus Stars): what came or went at once, less what they spent.
       if (now.coins !== before.coins) this.stats.coins(key, now.coins - before.coins + spent);
-      // A Star a transfer shows brings its mood as it flies (fly), not here.
-      const mood = moodOf(before, { coins: now.coins, stars: now.stars - shown.stars }, spent);
+      // A Star a transfer shows brings its mood as it flies (fly), and a hand-over's coins as they go (playPasses), not here.
+      const mood = moodOf(before, { coins: now.coins - handed, stars: now.stars - shown.stars }, spent);
       if (mood) this.react(key, mood);
       // What no transfer showed (a Blue or Red space, a minigame's coins, a die's face): from the
       // bank, dropping in over their head, or off their head into the air.
@@ -481,11 +570,14 @@ export class BoardLoop {
     try {
       const used = await this.items.use(who, id);
       if (used) this.stats.item(who.key);
+      await this.handOver();
       return used;
     } catch (error) {
       log.warn(`blockparty: ${who.name}'s ${id} failed: ${describeError(error)}`);
       return false;
     } finally {
+      // Passes an item that failed left unshown are dropped (the change itself stands).
+      this.passes.length = 0;
       this.unfeature();
       this.host.stage.clear();
       this.host.changed();
@@ -594,8 +686,9 @@ export class BoardLoop {
     });
   }
 
-  /** The results screen from `before` to now; places show on the cards from then on. */
+  /** The results screen from `before` to now, after any hand-over still waiting; places show on the cards from then on. */
   async showResults(before: readonly ResultSeat[]): Promise<void> {
+    await this.handOver();
     this.placesKnown = true;
     this.host.changed();
     try {
@@ -965,6 +1058,7 @@ export class BoardLoop {
       const other = face.event ? this.faceEvent(who, face) : undefined;
       this.host.changed();
       if (face.say) await this.host.say(face.say, { ...fills, coins: count(Math.abs(face.coins || face.amount), "coin"), other: other ?? "" }, false, who);
+      await this.handOver();
     }
   }
 
@@ -986,6 +1080,10 @@ export class BoardLoop {
         const theirs = other ? this.seats.get(other.key) : undefined;
         if (!other || !mine || !theirs) return undefined;
         [mine.coins, theirs.coins] = [theirs.coins, mine.coins];
+        // The difference goes from the one who had more to the one who had less, after the face's line.
+        const gained = mine.coins - theirs.coins;
+        if (gained > 0) this.pass(other, who, "coin", gained);
+        else if (gained < 0) this.pass(who, other, "coin", -gained);
         return other.name;
       }
       case "double_minigame":
@@ -1152,6 +1250,7 @@ export class BoardLoop {
     } catch (error) {
       log.warn(`blockparty: ${who.name}'s ${space.type} space failed: ${describeError(error)}`);
     }
+    await this.handOver();
     for (const [key, was] of luck ?? []) {
       const now = this.seats.get(key);
       if (now) this.stats.lucky(key, Math.max(0, now.coins - was.coins) + Math.max(0, now.stars - was.stars) * starPrice(this.host.turns));

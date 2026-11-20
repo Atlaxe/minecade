@@ -8,8 +8,15 @@
 // half the moves left's size, always facing the camera the players look through. It stands just over
 // the head (over the moves left when they're showing), rises a little as it comes and swells at each
 // step, and is gone a second after the last token lands.
+//
+// A hand-over from one seat to another (handovers.ts: the camera on the giver, then a cut to each
+// taker) flies in two halves, one for each shot: leave() up off the giver's head toward the taker and
+// out of the top of the shot, "-X" over the giver; arrive() down from the giver's side into the
+// taker's head, "+X" over the taker.
 import { system, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
+import type { Who } from "./bots.ts";
+import { offToward } from "./handovers.ts";
 import { sendNumber } from "./number-sprites.ts";
 import { popScale, type NumberKind } from "./numbers.ts";
 import { eventCue, playCue } from "./sounds.ts";
@@ -81,23 +88,115 @@ export class Transfers {
     const sound = soundOf(token);
     const outTally = counted(count) && isSeat(from) ? this.tally(from.key, from.body, "loss") : undefined;
     const inTally = counted(count) && isSeat(to) ? this.tally(to.key, to.body, "gain") : undefined;
-    for (let i = 0; i < shown && !this.deps.scope.disposed; i++) {
-      const start = giver ? headOf(giver) : skyOver(taker);
-      const end = taker ? headOf(taker) : this.awayFrom(giver);
-      if (start && end) this.launch(start, end, look);
-      const step = steps[i];
-      if (outTally) setTally(outTally, step);
-      if (isSeat(from)) playCue(eventCue(`loss.${sound}`), () => this.deps.random());
-      this.deps.scope.timeout(() => {
-        if (inTally) setTally(inTally, step);
+    await this.stream(
+      shown,
+      () => {
+        const start = giver ? headOf(giver) : skyOver(taker);
+        const end = taker ? headOf(taker) : this.awayFrom(giver);
+        return start && end ? [start, end] : undefined;
+      },
+      look,
+      (i) => {
+        if (outTally) setTally(outTally, steps[i]);
+        if (isSeat(from)) playCue(eventCue(`loss.${sound}`), () => this.deps.random());
+      },
+      (i) => {
+        if (inTally) setTally(inTally, steps[i]);
         if (isSeat(to)) playCue(eventCue(`gain.${sound}`), () => this.deps.random());
-      }, FLIGHT_TICKS);
-      if (i < shown - 1) await this.deps.scope.wait(LAUNCH_EVERY);
+      },
+      [outTally, inTally],
+    );
+  }
+
+  /**
+   * A hand-over's first half (handovers.ts): `token` leaving a seat's head for each of `ways`
+   * (`count` to each, one stream, a way at a time), rising off it toward that taker and out of the
+   * top of the camera's shot of the giver; "-X" over their head counts them all. Resolves once the
+   * last has gone.
+   */
+  async leave(from: Who, ways: readonly { to: Who | undefined; count: number }[], token: Token): Promise<void> {
+    const look = lookOf(token);
+    const total = ways.reduce((sum, way) => sum + Math.max(0, way.count), 0);
+    if (!look || total <= 0 || !from.body.isValid) return;
+    // The count over the head runs on from one way's tokens to the next's.
+    const flights: { to: Who | undefined; step: number }[] = [];
+    let before = 0;
+    for (const way of ways) {
+      if (way.count <= 0) continue;
+      for (const step of labelSteps(way.count, shownCount(token, way.count))) flights.push({ to: way.to, step: before + step });
+      before += way.count;
+    }
+    const tally = counted(total) ? this.tally(from.key, from.body, "loss") : undefined;
+    const sound = soundOf(token);
+    await this.stream(
+      flights.length,
+      (i) => {
+        const head = headOf(from.body);
+        const taker = flights[i].to;
+        const other = taker?.body.isValid ? headOf(taker.body) : undefined;
+        return head ? [head, point(offToward(triple(head), other ? triple(other) : undefined))] : undefined;
+      },
+      look,
+      (i) => {
+        if (tally) setTally(tally, flights[i].step);
+        playCue(eventCue(`loss.${sound}`), () => this.deps.random());
+      },
+      undefined,
+      [tally],
+    );
+  }
+
+  /**
+   * A hand-over's second half (handovers.ts): `count` of `token` coming down into a seat's head from
+   * over it on their giver's side (out of the top of the camera's shot of them); "+X" over their head
+   * counts them in. Resolves once the last has landed.
+   */
+  async arrive(to: Who, from: Who | undefined, token: Token, count: number): Promise<void> {
+    const look = lookOf(token);
+    if (!look || count <= 0 || !to.body.isValid) return;
+    const steps = labelSteps(count, shownCount(token, count));
+    const tally = counted(count) ? this.tally(to.key, to.body, "gain") : undefined;
+    const sound = soundOf(token);
+    await this.stream(
+      steps.length,
+      () => {
+        const head = headOf(to.body);
+        const other = from?.body.isValid ? headOf(from.body) : undefined;
+        return head ? [point(offToward(triple(head), other ? triple(other) : undefined)), head] : undefined;
+      },
+      look,
+      undefined,
+      (i) => {
+        if (tally) setTally(tally, steps[i]);
+        playCue(eventCue(`gain.${sound}`), () => this.deps.random());
+      },
+      [tally],
+    );
+  }
+
+  /**
+   * `count` tokens one after another, each from and to where `way` says as it goes (a body may have
+   * moved), `left` told as each goes and `landed` as each lands; the counts in `tallies` go a little
+   * after the last has landed. Resolves once it has.
+   */
+  private async stream(
+    count: number,
+    way: (index: number) => readonly [Vector3, Vector3] | undefined,
+    look: { shape: number; look: number },
+    left: ((index: number) => void) | undefined,
+    landed: ((index: number) => void) | undefined,
+    tallies: readonly (Tally | undefined)[],
+  ): Promise<void> {
+    for (let i = 0; i < count && !this.deps.scope.disposed; i++) {
+      const ends = way(i);
+      if (ends) this.launch(ends[0], ends[1], look);
+      left?.(i);
+      if (landed) this.deps.scope.timeout(() => landed(i), FLIGHT_TICKS);
+      if (i < count - 1) await this.deps.scope.wait(LAUNCH_EVERY);
     }
     await this.deps.scope.wait(FLIGHT_TICKS);
     this.deps.scope.timeout(() => {
-      if (outTally) this.tallies.delete(outTally);
-      if (inTally) this.tallies.delete(inTally);
+      for (const tally of tallies) if (tally) this.tallies.delete(tally);
     }, TALLY_LINGER);
   }
 
@@ -202,6 +301,14 @@ function headOf(entity: Entity): Vector3 | undefined {
 function skyOver(taker: Entity | undefined): Vector3 | undefined {
   const head = taker ? headOf(taker) : undefined;
   return head ? { x: head.x, y: head.y + SKY, z: head.z } : undefined;
+}
+
+function triple(at: Vector3): [number, number, number] {
+  return [at.x, at.y, at.z];
+}
+
+function point(at: readonly [number, number, number]): Vector3 {
+  return { x: at[0], y: at[1], z: at[2] };
 }
 
 /** A count's number (its sign is its look's): it grows in and rises with its first, and swells as it changes. */
