@@ -64,6 +64,7 @@ import { RegionTool } from "./region-tool.ts";
 import { SpacesTool, type SpaceMarker } from "./spaces-tool.ts";
 import { REPLACE_LINE, ReplaceMode } from "./replace-mode.ts";
 import { NOON, TimeTool } from "./time-tool.ts";
+import { ColorsTool } from "./colors-tool.ts";
 import { actionBar, heldTool, hintBar, notice, type ToolHost } from "./tool-host.ts";
 import { REACH, blockInView, heightPreview, nudgePreview, previewEditing } from "./box-picker.ts";
 import { facingOf, type Point } from "./boxes.ts";
@@ -142,6 +143,7 @@ export class Editor {
   private readonly regionTool: RegionTool;
   private readonly killYTool: KillYTool;
   private readonly timeTool: TimeTool;
+  private readonly colorsTool: ColorsTool;
   private readonly gameSettingsTool: GameSettingsTool;
   private readonly spacesTool: SpacesTool;
   private readonly cameraTool: CameraTool;
@@ -201,6 +203,7 @@ export class Editor {
     this.regionTool = new RegionTool(scope, host);
     this.killYTool = new KillYTool(host);
     this.timeTool = new TimeTool(host);
+    this.colorsTool = new ColorsTool(host);
     this.gameSettingsTool = new GameSettingsTool(host);
     this.spacesTool = new SpacesTool(scope, host, (player) => this.aimedAt(player));
     this.mannequinTool = new MannequinTool({ ...host, aimedAt: (player) => this.aimedAt(player) });
@@ -284,6 +287,7 @@ export class Editor {
       else if (tool === "region") this.regionTool.use(source);
       else if (tool === "killY") void this.killYTool.use(source, () => this.mapMenu(source));
       else if (tool === "time") void this.timeTool.use(source, () => this.mapMenu(source));
+      else if (tool === "colors") void this.colorsTool.use(source, () => this.mapMenu(source));
       else if (tool === "gameSettings") void this.gameSettingsTool.use(source, () => this.mapMenu(source));
       else if (tool === "spaces") this.spacesTool.use(source);
       else if (tool === "camera") this.cameraTool.use(source);
@@ -573,6 +577,7 @@ export class Editor {
       else if (tool === "region") hintBar(player, this.regionTool.hint(player));
       else if (tool === "killY") hintBar(player, this.killYTool.hint(player));
       else if (tool === "time") hintBar(player, this.timeTool.hint());
+      else if (tool === "colors") hintBar(player, this.colorsTool.hint());
       else if (tool === "gameSettings") hintBar(player, this.gameSettingsTool.hint(player));
       else if (tool === "spaces") hintBar(player, this.spacesTool.hint(player));
       else if (tool === "camera") hintBar(player, this.cameraTool.hint(player));
@@ -618,6 +623,7 @@ export class Editor {
       items: this.info.rules.items ?? [],
       gameSettings: this.gameSettingsTool.settings,
       ...(this.spacesTool.board ? { spaces: this.spacesTool.settings() } : {}),
+      ...(this.info.arena ? { arena: true } : {}),
     });
     // The map and game are in the mode box top center, and how to use the tool is behind Help.
     const form = new ActionFormData().title(mapTitle("Map menu"));
@@ -688,6 +694,8 @@ export class Editor {
         return this.killYTool.screen(player, action.line, () => this.mapMenu(player));
       case "time":
         return this.timeTool.screen(player, () => this.mapMenu(player));
+      case "colors":
+        return this.colorsTool.screen(player, () => this.mapMenu(player));
       case "gameSetting":
         return this.gameSettingsTool.screen(player, action.key, () => this.mapMenu(player));
       case "dealAgain":

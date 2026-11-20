@@ -4,6 +4,7 @@
 import { checkBoard } from "./board/board-check.ts";
 import { spaceProblems, spacesOf } from "./board/board-map.ts";
 import type { MapRequirementsConfig } from "./config.ts";
+import { colorsProblems } from "./map-colors.ts";
 import { BUILD_LIMIT_SIDES, MAP_TIMES, QUEUE_COUNTDOWN, QUEUE_MODES, enclosingBox, mapTimeTicks, type Box, type BuildLimitSide, type MapConfig, type MapPosition, type Vec3 } from "./map-config.ts";
 import { bigEnough, boxSize, choiceProblems, fitsFootprint, fitsWithin, mapRequirements, mapSettings, settingFits, smallEnough, type MapRequirement } from "./map-requirements.ts";
 
@@ -68,6 +69,7 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   if (map.time !== undefined && mapTimeTicks(map.time) === undefined) {
     problems.push(`"time" must be one of ${Object.keys(MAP_TIMES).join(", ")}, or ticks from 0 to 23999`);
   }
+  if (map.colors !== undefined) problems.push(...colorsProblems(map.colors));
   if (map.kits !== undefined && rules.mapKits === false) problems.push(`"kits": ${who}'s kits are the same on every map`);
   else if (map.kits !== undefined) problems.push(...mapKitProblems(map.kits, rules.kind));
   if (map.stars !== undefined && typeof map.stars !== "boolean") problems.push('"stars" must be true or false');

@@ -72,6 +72,8 @@ describe("the three servers", () => {
     // Stopping or failed: it starts again, and nobody is left on it to move.
     expect(planOpen("edit", "edit:sumo/arena_1", { ...arena, state: "stopping", players: [] })).toEqual({ slot: "edit", restart: true, evict: [] });
     expect(planOpen("select", "select:abc=", undefined)).toEqual({ slot: "select", restart: true, evict: [] });
+    // Again: Edit starts over on the map it has open (its colors changed), and everyone on it waits.
+    expect(planOpen("edit", "edit:sumo/arena_1", arena, true)).toEqual({ slot: "edit", restart: true, evict: ["a", "b"] });
   });
 
   it("warms a picked map up in Edit only while nobody uses Edit", () => {

@@ -70,7 +70,7 @@ function view(config: MapConfig, extra: Partial<MapMenuView> = {}): MapMenuView 
 describe("map menu", () => {
   it("has the quick icons, then the tools, then Save, with no tool out", () => {
     const entries = mapMenuEntries(view(draft));
-    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "tool", "tool", "tool", "save"]);
+    expect(entries.map((entry) => entry.action.kind)).toEqual(["checklist", "undo", "redo", "boundaries", "settings", "tool", "tool", "tool", "tool", "tool", "tool", "tool", "save"]);
     expect(entries[3]).toEqual({ action: { kind: "boundaries" }, text: `${MARK.quick}Boundaries\n§7see the bounds and regions you pick`, icon: ICONS.boundaries });
     expect(entries[0].text).toBe(`${MARK.pill}1/2\n§7Checklist: 1 problem`);
     expect(entries[0].icon).toBe(ICONS.check);
@@ -90,7 +90,9 @@ describe("map menu", () => {
     expect(tools[1].text).toBe(`${MARK.tool}${COLUMNS[1]}${MARK.on}Region tool\n§7bounds, regions, kill regions`);
     expect(tools[4].text).toBe(`${MARK.tool}${COLUMNS[4]}Snapshot tool\n§7take a camera's picture`);
     const withMarkers = spawnLists(draft, { ...rules, requires: { points: { hole: { label: "Hole" } } } });
-    expect(editorTools(withMarkers, true).map((tool) => tool.id)).toEqual(["spawn", "marker", "region", "killY", "camera", "snapshot", "mannequin", "time"]);
+    expect(editorTools(withMarkers, true).map((tool) => tool.id)).toEqual(["spawn", "marker", "region", "killY", "camera", "snapshot", "mannequin", "time", "colors"]);
+    // The Colors tool, on every map but an arena's (placed into its game's world, it shows that world's colors).
+    expect(editorTools(withMarkers, true, false, false, false).map((tool) => tool.id)).not.toContain("colors");
     expect(editorTools(withMarkers, false).map((tool) => tool.id)).not.toContain("mannequin");
     // The Game settings tool, only for a game with settings of its own.
     expect(editorTools(withMarkers, true, true).map((tool) => tool.id).at(-1)).toBe("gameSettings");
@@ -107,7 +109,7 @@ describe("map menu", () => {
 
   it("shows the tool out's settings, after a Help link, between the tools and Save", () => {
     const cameras: Record<string, MapCamera> = { "Camera 1": { at: [0, 70, 0, 0, 0], kind: "game" } };
-    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50, cameras }, { tool })).map((entry) => entry.action.kind).slice(11, -1);
+    const kinds = (tool: MapMenuView["tool"]) => mapMenuEntries(view({ ...draft, killY: 50, cameras }, { tool })).map((entry) => entry.action.kind).slice(12, -1);
     // Spawn: Help, then each list with its entries (Spawns and the spectator spawn have one, the queue spawn none).
     expect(kinds("spawn")).toEqual(["help", "none", "entry", "none", "entry", "none"]);
     expect(kinds("region")).toEqual(["help", "none", "box"]);
@@ -116,9 +118,11 @@ describe("map menu", () => {
     expect(kinds("snapshot")).toEqual(["help", "none", "snapshot"]);
     expect(mapMenuEntries(view({ ...draft, cameras }, { tool: "snapshot" })).at(-2)).toEqual({ action: { kind: "snapshot", name: "Camera 1" }, text: "Camera 1\n§7Game picture" });
     expect(kinds(undefined)).toEqual([]);
-    expect(mapMenuEntries(view(draft, { tool: "spawn" }))[11].text).toBe(linkText("Help"));
+    expect(mapMenuEntries(view(draft, { tool: "spawn" }))[12].text).toBe(linkText("Help"));
     // The Time tool: the map's time, to open its screen.
     expect(kinds("time")).toEqual(["help", "none", "time"]);
+    // The Colors tool: the map's colors, to open its screen.
+    expect(kinds("colors")).toEqual(["help", "none", "colors"]);
   });
 
   it("keeps whether blocks changed in Save's tooltip, and says when it's saving", () => {

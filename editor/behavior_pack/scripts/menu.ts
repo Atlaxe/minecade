@@ -5,10 +5,18 @@
 // menu (LAYOUT.home): a row of icons, then what's open and Recent as cards with an icon each. Each
 // button's mark (marks.ts) says where it goes.
 import {
+  BIOME_COLORS,
+  COLOR_PARTS,
+  COLOR_PART_NAMES,
   FAKE_COLORS,
   FAKE_POSES,
   FAKE_SIZES,
   QUEUE_COUNTDOWN,
+  biomeOfColors,
+  biomeOfPart,
+  biomeSwatchTexture,
+  colorSwatchTexture,
+  colorsText,
   listOf,
   lookText,
   mapSettingValue,
@@ -22,6 +30,7 @@ import {
   type FakeLook,
   type Catalog,
   type Checklist,
+  type ColorPart,
   type ChecklistRow,
   type HomeState,
   type MapCamera,
@@ -98,6 +107,8 @@ export type MenuAction =
   | { kind: "killY"; line?: HeightLine }
   /** The Time tool's screen. */
   | { kind: "time" }
+  /** The Colors tool's screen. */
+  | { kind: "colors" }
   /** The Game settings tool's screen, on one of the game's settings (by its map.json key). */
   | { kind: "gameSetting"; key: string }
   /** The camera tool: the kind of new cameras, and a camera's form. */
@@ -167,6 +178,8 @@ export interface MapMenuView {
   gameSettings?: GameSetting[];
   /** The Spaces tool's settings (a game with a board, its config's map.board): its entries. */
   spaces?: MenuEntry[];
+  /** An arena's map (placed into its game's world, whose colors it shows): no Colors tool. */
+  arena?: boolean;
 }
 
 /** One of the game's per-map settings, with its map.json key. */
@@ -190,7 +203,7 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
     entries.push({ action: { kind: "preview" }, text: `${MARK.quick}${ready ? "" : MARK.dim}Preview\n§7${ready ? `play it as ${view.game}, then come back` : "finish the checklist first"}`, icon: ICONS.play });
   }
   entries.push({ action: { kind: "settings" }, text: `${MARK.quick}Map settings\n§7name, thumbnails, build commands`, icon: ICONS.settings });
-  editorTools(view.spawn.lists, view.game !== undefined, (view.gameSettings ?? []).length > 0, view.spaces !== undefined).forEach((tool, i) => {
+  editorTools(view.spawn.lists, view.game !== undefined, (view.gameSettings ?? []).length > 0, view.spaces !== undefined, view.arena !== true).forEach((tool, i) => {
     const picked = tool.id === view.tool ? MARK.on : "";
     entries.push({ action: { kind: "tool", tool: tool.id }, text: `${MARK.tool}${COLUMNS[i % COLUMNS.length]}${picked}${tool.label}\n§7${tool.hint}`, icon: tool.icon });
   });
@@ -204,6 +217,7 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
   else if (view.tool === "snapshot") entries.push(...snapshotSettings(view.config));
   else if (view.tool === "mannequin") entries.push(...mannequinSettings(view.config, view.items ?? []));
   else if (view.tool === "time") entries.push(...timeSettings(view.config));
+  else if (view.tool === "colors") entries.push(...colorsSettings(view.config));
   else if (view.tool === "gameSettings") entries.push(...gameSettingsSettings(view.config, view.gameSettings ?? []));
   else if (view.tool === "spaces") entries.push(...(view.spaces ?? []));
   entries.push({ action: { kind: "save" }, text: `${MARK.save}${saveText(view)}` });
@@ -213,11 +227,13 @@ export function mapMenuEntries(view: MapMenuView): MenuEntry[] {
 /**
  * The tools in the map menu's grid: the Game marker tool only when the game has markers of its own,
  * the Mannequin tool only on a game's map, the Game settings tool only when the game has settings,
- * and the Spaces tool only when it has a board.
+ * the Spaces tool only when it has a board, and the Colors tool unless it's an arena's map.
  */
-export function editorTools(lists: SpawnList[], game: boolean, settings = false, board = false): typeof EDITOR_TOOLS {
+export function editorTools(lists: SpawnList[], game: boolean, settings = false, board = false, colors = true): typeof EDITOR_TOOLS {
   const markers = lists.some((list) => list.tool === "marker");
-  return EDITOR_TOOLS.filter((tool) => (tool.id !== "marker" || markers) && (tool.id !== "mannequin" || game) && (tool.id !== "gameSettings" || settings) && (tool.id !== "spaces" || board));
+  return EDITOR_TOOLS.filter(
+    (tool) => (tool.id !== "marker" || markers) && (tool.id !== "mannequin" || game) && (tool.id !== "gameSettings" || settings) && (tool.id !== "spaces" || board) && (tool.id !== "colors" || colors),
+  );
 }
 
 /** The Mannequin tool's settings: whether previews show them (off unless switched on), then the map's mannequins (tap one for its screen). */
@@ -616,6 +632,88 @@ export function timeScreenEntries(view: { preset?: TimePreset; ticks: number; op
     ...(view.set ? [{ action: { kind: "remove" } as const, text: dangerText("Remove time") }] : []),
     { action: { kind: "save" }, text: saveBarText("Set time") },
   ];
+}
+
+// ---- Colors -------------------------------------------------------------------------------------
+// The Colors tool: the map's water, grass and foliage colors (map.json "colors"), from any biome's
+// or typed. Its servers show them with a pack that gives plains, the biome every map is, those colors.
+
+/** The Colors tool's settings: the map's colors (tap them for the screen). */
+export function colorsSettings(config: MapConfig): MenuEntry[] {
+  return [
+    { action: { kind: "none" }, text: headingText("Water, grass and foliage") },
+    { action: { kind: "colors" }, text: `Colors\n§7${colorsText(config.colors)}` },
+  ];
+}
+
+/** The Colors screen's lists: the Biome list (all three colors), and one per part. */
+export type ColorsList = "biome" | ColorPart;
+
+export type ColorsAction =
+  | { kind: "back" }
+  | { kind: "open"; list: ColorsList }
+  | { kind: "biome"; id: string }
+  | { kind: "part"; part: ColorPart; id: string }
+  | { kind: "type" }
+  | { kind: "remove" }
+  | { kind: "save" }
+  | { kind: "none" };
+
+export interface ColorsScreenView {
+  /** The colors picked so far (plains' for the parts left as they are). */
+  colors: Record<ColorPart, string>;
+  /** The biome each list was last picked from on this screen, so it's the one outlined (biomes share colors). */
+  picked: Partial<Record<ColorsList, string>>;
+  /** The list that's open, if one is. */
+  open?: ColorsList;
+  /** The map has colors of its own: Remove colors shows. */
+  set: boolean;
+  /** Opened from the map menu: the back arrow goes back to it. */
+  back?: boolean;
+}
+
+/**
+ * The Colors tool's screen: the Biome list (each biome with its swatch, for all three colors), then
+ * Water, Grass and Foliage (each biome again, for that one color), Type colors, Remove colors (red,
+ * once the map has some), and Set colors, green, at the bottom.
+ */
+export function colorsScreenEntries(view: ColorsScreenView): { action: ColorsAction; text: string; icon?: string }[] {
+  const pickedBiome = BIOME_COLORS.find((biome) => biome.id === view.picked.biome && COLOR_PARTS.every((part) => biome[part] === view.colors[part]));
+  const biome = pickedBiome ?? biomeOfColors(view.colors);
+  const entries: { action: ColorsAction; text: string; icon?: string }[] = [
+    ...(view.back ? [{ action: { kind: "back" } as const, text: BACK_TEXT, icon: ICONS.back }] : []),
+    ...swatchListRows<ColorsAction>(
+      view.open === "biome",
+      { kind: "open", list: "biome" },
+      "Biome",
+      biome?.name ?? "Custom",
+      BIOME_COLORS.map((candidate) => ({ action: { kind: "biome", id: candidate.id }, label: candidate.name, on: candidate.id === biome?.id, icon: biomeSwatchTexture(candidate.id) })),
+    ),
+  ];
+  for (const part of COLOR_PARTS) {
+    const color = view.colors[part];
+    const from = BIOME_COLORS.find((candidate) => candidate.id === view.picked[part] && candidate[part] === color) ?? biomeOfPart(part, color);
+    entries.push(
+      ...swatchListRows<ColorsAction>(
+        view.open === part,
+        { kind: "open", list: part },
+        COLOR_PART_NAMES[part],
+        color,
+        BIOME_COLORS.map((candidate) => ({ action: { kind: "part", part, id: candidate.id }, label: candidate.name, on: candidate.id === from?.id, icon: colorSwatchTexture(candidate[part]) })),
+      ),
+    );
+  }
+  entries.push({ action: { kind: "type" }, text: `${MARK.lead}Type colors\n§7each "#" and six hex digits, such as #44AFF5` });
+  if (view.set) entries.push({ action: { kind: "remove" }, text: dangerText("Remove colors") });
+  entries.push({ action: { kind: "save" }, text: saveBarText("Set colors") });
+  return entries;
+}
+
+/** A list's row (listRows), its options each with a swatch on the left. */
+function swatchListRows<A>(open: boolean, toggle: A, label: string, value: string, options: { action: A; label: string; on: boolean; icon: string }[]): { action: A; text: string; icon?: string }[] {
+  const rows: { action: A; text: string; icon?: string }[] = [{ action: toggle, text: `${MARK.lead}${dropdownText(label, value, open)}` }];
+  if (open) for (const option of options) rows.push({ action: option.action, text: `${MARK.lead}${MARK.card}${optionText(option.label, option.on)}`, icon: option.icon });
+  return rows;
 }
 
 // ---- Game settings ------------------------------------------------------------------------------

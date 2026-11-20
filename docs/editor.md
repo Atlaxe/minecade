@@ -276,8 +276,8 @@ game in gold and the map in orange.
      too, see "Publishing"); and **Delete map** (red, see "Deleting a map").
 2. **Tools:** a grid of the tools' icons (the Spawn tool, the Game marker tool when the game has
    markers of its own, the Region tool, the Kill Y tool, the Camera tool, the Snapshot tool, the
-   Mannequin tool on a game's map, the Time tool, and the Game settings tool when the game has
-   settings of its own), with their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
+   Mannequin tool on a game's map, the Time tool, the Colors tool (on every map but an arena's), and
+   the Game settings tool when the game has settings of its own), with their names as tooltips. Tap one to put it in slot 1 and in your hand; the menu closes (open it
    again for the tool's settings). Tap it again to put it away. The one you have out is outlined.
    One tool is out at a time: picking one puts any other away. The tool isn't locked, so you can
    move it; whatever was in slot 1 moves to a free slot.
@@ -294,6 +294,8 @@ game in gold and the map in orange.
      below**, each with its height ("not set" until it is), listed like the spawns. Tap one for its
      screen.
    - **Time tool:** the map's time of day. Tap it for its screen.
+   - **Colors tool:** the map's colors (a biome's name, Custom, or Plains when it has none). Tap it
+     for its screen.
    - **Game settings tool:** each of the game's own settings for this map (Build Swap's **Build
      padding** and **Return delay**), with its value, "(default)" while the map doesn't set it. Tap
      one for its screen.
@@ -306,7 +308,7 @@ game in gold and the map in orange.
 the Spawn tool opens an entry's screen only aimed at a block, the Region tool only grows its box
 (save it from the map menu), and the Camera tool places a camera at once. The exceptions set one
 thing that isn't anywhere: a use of the Snapshot tool lists the cameras, and a use of the Kill Y
-tool, the Time tool or the Game settings tool opens its screen (with the back arrow to the map
+tool, the Time tool, the Colors tool or the Game settings tool opens its screen (with the back arrow to the map
 menu). A screen for what a tool
 sets up has a toggle first, then its settings and nudge rows (a
 minus and a plus each, **Step** cycling how far), and a green button pinned at the bottom that saves
@@ -412,6 +414,22 @@ you back in creative at every spawn).
   24-hour clock, such as 14:30) and a nudge row that moves it an hour earlier or later. The world
   shows the time you pick while the screen is open; **Set time** (green) saves it, and **Remove
   time** (red) leaves the map without one (the editor shows noon).
+- **Colors tool:** the map's water, grass and foliage (leaves and vines) colors (`colors` in
+  map.json; see "Colors" in `docs/maps.md`). Use it, or tap Colors in the map menu, for its screen:
+  - **Biome:** every biome in the game, by name, each with a swatch of its colors (foliage over
+    grass over water). Picking one takes all three of its colors.
+  - **Water**, **Grass** and **Foliage:** every biome again, each with a swatch of that one color,
+    to take one color at a time (Warm Ocean's water with Jungle's grass, say). Each row shows the
+    color picked as `#RRGGBB`.
+  - **Type colors:** a box per part, each "#" and six hex digits (three work too: `#4af`).
+  - **Set colors** (green) saves them, and **Remove colors** (red) gives the map plains' own again.
+    Colors like plains' aren't kept, so setting Plains removes them too.
+  - The colors only show through a pack Edit loads when it starts, so once they change (Set
+    colors, Remove colors, an undo or redo of either, the Panel, or a hand edit of map.json), Edit
+    starts again on the map: everyone on it waits in the editor lobby, as for opening another map
+    (Edit saves first), and comes back when it's ready. Previews show them too.
+  - Arena maps (Block Party's minigames) have no Colors tool: they're placed into the game's world
+    and show its colors.
 - **Boundaries** are drawn as see-through colored sheets, the way Axiom and Litematica show a
   selection: plane blocks, each a 16x16 square one pixel thick, on every side of a box and across
   the bounds at each height. Holding the region tool, or with the map menu open on it, you see your

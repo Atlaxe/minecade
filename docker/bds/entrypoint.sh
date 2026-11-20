@@ -5,7 +5,8 @@
 #                   version from /maps (the map store's published\worlds\, mounted read-only:
 #                   /maps/index.json names each map's version, in /maps/$GAME/$MAP/<version>). A
 #                   template holding the map itself (/templates/servers/$GAME/maps/$MAP, a map
-#                   editor's preview) runs that instead.
+#                   editor's preview) runs that instead. A map with colors has a colors_pack/ beside
+#                   its world, added to the world's resource packs.
 #   MAP_GAME        the game whose published worlds hold the map, when it isn't GAME (a map the
 #                   game borrows from another: Gunfight plays Siege's, in /maps/siege/$MAP)
 #   SERVER_ID       how the orchestrator knows this server ("lobby", or the session id)
@@ -193,6 +194,14 @@ if [[ -f "$TEMPLATE/world_resource_packs.json" ]]; then
   cp "$TEMPLATE/world_resource_packs.json" worlds/active/world_resource_packs.json
 else
   echo "$rpacks" > worlds/active/world_resource_packs.json
+fi
+# The map's colors (map.json "colors"): a pack beside its world that gives plains, the biome every
+# map is, the map's water, grass and foliage (tools/maps/colors-pack.ts), first in the list.
+rm -rf resource_packs/minecade_map_colors
+if [[ -f "$MAP_DIR/colors_pack/manifest.json" ]]; then
+  cp -r "$MAP_DIR/colors_pack" resource_packs/minecade_map_colors
+  jq -c --argjson ref "$(pack_ref resource_packs/minecade_map_colors/manifest.json)" '[$ref] + .' worlds/active/world_resource_packs.json > worlds/active/world_resource_packs.json.new
+  mv worlds/active/world_resource_packs.json.new worlds/active/world_resource_packs.json
 fi
 set_prop texturepack-required "$([[ "$(jq length worlds/active/world_resource_packs.json)" -gt 0 ]] && echo true || echo false)"
 step packs

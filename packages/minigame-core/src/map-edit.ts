@@ -3,6 +3,7 @@
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
 import { addSpace, linkSpaces, moveSpace, removeSpace, retypeSpaces, setSpace, spacesOf, unlinkSpaces, type BoardSpace } from "./board/board-map.ts";
+import { colorsProblems, tidyColors, type MapColors } from "./map-colors.ts";
 import { QUEUE_COUNTDOWN, boundsBoxes, mapTimeTicks, queueSettings, spectatorBoundsBoxes, type Box, type BuildLimitSide, type MapCamera, type MapMannequin, type Facing, type MapConfig, type MapPosition, type MapTime, type QueueSettings, type Vec3 } from "./map-config.ts";
 
 /** A list of positions in map.json. The spectator and queue spawns are lists of at most one. */
@@ -46,6 +47,8 @@ export type MapEdit =
   | { op: "mannequin"; name: string; mannequin?: MapMannequin }
   /** Sets the map's time of day (the map editor's Time tool: a name, or ticks), or with none removes it. */
   | { op: "time"; time?: MapTime }
+  /** Sets the map's colors (the map editor's Colors tool; parts like plains' are left out), or with none removes them. */
+  | { op: "colors"; colors?: MapColors }
   /** Whether the mannequins stand in the map's previews too. */
   | { op: "mannequinsInPreview"; on: boolean }
   /** Whether the map is for taking its game's picture (a minigame thumbnail map). */
@@ -88,7 +91,7 @@ export function isMapKey(key: string): boolean {
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "spaces", "requirements", "time", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "spaces", "requirements", "time", "colors", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -200,6 +203,11 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
     case "time":
       if (edit.time !== undefined && mapTimeTicks(edit.time) === undefined) throw new MapEditError(`"${edit.time}" is not a time of day`);
       return withKey(config, "time", edit.time);
+    case "colors": {
+      const problem = edit.colors === undefined ? undefined : colorsProblems(edit.colors)[0];
+      if (problem) throw new MapEditError(problem);
+      return withKey(config, "colors", tidyColors(edit.colors));
+    }
     case "mannequinsInPreview":
       return withKey(config, "mannequinsInPreview", edit.on ? true : undefined);
     case "gameThumbnail":
@@ -285,6 +293,8 @@ export function describeEdit(edit: MapEdit): string {
       return edit.value === undefined ? `${edit.key} as the game asks` : edit.value === false ? `turn ${edit.key} off` : `ask for ${edit.value} ${edit.key}`;
     case "time":
       return edit.time === undefined ? "clear time" : `set time ${edit.time}`;
+    case "colors":
+      return tidyColors(edit.colors) === undefined ? "clear colors" : "set colors";
     case "mannequinsInPreview":
       return edit.on ? "show mannequins in previews" : "keep mannequins out of previews";
     case "gameThumbnail":

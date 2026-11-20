@@ -25,6 +25,7 @@ Outputs:
     editor/resource_pack/textures/items/marker_tool.png                       the Game marker tool (a flag)
     editor/resource_pack/textures/items/mannequin_tool.png                    the Mannequin tool (a figure on a stand)
     editor/resource_pack/textures/items/time_tool.png                         the Time tool (a clock)
+    editor/resource_pack/textures/items/colors_tool.png                       the Colors tool (a palette)
     editor/resource_pack/textures/items/game_settings_tool.png                the Game settings tool (sliders)
     editor/resource_pack/textures/items/spaces_tool.png                       the Spaces tool (three linked spaces)
     editor/resource_pack/textures/entity/editor_marker_facing.png            the red facing line on markers
@@ -795,6 +796,18 @@ def time_tool_icon() -> Image.Image:
     return image
 
 
+def colors_tool_icon() -> Image.Image:
+    """The Colors tool's item icon, 16x16 like the other editor items: a painter's palette with water, grass and leaf colors on it."""
+    image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(image)
+    wood, rim = (214, 170, 110, 255), (150, 105, 60, 255)
+    draw.ellipse((0, 2, 15, 14), fill=wood, outline=rim)
+    draw.ellipse((9, 9, 12, 12), fill=(0, 0, 0, 0), outline=rim)  # the thumb hole
+    for (x, y), color in (((3, 5), (63, 118, 228, 255)), ((7, 4), (145, 189, 89, 255)), ((3, 9), (89, 174, 48, 255))):
+        draw.rectangle((x, y, x + 2, y + 2), fill=color)
+    return image
+
+
 def game_settings_tool_icon() -> Image.Image:
     """The Game settings tool's item icon, 16x16 like the other editor items: three sliders, each with its knob."""
     image = Image.new("RGBA", (16, 16), (0, 0, 0, 0))
@@ -1021,6 +1034,7 @@ def main() -> None:
     save(marker_tool_icon(), EDITOR_TEXTURES / "items" / "marker_tool.png")
     save(mannequin_tool_icon(), EDITOR_TEXTURES / "items" / "mannequin_tool.png")
     save(time_tool_icon(), EDITOR_TEXTURES / "items" / "time_tool.png")
+    save(colors_tool_icon(), EDITOR_TEXTURES / "items" / "colors_tool.png")
     save(game_settings_tool_icon(), EDITOR_TEXTURES / "items" / "game_settings_tool.png")
     save(spaces_tool_icon(), EDITOR_TEXTURES / "items" / "spaces_tool.png")
     # A dropdown's arrow (the Game marker tool's Marker list, a Team list), closed and open.

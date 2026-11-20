@@ -3,6 +3,7 @@
 // server variable.
 import type { BoardSpace } from "./board/board-map.ts";
 import type { MapKitsConfig } from "./config.ts";
+import type { MapColors } from "./map-colors.ts";
 
 export type Vec3 = [x: number, y: number, z: number];
 
@@ -247,6 +248,8 @@ export interface MapConfig {
   requirements?: RequirementChoices;
   /** A fixed time of day: the daylight cycle stops there (set when the server starts). */
   time?: MapTime;
+  /** Water, grass and foliage colors (map-colors.ts): its servers get a pack that gives plains them. */
+  colors?: MapColors;
   /** The lobby only: a star box around the map, so stars show in every direction, below the horizon too. */
   stars?: boolean;
   /** Kits of the map's own, added to the game's or in place of them (see MapKitsConfig). */

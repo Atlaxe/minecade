@@ -23,5 +23,8 @@ describe("Edit's template", () => {
     const animations = JSON.parse(await readFile(join(rp, "animations", "fake_player.animation.json"), "utf8")) as { animations: Record<string, unknown> };
     expect(Object.keys(animations.animations)).toContain("animation.minecade.fake_player.sitting");
     expect(manifest.header.version[2]).toBe(await contentHash(rp));
+    // The Colors tool's swatches, a biome's and a color's.
+    await readFile(join(rp, "textures", "minecade", "colors", "swampland.png"));
+    await readFile(join(rp, "textures", "minecade", "colors", "c_44aff5.png"));
   }, 120_000);
 });

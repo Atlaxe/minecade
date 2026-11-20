@@ -2,10 +2,11 @@
 // tool grid: it goes in hotbar slot 1, unlocked, and only one tool is out at a time. A new tool
 // adds a row here and gets its icon in the grid. The Game marker tool is only there for a game (or
 // the lobby) whose config asks for points, the Mannequin tool only on a game's maps, the Game
-// settings tool only for a game with settings of its own (its config's map.settings), and the
-// Spaces tool only for a game with a board (its config's map.board).
+// settings tool only for a game with settings of its own (its config's map.settings), the Spaces
+// tool only for a game with a board (its config's map.board), and the Colors tool on every map but
+// an arena's (placed into its game's world, it shows that world's colors).
 
-export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "time" | "gameSettings" | "spaces" | "select";
+export type ToolId = "spawn" | "marker" | "region" | "killY" | "camera" | "snapshot" | "mannequin" | "time" | "colors" | "gameSettings" | "spaces" | "select";
 
 export interface EditorTool {
   id: ToolId;
@@ -84,6 +85,14 @@ export const EDITOR_TOOLS: EditorTool[] = [
     label: "Time tool",
     hint: "the map's time of day",
     howTo: "Use it, or tap Time here, to set the map's time of day, where its servers stop the daylight cycle: Noon, Dusk, Midnight or Dawn, or Custom (type a time on the 24-hour clock, or nudge it an hour at a time). The world shows the time you pick; Set time saves it.",
+  },
+  {
+    id: "colors",
+    item: "minecade:colors_tool",
+    icon: "textures/items/colors_tool",
+    label: "Colors tool",
+    hint: "water, grass and foliage colors",
+    howTo: "Use it, or tap Colors here, to give the map the water, grass and foliage (leaves and vines) colors of any biome: pick one in the Biome list for all three, or take one part at a time from the Water, Grass and Foliage lists, or type colors. Set colors saves them, and Edit starts again to show them (you wait in the editor lobby meanwhile). Arena maps take their game's colors, so they have no Colors tool.",
   },
   {
     id: "gameSettings",

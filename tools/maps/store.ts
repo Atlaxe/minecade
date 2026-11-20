@@ -6,7 +6,8 @@
 //                             each by content), and what's published
 //   published\                the published maps (exportPublished): catalog\, what the network's
 //                             build reads, and worlds\, what its servers read (mounted at /maps),
-//                             an arena map's with its Arena box as structure.mcstructure
+//                             an arena map's with its Arena box as structure.mcstructure, a map
+//                             with colors with its colors pack (colors_pack\, colors-pack.ts)
 //   backups\                  a copy of maps.db after every publish and delete, the newest 30
 // A map is known here from its first version; a working folder alone (a map just made) is a draft
 // nobody saved yet. Publishing points the map at a version (its newest), and a map given another
@@ -18,6 +19,7 @@ import { DatabaseSync } from "node:sqlite";
 import { arenaBox, runtimeMapConfig, type MapConfig } from "@minecade/minigame-core/config";
 import { enableBetaApis, patchLevelDatSync } from "../build/leveldat.ts";
 import { worldNames } from "./blocks.ts";
+import { writeColorsPack } from "./colors-pack.ts";
 import { workingDir } from "./paths.ts";
 import { worldToStructure } from "./structure.ts";
 
@@ -307,8 +309,9 @@ export class MapStore {
    *   Publish, the user's rule). A file is written only when its bytes change, so the build stays
    *   cached while no map's name, kits or pictures did.
    * - worlds\: what the servers read (mounted at /maps): each published version in a folder of its
-   *   own, <target>\<map>\<version>\ (world\ with Beta APIs on, map.json as servers read it, and
-   *   for an arena map its Arena box as structure.mcstructure, writeArenaStructure), written once and
+   *   own, <target>\<map>\<version>\ (world\ with Beta APIs on, map.json as servers read it, for an
+   *   arena map its Arena box as structure.mcstructure, writeArenaStructure, and for a map with
+   *   colors its colors pack, colors_pack\, writeColorsPack), written once and
    *   never changed but for what servers newly get, and index.json naming each map's published version, swapped
    *   in whole. A server starting meanwhile reads the old index or the new one, and both versions'
    *   folders are there: the one before the published one stays, older ones go.
@@ -346,9 +349,11 @@ export class MapStore {
         written++;
       } else {
         // A world written before servers got something new from map.json (the cameras' startView)
-        // gets its runtime map.json again (and an arena map its structure); the world itself stays as it is.
+        // gets its runtime map.json again (an arena map its structure, a map with colors its colors
+        // pack); the world itself stays as it is.
         writeRuntimeConfig(folder, config);
         writeArenaStructure(folder, config);
+        writeColorsPack(folder, config.colors);
       }
       const card: MapCard = { name: config.name, ...(config.kits ? { kits: config.kits } : {}), customNames: versionNames(folder) };
       keep(join(catalog, row.target, `${map}.json`), JSON.stringify(card, null, 2));
@@ -435,6 +440,7 @@ export class MapStore {
       const levelDat = join(fresh, "world", "level.dat");
       if (existsSync(levelDat)) patchLevelDatSync(levelDat, enableBetaApis);
       writeArenaStructure(fresh, config);
+      writeColorsPack(fresh, config.colors);
       removeTree(folder);
       renameSync(fresh, folder);
     } catch (error) {

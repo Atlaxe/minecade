@@ -104,6 +104,24 @@ export {
   type Vec3,
 } from "./map-config.ts";
 export { MapEditError, applyEdit, describeEdit, isMapKey, listKey, listOf, type MapEdit, type MapList } from "./map-edit.ts";
+export { BIOME_COLORS, PLAINS_CLIENT_BIOME, type BiomeColors } from "./biome-colors.ts";
+export {
+  COLOR_PARTS,
+  COLOR_PART_NAMES,
+  PLAINS,
+  biomeOfColors,
+  biomeOfPart,
+  biomeSwatchTexture,
+  colorSwatchTexture,
+  colorsProblems,
+  colorsText,
+  isColor,
+  parseColor,
+  shownColors,
+  tidyColors,
+  type ColorPart,
+  type MapColors,
+} from "./map-colors.ts";
 export { mapChecklist, type Checklist, type ChecklistRow } from "./map-checklist.ts";
 export { formatMapConfig } from "./map-format.ts";
 export {

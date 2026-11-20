@@ -40,6 +40,7 @@ The map editor sets spawns and points in game and writes `map.json` for you; see
 | `killY` | no | Anyone below this height is out (knocked off, fell into the void). Within -64 to 319. |
 | `buildLimit` | no | `{ "above": y, "below": y }`, either or both: in a building game, no block goes above the `above` height or below the `below` one (each a plane, like `killY`: with `"above": 80` the highest block is at 79, with `"below": 60` the lowest is at 60). Whole numbers from -64 to 320, `above` over `below`. Set with the map editor's Kill Y tool. |
 | `time` | no | A fixed time of day: the daylight cycle stops there when the server starts. `day`, `noon`, `sunset`, `night`, `midnight` or `sunrise`, or ticks from 0 to 23999. The map editor's Time tool sets it (Noon, Dusk, Midnight and Dawn are `noon`, `sunset`, `midnight` and `sunrise`; a custom time is ticks). |
+| `colors` | no | `{ "water": "#RRGGBB", "grass": "#RRGGBB", "foliage": "#RRGGBB" }`, any of the three: the map's water, grass (grass blocks, tall grass, ferns) and foliage (leaves, vines) colors, the rest staying plains' own. A color like plains' is left out. Set with the map editor's Colors tool, from any biome's; see "Colors" below. |
 | `stars` | no | The lobby only: `true` puts a star box around the map, so stars show in every direction, below the horizon too (Bedrock's own sky has stars only above it). Use it with a night `time`. See "The star box" in `docs/ui.md`. |
 | `teamSpawns` | no | `{ "<team or role id>": [positions] }`. Team games spawn each team at its own points; before teams are dealt, players wait at every team's spawns in turn (or the plain spawns, when the map has them). The keys must be the game's team ids. |
 | `points` | no | `{ "<name>": [positions] }`: named positions a game uses, such as bomb sites or mob spawns. `"<name>.<team>"` is one team's (`"flag.red"`). |
@@ -68,6 +69,31 @@ export writes each published world's `map.json` again when what servers get chan
 published before needn't be published again. `npm run build` reports
 every problem in every map at once, and warns (without stopping) about two entries of a list in
 the same block.
+
+## Colors
+
+Every map's world is plains (checked 2026-11-19: every chunk of every published map; nothing in the
+map editor changes a world's biomes, and Bedrock has no command or script to), and the client
+colors water, grass and leaves by biome. A map's
+`colors` give plains other colors on its servers only: wherever a server gets the map (its
+published version, Edit, a preview), a small resource pack goes beside its world, `colors_pack\`
+(`tools/maps/colors-pack.ts`), holding plains' client biome as vanilla has it with the map's water,
+grass and foliage colors in place of its own, and the entrypoint puts it first in the world's
+resource packs. Players download it as they join (once per set of colors: its ids come from its
+colors). A version published before colors packs gets its pack at the store's next export.
+
+- **Presets:** the Colors tool offers every biome's colors, as the client draws them
+  (`packages/minigame-core/src/biome-colors.ts`, written by `npx tsx tools/assets/biome-colors.ts`
+  from the client's vanilla packs: its client biome files for fixed colors, its color maps looked up
+  by each biome's climate for the rest). Rerun it after a game update that adds biomes, and commit
+  the file. A biome named in Java by another name goes by Java's (Swamp, not swampland), and the
+  older ones only older worlds have by theirs (Desert Hills).
+- **Only these three:** the sky, fog, underwater fog and the rest of plains' look stay plains' own.
+  Spruce and birch leaves have color maps of their own in the client, so they may keep their
+  colors (not checked in game yet).
+- **Arena maps** (Block Party's minigames) have no colors: they're placed into their game's world, and
+  show its colors.
+- **The Panel's map viewer** still draws every map with plains' colors.
 
 ## The queue spawn
 

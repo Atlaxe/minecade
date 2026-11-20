@@ -18,6 +18,7 @@ import {
   mapChecklist,
   mapHash,
   splitConfig,
+  tidyColors,
   type EditInfo,
   type EditorEvent,
   type MapConfig,
@@ -27,6 +28,7 @@ import { bakeSettings } from "../build/bake-core.ts";
 import { copyDirFromContainer } from "../build/docker-util.ts";
 import { enableBetaApis, patchLevelDat, readLevelDat, writeLevelDat } from "../build/leveldat.ts";
 import { History, isMapId, newMapConfig, withLineEndings, type EditStatus } from "./editor-core.ts";
+import { writeColorsPack } from "../maps/colors-pack.ts";
 import type { MapStore, PublishResult } from "../maps/store.ts";
 import type { PreviewMap } from "./preview-template.ts";
 import { findWorld } from "./selections.ts";
@@ -61,6 +63,13 @@ export class EditorSession extends ServerSession {
   onDelete: ((by: string) => void) | undefined;
   /** A map editor gave this map another id (Map settings, or a thumbnail imported with its name): the runner reopens it under that id. */
   onRename: ((by: string, map: string) => void) | undefined;
+  /**
+   * The map's colors changed (the Colors tool, undo, the Panel or a hand edit): its colors pack only
+   * loads when the server starts, so the runner starts Edit again on the map to show them.
+   */
+  onColors: ((by: string) => void) | undefined;
+  /** The colors the server's colors pack was staged with (colorsKey). */
+  private stagedColors = "";
   private readonly target: EditorTarget;
   private readonly mapId: string;
   private readonly fresh: { name: string } | undefined;
@@ -161,6 +170,7 @@ export class EditorSession extends ServerSession {
     this.note(`${by}: ${what}`);
     void this.sendConfig();
     void this.sendStatus();
+    this.colorsChanged(by);
     return { config: next, undo: this.history.undoLabel, redo: this.history.redoLabel };
   }
 
@@ -251,6 +261,9 @@ export class EditorSession extends ServerSession {
     }
     for (const file of RUNTIME_FILES) await rm(join(world, file), { force: true });
     await writeFile(join(dir, "map.json"), JSON.stringify(this.config));
+    // The map's colors, beside the world as a published map has them (the entrypoint loads the pack).
+    writeColorsPack(dir, this.config.colors);
+    this.stagedColors = colorsKey(this.config);
     const info: EditInfo = {
       mode: "edit",
       target: this.target.id,
@@ -262,6 +275,7 @@ export class EditorSession extends ServerSession {
       view: await readViews(root),
       pictures: await pictureInfo(root, this.target.id, this.mapId),
       ...(this.target.borrowers ? { playAs: this.target.borrowers } : {}),
+      ...(this.target.arena ? { arena: true } : {}),
     };
     await writeFile(join(dir, "editor.json"), JSON.stringify(info));
   }
@@ -276,6 +290,14 @@ export class EditorSession extends ServerSession {
   /** Changes made while it was starting (the Panel's map viewer writes map.json itself until Edit is ready) come in now. */
   protected onReady(): void {
     void this.reloadMap("changed while Edit was opening it");
+    this.colorsChanged("Someone");
+  }
+
+  /** After a change: when the map's colors aren't the ones the server started with, the runner starts it again to show them. */
+  private colorsChanged(by: string): void {
+    if (this.state !== "ready" || colorsKey(this.config) === this.stagedColors) return;
+    this.note(`${by} changed the map's colors: Edit starts again to show them.`);
+    this.onColors?.(by);
   }
 
   // ---- Talking to the pack ----------------------------------------------------------------
@@ -357,6 +379,7 @@ export class EditorSession extends ServerSession {
     this.note(`${event.by}: ${what}`);
     void this.send({ t: "ack", seq: event.seq, hash: mapHash(next) });
     void this.sendStatus();
+    this.colorsChanged(event.by);
   }
 
   /** Undoes or redoes the last change; its label, or undefined when there was nothing to do. */
@@ -371,6 +394,7 @@ export class EditorSession extends ServerSession {
     this.note(`${by}: ${kind} ${step.label}`);
     void this.sendConfig();
     void this.sendStatus();
+    this.colorsChanged(by);
     void this.say(`${by} ${kind === "undo" ? "undid" : "redid"}: ${step.label}`);
     return step.label;
   }
@@ -413,6 +437,7 @@ export class EditorSession extends ServerSession {
     void this.sendConfig();
     void this.sendStatus();
     void this.say(`map.json was ${why}, and the map is updated.`);
+    this.colorsChanged(why === "changed by hand" ? "A hand edit of map.json" : "Someone");
   }
 
   private async sendConfig(): Promise<void> {
@@ -698,4 +723,9 @@ function withSpawn(config: MapConfig): MapConfig {
   if (config.spawns?.length > 0) return config;
   const spectator = config.spectatorSpawn;
   return { ...config, spawns: [spectator ? [spectator[0], spectator[1], spectator[2]] : [0, 65, 0]] };
+}
+
+/** A map's colors as one string, to tell whether they changed (parts like plains' don't count). */
+function colorsKey(config: MapConfig): string {
+  return JSON.stringify(tidyColors(config.colors) ?? null);
 }

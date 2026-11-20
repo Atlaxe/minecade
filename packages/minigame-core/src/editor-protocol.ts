@@ -52,6 +52,8 @@ export interface EditInfo {
   pictures?: PictureInfo;
   /** Other games that play this game's maps (Gunfight, for a Siege map): Preview can play the map as one of them. */
   playAs?: { id: string; name: string; maxPlayers: number }[];
+  /** An arena's map (Block Party's minigames), placed into its game's world: it has no colors of its own (no Colors tool). */
+  arena?: boolean;
 }
 
 /**

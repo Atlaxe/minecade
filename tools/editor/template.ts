@@ -5,7 +5,8 @@
 // own marker models go into the editor's resource pack (marker-models.ts), their hitboxes into its
 // behavior pack, and so do the pictures Edit's thumbnail menus show (pictures.ts) and the fake
 // player its mannequins are (fake-player.ts), with the players' skins the watcher saved (its
-// scripts get their list as "#skins"). Everything the resource pack holds goes in before its
+// scripts get their list as "#skins"), and the Colors tool's biome swatches (biome-swatches.ts).
+// Everything the resource pack holds goes in before its
 // version is stamped from its files (buildResourcePack's `extra`): a client keeps its cached copy
 // of a pack whose version didn't change, so a file added after that never reached anyone (the
 // mannequins' new poses didn't show while their size, which the server sets, did).
@@ -13,6 +14,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildBehaviorPack, buildResourcePack, readPinnedManifest, writePackLists } from "../build/packs.ts";
 import { EDITOR_SHARED } from "./editor-image.ts";
+import { addBiomeSwatches } from "./biome-swatches.ts";
 import { addFakePlayer, mannequinSkins } from "./fake-player.ts";
 import { addMarkerHitboxes, addMarkerModels, listMarkerModels } from "./marker-models.ts";
 import { addPictures } from "./pictures.ts";
@@ -32,6 +34,7 @@ export async function buildEditorTemplate(out: string): Promise<void> {
     await addMarkerModels(pack, models);
     await addPictures(pack, root);
     await addFakePlayer(join(out, "behavior_packs", "editor_bp"), pack, players);
+    await addBiomeSwatches(pack);
   });
   await writePackLists(out, EDITOR_SHARED);
 }

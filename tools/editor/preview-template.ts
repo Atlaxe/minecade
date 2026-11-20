@@ -7,7 +7,7 @@
 // previews (Edit's Mannequin tool) gets them in its map.json as previewMannequins, each look worked
 // out for the preview's pack (which gets the players' skins for them). A game with arenas (Block
 // Party's minigames) gets a copy of their published maps (arena-maps.ts), as its servers get them
-// from /maps.
+// from /maps. A map with colors gets its colors pack (tools/maps/colors-pack.ts).
 import { existsSync } from "node:fs";
 import { cp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -31,6 +31,7 @@ import { enableBetaApis, patchLevelDat } from "../build/leveldat.ts";
 import { buildBehaviorPack, buildResourcePack, readPinnedManifest, writePackLists } from "../build/packs.ts";
 import { EDITOR_SHARED } from "./editor-image.ts";
 import { copyArenaMaps } from "../maps/arena-maps.ts";
+import { writeColorsPack } from "../maps/colors-pack.ts";
 import { publishedDir } from "../maps/paths.ts";
 import { addFakeSkins, addPlayerSkins, mannequinSkins, type MannequinSkin } from "./fake-player.ts";
 import { importConfig } from "./import-config.ts";
@@ -80,6 +81,8 @@ export async function buildPreviewTemplate(map: PreviewMap, out: string): Promis
   const mannequins = map.config.mannequinsInPreview === true ? previewMannequins(map.config, players) : [];
   if (mannequins.length > 0) runtime.previewMannequins = mannequins;
   await writeFile(join(mapOut, "map.json"), JSON.stringify(runtime, null, 2));
+  // The map's colors, as its published version gets them.
+  writeColorsPack(mapOut, map.config.colors);
 }
 
 /**

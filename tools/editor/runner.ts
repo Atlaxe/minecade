@@ -509,15 +509,34 @@ export class EditorRunner {
   }
 
   /**
+   * Starts Edit again on the map it has open, once the opens queued before it are done: `session`'s
+   * colors changed, and its colors pack only loads when the server starts. Everyone on it waits in
+   * the editor lobby meanwhile (Edit saves first, as it does for any other map). Nothing happens if
+   * Edit has another server by then (a newer start already has the new colors).
+   */
+  private reloadEdit(by: string, session: EditorSession): void {
+    const opened = this.opened.get("edit");
+    if (this.work.edit !== session || opened?.request.to !== "edit") return;
+    const request = opened.request;
+    this.queues.edit = this.queues.edit
+      .then(async () => {
+        if (this.work.edit !== session) return;
+        await this.launch(by, await this.editLaunch(request), false, "The map's colors changed: wait in the editor lobby while Edit starts again to show them.");
+      })
+      .catch((error: unknown) => this.log(`Starting Edit again for the new colors went wrong: ${message(error)}`));
+  }
+
+  /**
    * Runs one open on its server: moves whoever is on it to the lobby, restarts it, then delivers the
    * waiting players. `warm` is the Panel's warm-up, which a newer open may call off while it starts.
+   * `again` (what the players on it are told) restarts it even on the map it has open (reloadEdit).
    */
-  private async launch(by: string, launch: Launch, warm = false): Promise<void> {
+  private async launch(by: string, launch: Launch, warm = false, again?: string): Promise<void> {
     if (this.state !== "ready") return;
     const { slot } = launch;
     const current = this.work[slot];
     const opened = this.opened.get(slot);
-    const plan = planOpen(slot, openKey(launch.request), current && opened ? { key: openKey(opened.request), state: current.status().state, players: current.online() } : undefined);
+    const plan = planOpen(slot, openKey(launch.request), current && opened ? { key: openKey(opened.request), state: current.status().state, players: current.online() } : undefined, again !== undefined);
     if (!plan.restart) {
       await this.deliver(slot);
       return;
@@ -525,7 +544,7 @@ export class EditorRunner {
     if (current) {
       for (const name of plan.evict) this.waiting.set(name.toLowerCase(), { name, slot, label: launch.label });
       if (plan.evict.length > 0) {
-        await current.say(`${by === "this PC" ? "This PC" : by} is opening ${launch.chat} here: wait in the editor lobby, and you'll be back when it's ready.`);
+        await current.say(again ?? `${by === "this PC" ? "This PC" : by} is opening ${launch.chat} here: wait in the editor lobby, and you'll be back when it's ready.`);
         await this.sendHome(current, plan.evict);
         await delay(LEAVE_MS);
       }
@@ -541,6 +560,7 @@ export class EditorRunner {
       session.onPreview = (who, fakes, as) => void this.preview(who, fakes, as);
       session.onDelete = (who) => this.deleteMap(who, session);
       session.onRename = (who, map) => this.renameMap(who, session, map);
+      session.onColors = (who) => this.reloadEdit(who, session);
     }
     if (session instanceof SelectSession) session.onExportEdit = (who, target, map) => this.exportEdit(who, target, map);
     session.onPlayer = (name, kind) => this.joined(session, name, kind);

@@ -195,10 +195,11 @@ export interface OpenPlan {
 /**
  * Opening `key` (openKey() of a request for Edit or Select) on its server, which has `current` open
  * now (or nothing): the same thing open (or still starting) is just a move; anything else restarts
- * the server, and whoever is on it waits in the editor lobby meanwhile.
+ * the server, and whoever is on it waits in the editor lobby meanwhile. `again` restarts it on the
+ * same thing too (Edit, after the map's colors changed: its colors pack loads at a start).
  */
-export function planOpen(slot: "select" | "edit", key: string, current: { key: string; state: ServerState; players: string[] } | undefined): OpenPlan {
-  const same = current !== undefined && current.key === key && (current.state === "starting" || current.state === "ready");
+export function planOpen(slot: "select" | "edit", key: string, current: { key: string; state: ServerState; players: string[] } | undefined, again = false): OpenPlan {
+  const same = !again && current !== undefined && current.key === key && (current.state === "starting" || current.state === "ready");
   return { slot, restart: !same, evict: same || !current ? [] : [...current.players] };
 }
 
