@@ -321,8 +321,12 @@ export class BoardLoop {
     return this.stars;
   }
 
-  /** Coins from one seat to another, at most `amount` and never more than the payer has: what was paid. */
-  pay(from: string, to: string, amount: number): number {
+  /**
+   * Coins from one seat to another, at most `amount` and never more than the payer has: what was
+   * paid. Shown as a hand-over (pass) when both are here, unless `now`: flown at once from the
+   * payer's head to the payee's in the shot that's up (a duel's stake, on the minigame podium).
+   */
+  pay(from: string, to: string, amount: number, now = false): number {
     const payer = this.seats.get(from);
     const payee = this.seats.get(to);
     if (!payer || !payee || from === to) return 0;
@@ -332,7 +336,7 @@ export class BoardLoop {
     // A hand-over (the camera on the payer, then on the payee) when both are here, else the bank's way.
     const giver = this.whoOf(from);
     const taker = this.whoOf(to);
-    if (giver && taker) this.pass(giver, taker, "coin", paid);
+    if (giver && taker && !now) this.pass(giver, taker, "coin", paid);
     else void this.transfer(giver, taker, "coin", paid);
     this.host.changed();
     return paid;
@@ -1314,7 +1318,9 @@ export class BoardLoop {
       this.react(winner.key, "Celebration");
       this.confetti(winner.key);
       this.react(loser.key, "Sad");
-      const paid = this.pay(loser.key, winner.key, stake);
+      // The stake flies from the loser to the winner on the minigame podium, not as a hand-over
+      // back on the board (the user, 2026-11-20: the podium is where a minigame's results show).
+      const paid = this.pay(loser.key, winner.key, stake, true);
       const result = { player: winner.name, other: loser.name, coins: count(paid, "coin") };
       this.host.everyone(line("versus.won", result));
       this.host.changed();

@@ -1342,9 +1342,9 @@ shows players losing and gaining coins, and doing winning and sad emotes and the
   their head with the count (+3) rising over it, and a bet lost flying off; the winners celebrate
   and those who came away with nothing are sad (`minigameMoods`), and each **holds the pose** until
   everyone goes back to the board, 5.5 seconds on. Then the results screen on the board, as before.
-  A duel's stake is a hand-over since 2026-11-20 (`block-party-ui.md`, "Transfers, as built"):
-  back on the board, the camera on the loser as the coins go, then on the winner as they land,
-  before the results screen.
+  A duel's stake flies from the loser's head to the winner's there too. It was a hand-over back on
+  the board for a moment on 2026-11-20 (`block-party-ui.md`, "Transfers, as built"), and the user
+  put it back: a minigame's results are the podium's, never a hand-over's.
 - **Held poses:** a Celebration or Sad animation plays to the point where its last move back to
   the resting pose starts (`animations.ts` holdPoint: arms still up, a head still hung), and the
   player goes into its held pose there, an animation named after it with `.hold` on the end

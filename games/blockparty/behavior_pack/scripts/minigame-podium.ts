@@ -1,9 +1,10 @@
 // The minigame podium (docs/plans/block-party.md, "The minigame podium"; the user, 2026-11-18): after
 // a minigame its players go to the podium marked on the arena map (arenas.ts, "Minigame podium": 4
 // spots, 1st place to 4th), best first, and the results play there through the podium camera: the
-// coins each wins drop in over their head, the winners celebrate and those who came away with nothing
-// are sad, each holding their pose (moves.ts, hold) until everyone goes back to the board. A duel's
-// stake is a hand-over (handovers.ts), shown back on the board before its results.
+// coins each wins drop in over their head (and a duel's stake flies from the loser to the winner),
+// the winners celebrate and those who came away with nothing are sad, each holding their pose
+// (moves.ts, hold) until everyone goes back to the board. A duel's stake is never a board hand-over
+// (handovers.ts): the podium is where a minigame's results show (the user, 2026-11-20).
 // Pure, so the tests can check who stands where and the shot.
 import type { Field, Outcome, Spot } from "./minigames/kit.ts";
 import { MARKUP } from "./minigames/arenas.ts";

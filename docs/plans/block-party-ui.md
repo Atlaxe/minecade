@@ -565,10 +565,12 @@ Party. Built for every change of hands, which also covers the pops above (`token
     that tells of it: Coin Swap, Reverse Fortune, the Shooting Star, Lightning Strike and the Iron
     Golem's shakedown just before their results screen, Hush Money after the Warden's line and
     before he leaves, Gift Exchange before the Witch's goodbye (in place of the shot from high over
-    everyone), Happening's item swap after its line, the Mystery Die's coin swap after the face's
-    line, and a duel's stake back on the board before its results (it no longer flies on the
-    minigame podium). Anything one missed is shown at the end of the space's or the item's scene.
+    everyone), Happening's item swap after its line, and the Mystery Die's coin swap after the
+    face's line. Anything one missed is shown at the end of the space's or the item's scene.
     Nothing plays while a cutscene is skipped.
+  - Never after a minigame (the user, 2026-11-20: that's what the minigame podium is for): a duel's
+    stake flies from the loser's head to the winner's on the podium, in its camera, as it did
+    before hand-overs (`board-loop.ts` pay, `now`).
   - Seat to NPC and bank ones (the Star's price to Chris, the Witch, the Warden's taxes, the zombie,
     the Villager) fly as before, in the shot that's up.
 - **Tests:** Transfer animations plays each kind round the player (shown only), and hand-overs:
