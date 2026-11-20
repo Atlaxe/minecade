@@ -68,6 +68,21 @@ export function stepBot(body: Entity, x: number, z: number, climb = 0): void {
   }
 }
 
+/**
+ * Sets a bot moving `x`, `y` and `z` blocks this tick, turned the way it goes along the ground: its
+ * walk on the board, where the walk's plan (walk-plan.ts) says how far up or down each tick, so it
+ * jumps, falls and climbs as the plan does.
+ */
+export function moveBot(body: Entity, x: number, y: number, z: number): void {
+  try {
+    body.clearVelocity();
+    body.applyImpulse({ x, y, z });
+    if (Math.hypot(x, z) > 0.01) body.setRotation({ x: 0, y: (Math.atan2(-x, z) * 180) / Math.PI });
+  } catch {
+    // gone
+  }
+}
+
 /** Steers a bot a tick toward `target` at `speed` blocks a tick; true once it's within `near`. */
 export function stepToward(body: Entity, target: Vector3, speed: number, near = 0.3): boolean {
   let at: Vector3;
@@ -84,9 +99,10 @@ export function stepToward(body: Entity, target: Vector3, speed: number, near = 
     return true;
   }
   const step = Math.min(speed, gap);
-  // A step up close ahead (a zombie after its target onto a space's marker): hop up it.
+  // A step up close ahead (a zombie after its target onto a space's marker, or up a block where the
+  // board rises): hop up it.
   const climb = target.y - at.y;
-  stepBot(body, (dx / gap) * step, (dz / gap) * step, gap < 1.5 && climb > 0.05 && climb <= 0.6 ? climb : 0);
+  stepBot(body, (dx / gap) * step, (dz / gap) * step, gap < 1.5 && climb > 0.05 && climb <= 1.3 ? climb : 0);
   return false;
 }
 

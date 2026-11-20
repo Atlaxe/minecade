@@ -72,8 +72,9 @@ export default defineGame({
   // test arena, laid in code.
   arenas: ARENAS,
   /**
-   * The test board: 12 spaces around a square, `spacing` blocks apart, its middle `at` (x, y of the
-   * spaces' top, z), out beside Probe's platform. Pieces walk at `speed` blocks a second.
+   * The test board (test-board.ts): 12 spaces in a loop with stairs, ladders, vines, jumps, gaps and
+   * drops between them, its middle `at` (x, y of its floor, z), out beside Probe's platform. Pieces
+   * walk at `speed` blocks a second.
    */
-  board: { at: [0, 64, 48] as [number, number, number], spacing: 6, speed: 8 },
+  board: { at: [0, 64, 48] as [number, number, number], speed: 8 },
 });

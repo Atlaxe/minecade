@@ -38,7 +38,6 @@ import {
   InputButton,
   InputPermissionCategory,
   ItemStack,
-  BlockVolume,
   system,
   world,
   type Dimension,
@@ -53,7 +52,9 @@ import registry from "#registry";
 import skins from "#skins";
 import { HOTBAR_SIZE, KEEP_UP, READY_CODE, SIDE_TWO_CODE, STANDINGS_CODE, STAR_LEVELS, holdingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
-import { boardBox, floorOf, layPaths, mapSpaces, standAt, testSpaces, type Space, type Vec3 } from "./board.ts";
+import { boardBox, floorOf, mapSpaces, standAt, type Space, type Vec3 } from "./board.ts";
+import { WorldTerrain } from "./terrain.ts";
+import { layTestBoard, testBoardSpaces } from "./test-board.ts";
 import { BoardLoop } from "./board-loop.ts";
 import { BoardCamera, autoDirection, cameraSettings, type BoardCameraSettings } from "./board-camera.ts";
 import { BoardMenu } from "./board-ui.ts";
@@ -377,7 +378,7 @@ export class BlockPartySpike extends Minigame<Config> {
     for (const problem of ITEM_PROBLEMS) log.warn(`blockparty: items.json: ${problem}`);
     const own = spacesOf(this.map.config);
     this.ownBoard = own.length > 0;
-    this.spaces = this.ownBoard ? mapSpaces(own) : testSpaces(this.config.board.at, this.config.board.spacing);
+    this.spaces = this.ownBoard ? mapSpaces(own) : testBoardSpaces(this.config.board.at);
     if (this.ownBoard) {
       const xs = this.spaces.map((space) => space.at[0]);
       const zs = this.spaces.map((space) => space.at[2]);
@@ -387,6 +388,7 @@ export class BlockPartySpike extends Minigame<Config> {
     const arenaBox = { min: [ARENA_AT[0] - 100, -64, ARENA_AT[2] - 100] as Vec3, max: [ARENA_AT[0] + 100, 319, ARENA_AT[2] + 100] as Vec3 };
     this.map.extendBounds([box, arenaBox]);
     const watchers = () => world.getAllPlayers();
+    const dimension = world.getDimension("overworld");
     this.pieces = new Pieces(this.scope, {
       spaces: () => this.spaces,
       // A bot's walk is watched through the first player's camera setting.
@@ -398,8 +400,9 @@ export class BlockPartySpike extends Minigame<Config> {
       watchers,
       overview: () => [this.middle[0], this.middle[1] + 18, this.middle[2] - 22],
       report: (body, text) => isPlayer(body) && this.tell(body, text),
+      // The ground the walk goes over: jumps, falls, stairs and climbs (walk-plan.ts).
+      terrain: new WorldTerrain(dimension, () => this.spaces),
     });
-    const dimension = world.getDimension("overworld");
     this.bots = new Bots(this.scope, dimension);
     this.runner = new MinigameRunner({
       scope: this.scope,
@@ -1034,12 +1037,9 @@ export class BlockPartySpike extends Minigame<Config> {
     const dimension = world.getDimension("overworld");
     try {
       await world.tickingAreaManager.createTickingArea(BOARD_AREA, { dimension, from: { x: box.min[0], y: box.min[1], z: box.min[2] }, to: { x: box.max[0], y: box.max[1], z: box.max[2] } });
-      // A map's own board keeps its paths; the test board gets its own, and a plaza in the middle for the NPCs.
-      if (!this.ownBoard) {
-        layPaths(dimension, this.spaces);
-        const [mx, my, mz] = this.middle;
-        dimension.fillBlocks(new BlockVolume({ x: Math.floor(mx) - 6, y: my - 1, z: Math.floor(mz) - 6 }, { x: Math.floor(mx) + 6, y: my - 1, z: Math.floor(mz) + 6 }), "minecraft:smooth_stone");
-      }
+      // A map's own board keeps its paths; the test board gets its own, with something to get over on
+      // every stretch, and a plaza in the middle for the NPCs (test-board.ts).
+      if (!this.ownBoard) layTestBoard(dimension, this.middle);
       // Every space's marker, standing on the floor (space-markers.ts).
       this.markers.lay();
     } catch (error) {

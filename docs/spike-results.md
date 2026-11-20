@@ -126,6 +126,20 @@ Same rig, with a cases file (`npx tsx spike/knockback/run.ts cases.json`) and tw
 
 What the code does with this: Sumo's default `knockback.mode` is "vanilla" (its `onDamage` returns 0 for melee hits), and "scripted" uses the numbers above with a 10-tick cooldown per victim and credits its own pushes. Since 2026-11-11 Sumo knocks twice as far (`knockback.strength` 2, the user's ask): in vanilla mode each hit that lands (`afterEvents.entityHurt`, so not the taps the hurt cooldown drops) gets a push of 1.5 (2.25 sprinting) on top, keeping the hurt flash and the cooldown; scripted mode multiplies its horizontal numbers. Its double jump pushes up at `0.5 - min(0, vy + 0.125) / 2`, so it rises the same whether the player is going up or falling. `combat.ts` now takes kill credit from `afterEvents.entityHurt`, plus lethal hits it intercepts, so a tap inside the cooldown can't steal a knock-off. `damage: "none"` stays "cancel every hit" (for games where hits should do nothing at all); games that want push-only hits return 0 from `onDamage` instead.
 
+### A push down, and pushes every tick in the air (checked 2026-11-20)
+
+Same rig, BDS 1.26.60.6, two more case fields: `up` (the victim starts that many blocks over the floor at tick 0, falling) and `pushes` (`[from, to, h, v]`: `applyKnockback({ x: 0, z: h }, v)` every tick from `from` to `to`). Asked for Block Party's walk over the ground (`walk-plan.ts`): a pushed piece couldn't walk off a ledge.
+
+| Question | Finding |
+|---|---|
+| Can a push send a player down? | **Yes.** A negative `verticalStrength` is used as given, not clamped: pushed at -0.2 every tick 3 blocks up, the victim fell -0.24, -0.397, -0.474, -0.511, -0.530, -0.539 a tick (landing in 6 ticks, against 8 falling freely); at -0.5, -0.6, -0.933, -1.097 (4 ticks). |
+| A push of 0 every tick in the air | The victim sinks only 0.077 a tick (gravity's one tick, again and again): **a pushed piece can't fall off a ledge** unless each push carries the fall. |
+| Pushes up every tick | Exact: 0.3 every tick rose 0.300 a tick, then fell freely once the pushes stopped. |
+| The rule, up | A push of `v` gives `min(v, 1.2v + 0.49(vy - 0.08))` up, `vy` the speed up before it (the previous tick's move): it fits every case above to 3 places, and the 2026-11-11 row (0.5 falling at -0.15 gave 0.486, at -0.30 0.413). So rising pushes are what they ask; falling, about half of the fall is kept. To move `m` up in a tick, push `max(m, (m - 0.49(vy - 0.08)) / 1.2)` (`walk-plan.ts`, `pushUp`). |
+| The rule, along | 0.4 x the force plus half the speed after friction (Java's knockback): on the ground the victim settles at 1.375 x 0.4 x the force (`PUSH_GAIN`, friction 0.546), in the air at 1.83 x (friction 0.91): 0.2, 0.255, 0.315, 0.344, 0.356, 0.363 a tick for a force of 0.5. |
+
+Rerun: `npx tsx spike/knockback/run.ts <cases.json>` with cases like `{ "id": "air-neg02", "mode": "vanilla", "hits": [], "up": 3, "pushes": [0, 20, 0.5, -0.2], "ticks": 20 }`. The first pushed tick after the `up` teleport moved 1.2 x `v` (the teleport's settling ticks); the rule holds from the second.
+
 ## Block physics (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-11)
 
 Measured on a throwaway BDS (`npx tsx spike/physics/run.ts`): red concrete powder, sand and an anvil

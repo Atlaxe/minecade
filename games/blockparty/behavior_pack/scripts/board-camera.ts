@@ -143,6 +143,8 @@ export interface BoardCameraHost {
 const FOLLOW_EVERY = 2;
 /** How far a turning board view turns in a tick at most, in degrees (a corner pans). */
 const TURN_RATE = 6;
+/** How much of the gap to the piece's height the following board view makes up each move, so a jump or a step doesn't bob it and a drop or a climb is followed smoothly. */
+const HEIGHT_EASE = 0.3;
 
 export class BoardCamera {
   private readonly host: BoardCameraHost;
@@ -154,6 +156,8 @@ export class BoardCamera {
   private wasEngaged = false;
   private yaw: number | undefined;
   private last: CameraShot | undefined;
+  /** The height the following view is at (eased toward the piece's: HEIGHT_EASE). */
+  private height: number | undefined;
   private tick = 0;
   /** Ticks left of the ease down into the board view after a minigame (comeIn): the follow leaves it be. */
   private landing = 0;
@@ -326,7 +330,8 @@ export class BoardCamera {
       yaw = this.yaw;
     } else yaw = settings.direction ?? 180;
     const at = body.location;
-    const shot = viewShot([at.x, at.y, at.z], yaw, settings, this.zoom);
+    this.height = this.fresh || this.height === undefined ? at.y : this.height + (at.y - this.height) * HEIGHT_EASE;
+    const shot = viewShot([at.x, this.height, at.z], yaw, settings, this.zoom);
     const last = this.last;
     const moved = !last || Math.hypot(shot.location[0] - last.location[0], shot.location[1] - last.location[1], shot.location[2] - last.location[2]) > 0.02 || Math.abs(turnBetween(last.yaw, shot.yaw)) > 0.1 || last.pitch !== shot.pitch;
     if (!moved && !this.fresh) return;

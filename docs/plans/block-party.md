@@ -630,6 +630,13 @@ a corner is turned exactly on the space's block middle, and the chase camera pan
 fixed rate instead of cutting. Where a piece stops on a space (and the back and forth
 some spots showed) is settled with the board markup's spaces (pass 3).
 
+**Over the ground** (the user, 2026-11-19: walk off ledges to the next spot, stairs, jump before
+hitting a block, and more; they picked gaps, ladders and vines, and slabs and partial blocks on top):
+each stretch between two spaces is planned from its blocks when the piece sets off on it, and the
+pushes carry the plan's height, so pieces walk up and down steps, jump blocks and gaps, fall off
+drops and climb ladders and vines. "Moving over the board" (under Maps) has how, and what a board can
+ask of a piece.
+
 ### Turns and controls
 
 - **Replaced (2026-11-17):** the hotbar below worked, but minigames need the hotbar for their own
@@ -993,6 +1000,8 @@ board there should be nothing: the game uses the empty space around it for the a
   or 2 blocks between markers). Never closer than 3 along both x and z: the markers would overlap
   (`/boardcheck` warns). Pieces move in straight lines between spaces, so put a space at every
   corner of the path.
+- The path can rise and fall between spaces: stairs, slabs, a block to jump up, a gap to jump, a
+  drop, a ladder or vines up a wall. "Moving over the board" (below) says what a piece gets over.
 - Leave a free block beside every Star candidate and every Item space: Chris stands beside the
   Star, and the Wandering Trader beside its Item space.
 - The beacon beam is a model the game draws with the vanilla beam's texture (proposed), so it works under a ceiling (an Ancient City
@@ -1065,9 +1074,10 @@ block's worth over the whole face, not a block every 16 pixels).
 `blockparty:space_floor`, in each block the marker covers, as tall as its top, so pieces stand on it.
 A block the map already has in that layer is left alone. A walking piece is pushed each tick, and a
 push sets how fast it goes up (to nothing), so it never stepped up on its own: it stood at the edge
-until the walk gave up and put it on the space (the user saw it stick there a moment). Now the walk
-lifts it as its side comes to a marker's edge (`stepUp`): a player is lifted as fast as the step is
-high until they're up, a bot (and a zombie following its target) hops it once.
+until the walk gave up and put it on the space (the user saw it stick there a moment). The walk
+lifted it as its side came to a marker's edge; since 2026-11-20 the marker is just ground the walk's
+plan reads (its top, within its reach), walked up and down on a slope like a slab ("Moving over the
+board", below). A zombie following its target hops it once.
 
 **Lit up** (emissive, to show the difference): a marker lights while a piece anyone can see stands
 on it (its middle over the marker, so a walk lights each space it crosses; a seat faded out on
@@ -1098,6 +1108,92 @@ model's texture mapping in place and writes the client entity's textures, its tw
 controllers (plain and lit), the floor block (`behavior_pack/blocks/space_floor.json`) and
 `games/blockparty/space-model.json` (what the game reads). `test/spaces.test.ts` fails until it has
 run. Then merge and Restart.
+
+### Moving over the board
+
+**Built 2026-11-20** (the user asked for pieces that walk off ledges to the next spot, take stairs,
+jump before they hit a block, "and more", and picked gaps, ladders and vines, and slabs and partial
+blocks from the list; not a leap up 2 blocks or more). Not yet seen in game.
+
+**What a piece does**, on each stretch (one space to the next, in a straight line), as a player
+would (`walk-plan.ts`):
+
+- **Steps up or down 0.6 blocks or less** (a slab, a stair, a carpet, snow, a space's marker): walked
+  on a slope, lifted a little before a step up (all the way up by the time its front meets it) and
+  let down just after a step down. Straight stairs are a slope of half-block steps.
+- **A step up of more than 0.6, up to 1.3** (a block): jumped before the piece gets to it. The jump
+  is picked from takeoffs up to 2.2 blocks before it and upward speeds 0.28 to 0.62 a tick (a
+  player's own is 0.42, which the pick leans to), flown as a player flies: it must clear everything
+  by 0.05 on the way up and come down about 0.9 onto the top.
+- **A block in the way it could only stand on for a moment** (a hurdle, a block deep): one arc over
+  it, not up and straight back down.
+- **A gap** (nothing under it, or water or lava, up to 4.5 ahead): jumped, landing about 0.9 onto the
+  far side. A crack it's over for no more than 0.2 (under 0.8 wide) is walked over, as a running
+  player does. Pieces never walk into water.
+- **A drop** (down more than 0.6, down to 10): walked off and fallen down, as a player falls
+  (gravity 0.08 a tick, drag 0.98), still walking at its speed.
+- **A rise taller than a jump with a ladder or vines on it** (any of ladder, vine, twisting, weeping
+  and cave vines, scaffolding, in the block in front of the wall): it walks to 0.25 from the wall and
+  climbs at 0.15 a tick (vanilla's ladder speed), on up until its feet are over the top, then walks
+  on. **A drop with a ladder or vines** below its edge: it goes over the edge into the ladder's block
+  and climbs down.
+- **A rise taller than a jump with nothing to climb, or a fall into nothing**: nothing gets it over,
+  so the walk puts the piece on the next space when it gets there (as a stuck walk always was).
+
+**How:** when a piece sets off on a stretch, the game reads the ground along it (`terrain.ts`): every
+0.1 blocks, the highest ground under the piece's width (it's 0.6 wide, so it stands on anything any
+part of it is over), each a ray straight down from 1.6 over its feet (a slab's half, a carpet's
+sixteenth), or from the first open block over a wall when that's inside one. Stairs are read from
+their states (a ray meets a stair's whole block), fences and walls stand 1.5 high, plants and vines
+aren't ground, and water and lava are no footing. A space's marker is ground at its top. From that
+ground it plans the feet's height all along the stretch, then each tick's push carries the plan's
+change in height over that tick's step, plus half the gap between where the piece is and the plan:
+a push sets how fast a player goes up, and down too (`docs/spike-results.md`, "A push down"), so the
+game works out the push that moves them as planned (`pushUp`), and asks less along in the air, where
+a push keeps more of the speed they had. A piece that falls 2.5 under its plan (a jump that missed)
+is put on the next space. A bot is set moving at the plan's speeds; a zombie following hops up to a
+block. The board camera and the chase camera follow a piece's height eased (30% of the gap a move),
+so a jump doesn't bob them.
+
+**Building for it:** keep each stretch between two spaces straight (a space at every corner, as
+always), and put what a piece gets over on that line, the path wide enough round it (3 is good).
+Give it head room: 2 blocks over the path, and a jump goes up to 1.25 over where it takes off (a
+ladder's climb, its wall's height). A ladder or vines go on the wall the path climbs, in the path's
+line, from the bottom up to the top; down, on the wall under the edge the path drops from. Leave a
+flat run of about 1.5 blocks before a jump and after a landing (a takeoff can't be on a stair, and a
+piece lands about 0.9 past the edge). Gaps up to 3 wide are comfortable (a jump covers about 4.5 at
+the walk's 8 blocks a second); any gap or drop the walk can't make, it skips.
+
+**The test board** (`test-board.ts`, on any map without spaces of its own: Probe's Default, which
+Block Party borrows): 12 spaces in a loop 8 blocks apart (center to center), around the plaza beside
+the platform, each on a floor of its own at its height (3 along the path by 7 across, 5 by 5 at the
+corners, so Chris and the Trader have room beside it), the path 3 wide, with one thing to get over on
+each stretch:
+
+| Stretch | What it has | Floor heights |
+|---|---|---|
+| 1 to 2 | Stairs up 2 | 0 to 2 |
+| 2 to 3 | A ladder down 2 | 2 to 0 |
+| 3 to 4 | A block up, jumped | 0 to 1 |
+| 4 to 5 | A gap of 2 over the void | 1 to 1 |
+| 5 to 6 | A slab down | 1 to 0 |
+| 6 to 7 | A ladder up 3 | 0 to 3 |
+| 7 to 8 | A stair down, then a drop of 2 | 3 to 0 |
+| 8 to 9 | Carpet, snow 4 layers deep, a daylight detector, a slab, carpet | 0 to 0 |
+| 9 to 10 | A gap of 3 over water | 0 to 0 |
+| 10 to 11 | Vines up 2 | 0 to 2 |
+| 11 to 12 | Stairs down 2 | 2 to 0 |
+| 12 to 1 | A hurdle, jumped over | 0 to 0 |
+
+The types, Stars and openings are the old test board's. `test/walk-plan.test.ts` plans every stretch
+of it with each block's shape and checks each does what it has.
+
+**Not yet seen in game:** all of it. In particular: a push down on a real client (measured on the
+server's simulated players, as the push along was); a piece on a ladder (a client on a ladder slows
+to 0.15 along and down, which the climb keeps to); the ray's top for a slab, carpet, snow and the
+daylight detector; whether a ray meets a ladder (either way the climb is found); the stair and
+ladder states (`weirdo_direction`, `facing_direction`, `vine_direction_bits`) placing as written;
+corner stairs' left and right as Java's.
 
 ### /boardcheck
 
@@ -1564,3 +1660,9 @@ Every question is answered. These were taken without one; the user can change an
   podium the winner celebrating and last place sad, held (as on the minigame podium); every fade,
   ease and orbit length in `stage.ts`; Chris past the end of a final podium with no marker for him;
   the Allay's dance at its hello and Chris's celebration as he names the champion (seeded actions).
+- Moving over the board (2026-11-20): every number in "Moving over the board" (a step 0.6, a jump up
+  to 1.3, gaps looked for 4.5 ahead, cracks under 0.8 walked over, drops down to 10, climbing 0.15 a
+  tick at 0.25 from the wall, slopes 1 up and 1.6 down); a hurdle hopped over in one arc; no leap up
+  a wall with nothing to climb (not picked): the piece is put on the next space; pieces never walk
+  into water; the cameras' height eased; the test board's layout, 8 blocks apart, and its blocks
+  (stone brick stairs, smooth stone slabs, white carpet).

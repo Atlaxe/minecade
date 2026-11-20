@@ -7,13 +7,14 @@
 //     covers, as tall as the marker (its cell state picks how much of the block), and a piece put on
 //     a space stands on its top (board.ts, STAND). A block already there (the map's own) is left as
 //     it is.
-//   - A pushed piece doesn't step up on its own (each push sets its upward speed, to 0: pieces.ts),
-//     so the walk lifts it as it comes to a marker's edge (stepUp), as a stair would.
+//   - A pushed piece doesn't step up on its own (each push sets its upward speed: pieces.ts), so the
+//     walk's plan reads a marker's top as the ground there (terrain.ts) and walks up onto it on a
+//     slope, as up a stair (walk-plan.ts).
 //   - A space lights up (blockparty:lit: drawn at full light with the highlight's pulsing color over
 //     it) while a piece anyone can see stands on it, its middle over the marker (so a walk lights
 //     each space as it crosses it), and while the stage's shot is on it (select(): a Star's reveal or
 //     move, the Wandering Trader's space, a Happening).
-// Pure apart from SpaceMarkers, so the tests can check what lights and lifts.
+// Pure apart from SpaceMarkers, so the tests can check what lights.
 import { BlockPermutation, type Dimension, type Entity } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
 import model from "../../space-model.json";
@@ -26,8 +27,6 @@ const TYPE_PROPERTY = "blockparty:type";
 const LIT_PROPERTY = "blockparty:lit";
 /** How often (ticks) who stands where is looked at. */
 const LIT_EVERY = 2;
-/** Half a piece's width: its side meets a marker's edge this far from its middle. */
-const PIECE_HALF = 0.3;
 
 /** How far the marker reaches from a space's middle, x and z, in blocks. */
 export const MARKER_REACH: readonly [number, number] = [model.reach[0] / 16, model.reach[1] / 16];
@@ -43,24 +42,6 @@ export function typeIndex(type: string): number {
 /** Whether a piece at `at` (its feet) stands on `space`: its middle over the marker, its feet about the marker's height. */
 export function standsOn(space: Space, at: Vec3): boolean {
   return Math.abs(at[0] - space.at[0]) <= MARKER_REACH[0] && Math.abs(at[2] - space.at[2]) <= MARKER_REACH[1] && at[1] >= floorOf(space) - 0.5 && at[1] <= space.at[1] + 1.5;
-}
-
-/**
- * How far a walking piece at `at` (its feet) going along (ux, uz) has to come up this tick: to the top
- * of a marker its side will meet within `ahead` blocks, if its feet are under that top; 0 otherwise
- * (on a marker already, or nowhere near one). The walk turns it into a lift (pieces.ts, bots.ts).
- */
-export function stepUp(spaces: readonly Space[], at: Vec3, ux: number, uz: number, ahead: number): number {
-  const x = at[0] + ux * ahead;
-  const z = at[2] + uz * ahead;
-  for (const space of spaces) {
-    const top = space.at[1];
-    const below = top - at[1];
-    // Already up (or a marker on another level).
-    if (below <= 0.01 || at[1] < floorOf(space) - 0.5) continue;
-    if (Math.abs(x - space.at[0]) <= MARKER_REACH[0] + PIECE_HALF && Math.abs(z - space.at[2]) <= MARKER_REACH[1] + PIECE_HALF) return below;
-  }
-  return 0;
 }
 
 /** The spaces that are lit: each a piece at `pieces` stands on, and each of `selected`. */

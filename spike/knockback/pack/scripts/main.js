@@ -8,7 +8,9 @@
 // and per hit: by (a | b), targets (victim | bystander), weapons; sprint (none | flag | run),
 // method (entity | swing), attackerAt ([x, z]), attackerYaw, ticks; jump (the victim jumps at
 // tick 0) and push ([tick, h, v]: applyKnockback({ x: 0, z: h }, v) on the victim at that tick), for
-// a push on a player in the air (Sumo's double jump).
+// a push on a player in the air (Sumo's double jump); up (the victim starts this many blocks over the
+// floor at tick 0, falling) and pushes ([from, to, h, v]: that push every tick from `from` to `to`),
+// for Block Party's walk down a ledge or a stair (does a push take a downward speed?).
 import { GameMode, ItemStack, system, world } from "@minecraft/server";
 import { spawnSimulatedPlayer } from "@minecraft/server-gametest";
 
@@ -159,6 +161,12 @@ async function runCase(spec) {
   let next = 0;
   for (let t = 0; t <= ticks; t++) {
     if (spec.jump && t === 0) victim.jump();
+    if (spec.up && t === 0) victim.teleport({ x: start.x, y: start.y + spec.up, z: start.z });
+    if (spec.pushes && t >= spec.pushes[0] && t <= spec.pushes[1]) {
+      const before = vec(victim.getVelocity());
+      victim.applyKnockback({ x: 0, z: spec.pushes[2] }, spec.pushes[3]);
+      current.events.push({ ev: "push", t, velBefore: before, velAfter: vec(victim.getVelocity()) });
+    }
     if (spec.push && spec.push[0] === t) {
       const before = vec(victim.getVelocity());
       victim.applyKnockback({ x: 0, z: spec.push[1] }, spec.push[2]);

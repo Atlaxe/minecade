@@ -35,7 +35,7 @@ import {
 } from "../../../tools/blockparty/space-model.ts";
 import { STAND, floorOf, testSpaces, type Space, type Vec3 } from "../behavior_pack/scripts/board.ts";
 import { hopUp } from "../behavior_pack/scripts/bots.ts";
-import { FLOOR_CELLS, MARKER_REACH, floorBlocks, litSpaces, standsOn, stepUp, typeIndex } from "../behavior_pack/scripts/space-markers.ts";
+import { FLOOR_CELLS, MARKER_REACH, floorBlocks, litSpaces, standsOn, typeIndex } from "../behavior_pack/scripts/space-markers.ts";
 
 const readJson = (path: string) => JSON.parse(readFileSync(path, "utf8"));
 const RUN = "else run: npx tsx tools/blockparty/space-pack.ts";
@@ -227,26 +227,12 @@ describe("the markers in game", () => {
   });
 });
 
-describe("the lift up onto a marker", () => {
+describe("a zombie's hop up onto a marker", () => {
   const spaces = testSpaces([0, 64, 0], 6);
-  const [x, top, z] = spaces[1].at;
+  const top = spaces[1].at[1];
   const floor = floorOf(spaces[1]);
 
-  it("climbs the marker's height once a piece's side is about to meet its edge", () => {
-    // Walking east toward space 1, its edge 1.25 from the middle, a piece's side 0.3 from its own.
-    expect(stepUp(spaces, [x - 2.5, floor, z], 1, 0, 0.9)).toBe(0);
-    expect(stepUp(spaces, [x - 2.4, floor, z], 1, 0, 0.9)).toBeCloseTo(top - floor);
-    expect(stepUp(spaces, [x - 1.3, floor + 0.2, z], 1, 0, 0.9)).toBeCloseTo(top - floor - 0.2);
-  });
-
-  it("doesn't lift a piece already up, walking off, or far below", () => {
-    expect(stepUp(spaces, [x, top, z], 1, 0, 0.9)).toBe(0);
-    // Leaving east: what's ahead is off the marker.
-    expect(stepUp(spaces, [x + 1.3, floor + 0.3, z], 1, 0, 0.9)).toBe(0);
-    expect(stepUp(spaces, [x - 1.5, floor - 3, z], 1, 0, 0.9)).toBe(0);
-  });
-
-  it("hops a bot a little over the step, never more than a jump", () => {
+  it("hops a little over the step, never more than a jump", () => {
     const peak = (speed: number) => {
       let height = 0;
       for (let v = speed; v > 0; v = (v - 0.08) * 0.98) height += v;

@@ -1,9 +1,9 @@
 // The spike's board: a map's own spaces (the board kit's, placed with the Spaces tool), or on a map
-// without any, a test board of 12 spaces around a square on a 3-wide path. Either way each space is
-// a marker the game puts there at the start, its type's model standing on the floor (space-markers.ts;
-// the plan's "Space markers"), and a piece stands on the marker's top, STAND over the floor.
-// Pure, apart from layPaths(), so the tests can check the layout and the paths.
-import { BlockVolume, type Dimension } from "@minecraft/server";
+// without any, the test board of 12 spaces in a loop with something to get over on every stretch
+// (test-board.ts). Either way each space is a marker the game puts there at the start, its type's
+// model standing on the floor (space-markers.ts; the plan's "Space markers"), and a piece stands on
+// the marker's top, STAND over the floor. testSpaces is a flat ring of 12 the tests lay out boards
+// with. Pure, so the tests can check the layout and the paths.
 import type { BoardSpace } from "@minecade/minigame-core/config";
 import model from "../../space-model.json";
 
@@ -14,8 +14,6 @@ export const STAND = model.top / 16;
 
 /** The test board's 12 types, Start first, going around. */
 export const TEST_TYPES: readonly string[] = ["start", "blue", "blue", "item", "blue", "red", "chance", "blue", "warden", "shop", "versus", "happening"];
-
-export const PATH_BLOCK = "minecraft:smooth_stone";
 
 export interface Space {
   index: number;
@@ -38,9 +36,9 @@ export const TEST_STARS: readonly number[] = [3, 6, 9];
 export const TEST_OPENINGS: readonly number[] = [3, 9];
 
 /**
- * The spaces around a square of 4 a side, `spacing` blocks apart, `middle` the square's middle (y the
- * floor the markers stand on), clockwise from the north-west corner as seen from above (east is +x,
- * south is +z).
+ * A flat ring of spaces around a square of 4 a side, `spacing` blocks apart, `middle` the square's
+ * middle (y the floor the markers stand on), clockwise from the north-west corner as seen from above
+ * (east is +x, south is +z): the tests' board.
  */
 export function testSpaces(middle: Vec3, spacing: number): Space[] {
   const [mx, y, mz] = middle;
@@ -173,17 +171,4 @@ export function boardBox(spaces: readonly Space[]): { min: Vec3; max: Vec3 } {
 /** The floor a space's marker stands on (the top of the block under it). */
 export function floorOf(space: Pick<Space, "at" | "floor">): number {
   return space.floor ?? space.at[1] - STAND;
-}
-
-/** Lays the test board's paths: 3 wide between neighbors, the floor's top level with the markers' floor. */
-export function layPaths(dimension: Dimension, spaces: readonly Space[]): void {
-  const cell = (space: Space) => [Math.floor(space.at[0]), Math.floor(space.at[2])];
-  const y = floorOf(spaces[0]) - 1;
-  spaces.forEach((space) => {
-    const [ax, az] = cell(space);
-    for (const next of space.next) {
-      const [bx, bz] = cell(spaces[next]);
-      dimension.fillBlocks(new BlockVolume({ x: Math.min(ax, bx) - 1, y, z: Math.min(az, bz) - 1 }, { x: Math.max(ax, bx) + 1, y, z: Math.max(az, bz) + 1 }), PATH_BLOCK);
-    }
-  });
 }
