@@ -105,6 +105,29 @@ describe("MapChanges without game Edit", () => {
     expect(await changes.edit("buildswap", "roman", { op: "addRegion", name: "plot", box: { min: [0, 0, 0], max: [23, 23, 23] } })).toMatchObject({ status: 200 });
   });
 
+  it("saves a Block Party preview's tuned camera as one step, named for the player who saved it", async () => {
+    const dir = join(store, "working", "blockparty", "garden");
+    mkdirSync(dir, { recursive: true });
+    const spaces = [
+      { id: 1, at: [0, 64, 0], type: "start", next: [2] },
+      { id: 2, at: [4, 64, 0], type: "shop", next: [1] },
+    ];
+    writeFileSync(join(dir, "map.json"), JSON.stringify({ name: "Garden", spawns: [], spaces }));
+    const changes = new MapChanges(root, NO_EDITOR);
+    const saved = await changes.edit(
+      "blockparty",
+      "garden",
+      { op: "batch", edits: [{ op: "extra", key: "boardCameraDistance", value: 14 }, { op: "spaceCamera", id: 2, camera: { yaw: 135, pitch: 25 } }] },
+      "Steve, in a preview",
+    );
+    expect(saved).toMatchObject({ status: 200, via: "panel", undo: /\(Steve, in a preview\)$/ });
+    const map = JSON.parse(readFileSync(join(dir, "map.json"), "utf8"));
+    expect(map.boardCameraDistance).toBe(14);
+    expect(map.spaces[1].camera).toEqual({ yaw: 135, pitch: 25 });
+    // The game's settings keep their ranges.
+    expect(await changes.edit("blockparty", "garden", { op: "extra", key: "boardCameraDistance", value: 999 })).toMatchObject({ status: 422, error: /3 to 60/ });
+  });
+
   it("saves a version, and publishes once the checklist is done, no longer a draft", async () => {
     const path = lobbyMap("hub", JSON.stringify({ name: "Hub", draft: true, spawns: [] }));
     const changes = new MapChanges(root, NO_EDITOR);

@@ -25,6 +25,10 @@
 //     the winner's orbit.
 // While a cutscene is skipped (dialogue.ts) the shots and waits are left out, but everyone and
 // everything still ends up where it belongs.
+// Every shot of a cutscene on the board looks the way its space says (the user, 2026-11-23: lay,
+// stage-layout.ts cutsceneWay): the space's own camera, else the board camera's way while it never
+// turns, unless the space is free. Tuned in game (/boardcam, /spacecam), the shot on screen is laid
+// again the new way (restage). The podiums and the intro keep the map's own cameras.
 // A line's Speaker (its actions, moves.ts) is the part of its character's role last brought into a
 // scene, put there or turned to a seat (speaker()): of the Chrises on the board, the one at this Star.
 import { EasingType, world, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
@@ -38,7 +42,33 @@ import { moment } from "./lines.ts";
 import { portalRing, type Moves } from "./moves.ts";
 import { NPC_ANIMATION } from "./npcs.ts";
 import { eventCue, playCue } from "./sounds.ts";
-import { SEAT_SHOT_TURNS, besideSpace, faceShot, finalPodium, hoverBefore, introAround, markerShot, orbitShots, podiumFromMarkup, podiumOnStart, pulledBack, seatShot, spaceShot, twoShot, yawFrom, type FinalPodium, type Marker, type Podium, type Shot } from "./stage-layout.ts";
+import {
+  SEAT_SHOT_TURNS,
+  besideSpace,
+  cutsceneWay,
+  faceShot,
+  finalPodium,
+  flightShot,
+  hoverBefore,
+  introAround,
+  lightningShot,
+  markerShot,
+  nearestSpace,
+  orbitShots,
+  podiumFromMarkup,
+  podiumOnStart,
+  pulledBack,
+  seatShot,
+  seatWayShot,
+  spaceShot,
+  twoShot,
+  yawFrom,
+  type FinalPodium,
+  type Marker,
+  type Podium,
+  type Shot,
+  type ShotWay,
+} from "./stage-layout.ts";
 
 /** The map's podium and intro markup (Block Party's config, map.points). */
 export interface StageMarkup {
@@ -82,14 +112,25 @@ export interface StageDeps {
   moves?: Moves;
   /** Spots off the spaces that must stay loaded too (Golem Gardens' golems: their spots and walks). */
   held?(): readonly Vec3[];
+  /** The board camera's way while it never turns (its yaw), else undefined: a cutscene's shots look that way too (lay). */
+  boardWay?(): number | undefined;
 }
 
 /** How a shot comes in. */
 export type Move = "Pan" | "Cut" | "Stay";
 
+/** How a cutscene's shot was laid (Stage.lay): at which space, by what, and the space lit while it's on. */
+interface Relay {
+  space: Space | undefined;
+  lay: (way: ShotWay | undefined) => Shot;
+  lit?: Space;
+}
+
 const BOARD_AREA = "minecade:blockparty_board";
 /** A pan's ease, in seconds. */
 const PAN = 1.4;
+/** How long a shot laid again takes to get to its new place (the camera tuned: restage), in seconds. */
+const RETUNE_EASE = 0.6;
 /** How high a Chris falls in from, and how long the fall is given before the game goes on. */
 const DROP = 9;
 const DROP_TICKS = 70;
@@ -172,6 +213,12 @@ export class Stage {
   private finalNow: FinalPodium | undefined;
   /** The last shot put up (shot), until clear. */
   private current: Shot | undefined;
+  /** How the cutscene shot up now was laid (lay), to lay it again when the camera is tuned: its space, and the space lit while it's on. */
+  private relay: Relay | undefined;
+  /** How each shot lay() put up was laid, so backTo can lay it again. */
+  private readonly laid = new WeakMap<Shot, Relay>();
+  /** A space shown for /spacecam (showSpace), and the shot that was on screen before it (hideSpace goes back to it). */
+  private showing: { relay: Relay; before: Shot | undefined } | undefined;
 
   constructor(deps: StageDeps) {
     this.deps = deps;
@@ -212,6 +259,7 @@ export class Stage {
   /** Everyone's camera to `shot`: eased there (Pan), at once (Cut), or left as it is (Stay). Nothing while a cutscene is skipped. */
   shot(shot: Shot, move: Move = "Cut", ease = PAN): void {
     if (move === "Stay") return;
+    this.relay = undefined;
     // A new shot: no space is in it unless the caller says so (spaceShotOf).
     this.deps.select?.(undefined);
     if (this.deps.dialogue.skipping) return;
@@ -233,6 +281,7 @@ export class Stage {
   clear(): void {
     this.deps.select?.(undefined);
     this.current = undefined;
+    this.relay = undefined;
     if (this.deps.cameraBack?.()) return;
     for (const player of world.getAllPlayers()) {
       try {
@@ -243,14 +292,72 @@ export class Stage {
     }
   }
 
+  /** Which way a cutscene's shots at `space` look (cutsceneWay; none: the board's): the space's own camera, else the board camera's way while it never turns. */
+  wayAt(space: Space | undefined): ShotWay | undefined {
+    return cutsceneWay(space?.camera, this.deps.boardWay?.());
+  }
+
+  /**
+   * A cutscene's shot at `space` (none: one of the board's, as the golems' swap): laid by `lay` the
+   * way shots there look (wayAt; undefined, its own side), and laid again whenever the camera is
+   * tuned (restage). `lit`: the space lit up while it's on.
+   */
+  lay(space: Space | undefined, lay: (way: ShotWay | undefined) => Shot, move: Move = "Cut", ease = PAN, lit?: Space): void {
+    if (move === "Stay") return;
+    const shot = lay(this.wayAt(space));
+    this.shot(shot, move, ease);
+    if (lit) this.deps.select?.(lit);
+    if (this.deps.dialogue.skipping) return;
+    this.relay = { space, lay, ...(lit ? { lit } : {}) };
+    this.laid.set(shot, this.relay);
+  }
+
+  /** The camera was tuned (/boardcam, /spacecam): the cutscene's shot on screen now is laid again the new way, eased there. */
+  restage(): void {
+    const relay = this.relay;
+    if (!relay || !this.shotNow) return;
+    this.lay(relay.space, relay.lay, "Pan", RETUNE_EASE, relay.lit);
+    // Still the space /spacecam shows, laid again.
+    if (this.showing?.relay === relay && this.relay) this.showing = { ...this.showing, relay: this.relay };
+  }
+
+  /** The space the cutscene's shot on screen now is at (/spacecam tunes it), if one is up. */
+  get shotSpace(): Space | undefined {
+    return this.shotNow ? this.relay?.space : undefined;
+  }
+
+  /** A space's shot, lit, for /spacecam: the camera eases there until hideSpace (or the game moves it on). */
+  showSpace(space: Space): void {
+    // Shown over one shown before: back goes to what was on screen before either.
+    const before = this.showing && this.showing.relay === this.relay && this.shotNow ? this.showing.before : this.shotNow;
+    this.lay(space, (way) => spaceShot(space, this.deps.spaces(), way), "Pan", PAN, space);
+    this.showing = this.relay ? { relay: this.relay, before } : undefined;
+  }
+
+  /** Back from showSpace to the shot that was on screen before it (laid again), or the board's camera. False when no shown space is on screen. */
+  hideSpace(): boolean {
+    const showing = this.showing;
+    this.showing = undefined;
+    if (!showing || showing.relay !== this.relay || !this.shotNow) return false;
+    this.backTo(showing.before);
+    return true;
+  }
+
+  /** The space a seat stands on, for the way a shot of them looks. */
+  private spaceAt(at: Vec3): Space | undefined {
+    return nearestSpace(this.deps.spaces(), at);
+  }
+
   /** The stage's shot on screen now, if one is (none while the board's own camera, or everyone's own view, has it). */
   get shotNow(): Shot | undefined {
     return this.current && (this.deps.shotUp?.() ?? true) ? this.current : undefined;
   }
 
-  /** Back to `shot` (shotNow, kept from before a hand-over) at once, or to the board's own camera with none. */
+  /** Back to `shot` (shotNow, kept from before a hand-over) at once (laid again, when it was laid, so tuning since shows), or to the board's own camera with none. */
   backTo(shot: Shot | undefined): void {
-    if (shot) this.shot(shot, "Cut");
+    const relay = shot ? this.laid.get(shot) : undefined;
+    if (relay) this.lay(relay.space, relay.lay, "Cut", PAN, relay.lit);
+    else if (shot) this.shot(shot, "Cut");
     else this.clear();
   }
 
@@ -481,7 +588,7 @@ export class Stage {
     const at = arr(part.location);
     this.face(key, them);
     this.deps.face?.(who, at);
-    this.shot(twoShot(them, at, sideOf(who)), this.moveFor(lineId, fallback));
+    this.lay(space, (way) => twoShot(them, at, sideOf(who), way), this.moveFor(lineId, fallback));
     await this.deps.dialogue.wait(10);
     return key;
   }
@@ -608,7 +715,8 @@ export class Stage {
     const them = arr(who.body.location);
     this.face(starKey(space), them);
     this.deps.face?.(who, arr(chris.location));
-    this.shot(twoShot(them, arr(chris.location), sideOf(who)), this.moveFor("star.chris.offer", "Pan"));
+    const at = arr(chris.location);
+    this.lay(space, (way) => twoShot(them, at, sideOf(who), way), this.moveFor("star.chris.offer", "Pan"));
     await this.deps.scope.wait(Math.round(PAN * 20));
   }
 
@@ -633,14 +741,14 @@ export class Stage {
     this.roles.set(starKey(to), "chris");
     this.lastOf.set("chris", starKey(to));
     const spot = this.besideSpace(to);
-    await this.balloonFlight(chris, spot, to.at);
+    await this.balloonFlight(chris, spot, to.at, this.wayAt(to));
     if (chris.isValid) this.put(starKey(to), "chris", spot, yawFrom(spot, to.at));
     this.starModel(to);
     await this.deps.dialogue.wait(10);
   }
 
-  /** Chris under his balloon from where he stands to `spot`, turned to `facing` as he lands. */
-  private async balloonFlight(chris: Entity, spot: Vec3, facing: Vec3): Promise<void> {
+  /** Chris under his balloon from where he stands to `spot`, turned to `facing` as he lands; the camera follows him, along `along` when the cutscene looks one way. */
+  private async balloonFlight(chris: Entity, spot: Vec3, facing: Vec3, along: ShotWay | undefined): Promise<void> {
     const from = arr(chris.location);
     const flight = flightPlan(from, spot);
     // The way across, for the camera's side (the same all flight, so it never swings round).
@@ -655,7 +763,7 @@ export class Stage {
     };
     property(BALLOON, true);
     playCue(eventCue("npc.chris.balloon"));
-    this.follow(chris, way, true);
+    this.follow(chris, way, along, true);
     await this.deps.dialogue.wait(BALLOON_POP_TICKS);
     try {
       chris.triggerEvent(FLY_EVENT);
@@ -673,7 +781,7 @@ export class Stage {
       } catch {
         // gone this tick
       }
-      if (tick % CAMERA_EVERY === 0) this.follow(chris, way, false);
+      if (tick % CAMERA_EVERY === 0) this.follow(chris, way, along, false);
       await this.deps.scope.wait(1);
     }
     try {
@@ -689,19 +797,25 @@ export class Stage {
     this.pop(chris, spot);
   }
 
-  /** The camera beside `body`, off to the side of `way`, looking at it: eased there when `first`, then gliding along each tick or two. */
-  private follow(body: Entity, way: [number, number], first: boolean): void {
+  /**
+   * The camera beside `body`, off to the side of `way`, looking at it (or, along `along`, that way of
+   * it): eased there when `first`, then gliding along each tick or two.
+   */
+  private follow(body: Entity, way: [number, number], along: ShotWay | undefined, first: boolean): void {
     if (this.deps.dialogue.skipping || !body.isValid) return;
     const at = body.location;
-    const location: Vec3 = [at.x - way[1] * FOLLOW_AWAY - way[0] * 2, at.y + FOLLOW_UP, at.z + way[0] * FOLLOW_AWAY - way[1] * 2];
-    const facing: Vec3 = [at.x, at.y + 1.2, at.z];
+    const shot: Shot = along
+      ? flightShot([at.x, at.y, at.z], along)
+      : { location: [at.x - way[1] * FOLLOW_AWAY - way[0] * 2, at.y + FOLLOW_UP, at.z + way[0] * FOLLOW_AWAY - way[1] * 2], facing: [at.x, at.y + 1.2, at.z] };
     if (first) {
-      this.shot({ location, facing }, "Pan", 1);
+      this.shot(shot, "Pan", 1);
       return;
     }
+    const easeOptions = { easeTime: (CAMERA_EVERY + 1) / 20, easeType: EasingType.Linear };
     for (const player of world.getAllPlayers()) {
       try {
-        player.camera.setCamera("minecraft:free", { location: vec(location), facingLocation: vec(facing), easeOptions: { easeTime: (CAMERA_EVERY + 1) / 20, easeType: EasingType.Linear } });
+        if (shot.rotation) player.camera.setCamera("minecraft:free", { location: vec(shot.location), rotation: { x: shot.rotation.pitch, y: shot.rotation.yaw }, easeOptions });
+        else player.camera.setCamera("minecraft:free", { location: vec(shot.location), facingLocation: vec(shot.facing ?? shot.location), easeOptions });
       } catch {
         // gone
       }
@@ -750,7 +864,7 @@ export class Stage {
     if (way) this.ways.set(key, way);
     else this.ways.delete(key);
     const shown = this.deps.dialogue.skipping ? undefined : way;
-    this.shot(twoShot(them, at, sideOf(who)), this.moveFor(lineId, fallback));
+    this.lay(space, (along) => twoShot(them, at, sideOf(who), along), this.moveFor(lineId, fallback));
     if (shown) {
       // The shot first, then the smoke or the portal's sparks, and out of them the NPC.
       await this.deps.dialogue.wait(4);
@@ -817,8 +931,7 @@ export class Stage {
       this.llamas(key, trader, spot, behind, false);
       return;
     }
-    this.shot(spaceShot(space, this.deps.spaces()), "Cut");
-    this.deps.select?.(space);
+    this.lay(space, (way) => spaceShot(space, this.deps.spaces(), way), "Cut", PAN, space);
     await this.deps.dialogue.wait(16);
     const trader = this.put(key, "wandering_trader", path[0], yawFrom(path[0], path[1]));
     if (!trader) return;
@@ -910,7 +1023,8 @@ export class Stage {
     this.face(key, them);
     this.deps.face?.(who, arr(part.location));
     const move = this.moveFor(lineId, fallback);
-    this.shot(twoShot(them, arr(part.location), sideOf(who)), move);
+    const at = arr(part.location);
+    this.lay(this.spaceAt(them), (way) => twoShot(them, at, sideOf(who), way), move);
     if (move === "Pan") await this.deps.dialogue.wait(Math.round(PAN * 20));
   }
 
@@ -919,8 +1033,7 @@ export class Stage {
    * behind the fork, and its first space lights up.
    */
   forkView(fork: Space, heading: [number, number], way: readonly Space[]): void {
-    this.shot(forkShot(fork, heading, way), "Pan", FORK_PAN);
-    if (way[0]) this.deps.select?.(way[0]);
+    this.lay(fork, (along) => forkShot(fork, heading, way, along), "Pan", FORK_PAN, way[0]);
   }
 
   /** The camera to a space (a pan by default, or the moment `lineId`'s camera), given time to get there. */
@@ -932,20 +1045,21 @@ export class Stage {
 
   /** The shot of a space (spaceShot), the space lit up while the shot stays on it (a Stay keeps the shot there is). */
   private spaceShotOf(space: Space, move: Move): void {
-    this.shot(spaceShot(space, this.deps.spaces()), move);
-    if (move !== "Stay") this.deps.select?.(space);
+    this.lay(space, (way) => spaceShot(space, this.deps.spaces(), way), move, PAN, space);
   }
 
   /** Two seats in one shot (an Ender Pearl's swap, Coin Swap): a cut by default. */
   async twoSeats(a: Who, b: Who, lineId: string, fallback: Move = "Cut"): Promise<void> {
     if (!a.body.isValid || !b.body.isValid) return;
-    this.shot(twoShot(arr(a.body.location), arr(b.body.location), sideOf(a)), this.moveFor(lineId, fallback));
+    const [at, other] = [arr(a.body.location), arr(b.body.location)];
+    this.lay(this.spaceAt(at), (way) => twoShot(at, other, sideOf(a), way), this.moveFor(lineId, fallback));
     await this.deps.dialogue.wait(10);
   }
 
   /**
    * A cut to one seat alone (a hand-over's, handovers.ts): in front of them the way they face, or as
-   * near that as has room for the camera, the whole of them in shot with their head's count. Nothing
+   * near that as has room for the camera, the whole of them in shot with their head's count. When the
+   * cutscene looks one way (wayAt), the camera is that way of them and they turn to face it. Nothing
    * while a cutscene is skipped.
    */
   onSeat(who: Who): void {
@@ -953,8 +1067,19 @@ export class Stage {
     try {
       const at = arr(who.body.location);
       const yaw = who.body.getRotation().y;
-      const shots = SEAT_SHOT_TURNS.map((turn) => seatShot(at, yaw + turn));
-      this.shot(shots.find((shot) => this.roomFor(shot.location)) ?? shots[0], "Cut");
+      this.lay(
+        this.spaceAt(at),
+        (way) => {
+          if (!way) {
+            const shots = SEAT_SHOT_TURNS.map((turn) => seatShot(at, yaw + turn));
+            return shots.find((shot) => this.roomFor(shot.location)) ?? shots[0];
+          }
+          const shot = seatWayShot(at, way);
+          if (who.body.isValid) this.deps.face?.(who, shot.location);
+          return shot;
+        },
+        "Cut",
+      );
     } catch {
       // gone
     }
@@ -977,7 +1102,8 @@ export class Stage {
   lightning(who: Who): void {
     if (!who.body.isValid) return;
     const at = who.body.location;
-    if (!this.deps.dialogue.skipping) this.shot({ location: [at.x + 3, at.y + 1, at.z + 3], facing: [at.x, at.y + 6, at.z] }, "Cut");
+    const where: Vec3 = [at.x, at.y, at.z];
+    if (!this.deps.dialogue.skipping) this.lay(this.spaceAt(where), (way) => (way ? lightningShot(where, way) : { location: [at.x + 3, at.y + 1, at.z + 3], facing: [at.x, at.y + 6, at.z] }), "Cut");
     try {
       for (let y = 0; y <= 12; y += 0.5) this.deps.dimension.spawnParticle("minecraft:electric_spark_particle", { x: at.x, y: at.y + y, z: at.z });
       this.deps.dimension.spawnParticle("minecraft:huge_explosion_emitter", { x: at.x, y: at.y + 1, z: at.z });

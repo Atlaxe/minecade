@@ -70,6 +70,16 @@ describe("viewerEdit", () => {
     expect(viewerEdit({ op: "batch", edits: [{ op: "batch", edits: [] }] })).toMatch(/batch/);
     expect(viewerEdit({ op: "batch", edits: [] })).toMatch(/1 to/);
   });
+
+  it("takes a space's cutscene camera (Block Party's /spacecam, saved from a preview), within its limits", () => {
+    expect(viewerEdit({ op: "spaceCamera", id: 3, camera: { yaw: 90, pitch: 20, distance: 8 } })).toEqual({ op: "spaceCamera", id: 3, camera: { yaw: 90, pitch: 20, distance: 8 } });
+    expect(viewerEdit({ op: "spaceCamera", id: 3, camera: { free: true } })).toMatchObject({ op: "spaceCamera" });
+    expect(viewerEdit({ op: "spaceCamera", id: 3 })).toMatchObject({ op: "spaceCamera" });
+    expect(viewerEdit({ op: "spaceCamera", id: 0, camera: { yaw: 90 } })).toMatch(/space id/);
+    expect(viewerEdit({ op: "spaceCamera", id: 3, camera: { yaw: 400 } })).toMatch(/0 to 359/);
+    expect(viewerEdit({ op: "spaceCamera", id: 3, camera: { free: true, yaw: 4 } })).toMatch(/free/);
+    expect(markupProblem({ name: "M", spawns: [] }, { op: "spaceCamera", id: 3 }, { requires: {} })).toMatch(/no board/);
+  });
 });
 
 describe("markupProblem", () => {

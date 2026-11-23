@@ -196,6 +196,13 @@ export class BoardCamera {
     }
   }
 
+  /** The settings changed (/boardcam): the view eases to them, its field of view too. */
+  refresh(): void {
+    this.fresh = true;
+    // A view that turns starts again from behind the piece.
+    this.yaw = undefined;
+  }
+
   /** Back out to the board view (the roll's done, the walk follows). */
   boardShot(): void {
     if (this.zoom === "board") return;

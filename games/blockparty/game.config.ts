@@ -56,7 +56,7 @@ export default defineGame({
     // The board's camera (board-camera.ts; docs/plans/block-party-ui.md, "Cameras"): the board view
     // on the player whose turn it is, and the turn shot zoomed in on them while their menu is up.
     settings: {
-      boardCameraTurns: { label: "Board camera turns", hint: "1: the board view stays behind the player as the path turns. 0: it follows them but always looks the same way", default: 0, min: 0, max: 1 },
+      boardCameraTurns: { label: "Board camera turns", hint: "1: the board view stays behind the player as the path turns. 0: it follows them but always looks the same way, and so does every cutscene on the board (a space can be free of it, or look its own way: /spacecam)", default: 0, min: 0, max: 1 },
       boardCameraDirection: { label: "Board camera direction", hint: "Which way a board view that doesn't turn looks: 0 south, 90 west, 180 north, 270 east. -1 picks the side that shows the board's longer way across", default: -1, min: -1, max: 359, unit: "degrees" },
       boardCameraDistance: { label: "Board camera distance", hint: "How far behind the player the board view is", default: 10, min: 3, max: 60, unit: "blocks" },
       boardCameraHeight: { label: "Board camera height", hint: "How high over the player the board view is", default: 7, min: 1, max: 60, unit: "blocks" },

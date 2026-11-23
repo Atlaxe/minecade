@@ -1,7 +1,8 @@
-import { CommandPermissionLevel, CustomCommandParamType, CustomCommandStatus, system, type Player } from "@minecraft/server";
+import { CommandPermissionLevel, CustomCommandParamType, CustomCommandStatus, system, type Entity, type Player } from "@minecraft/server";
 import { log, say } from "@minecade/minigame-core";
 import { runGameServer } from "@minecade/minigame-core/game";
 import config from "../../game.config.ts";
+import { BOARD_CAM_ENUM, BOARD_CAM_WORDS, SPACE_CAM_ENUM, SPACE_CAM_WORDS } from "./camera-tuning.ts";
 import { BlockPartySpike } from "./spike.ts";
 import { TEST_ENUM, TEST_WORDS } from "./tests-menu.ts";
 
@@ -92,6 +93,53 @@ system.beforeEvents.startup.subscribe(({ customCommandRegistry }) => {
       return { status: CustomCommandStatus.Success };
     },
   );
+  // /boardcam and /spacecam (testing; camera-tuning.ts): the board camera's settings and a space's
+  // cutscene camera, changed for everyone at once; /boardcam save keeps them on the map (a preview
+  // from the map editor). Not /camera: that's the game's own command.
+  customCommandRegistry.registerEnum(BOARD_CAM_ENUM, [...BOARD_CAM_WORDS]);
+  customCommandRegistry.registerCommand(
+    {
+      name: "blockparty:boardcam",
+      description: "Testing: the board camera's settings (distance, height, pitch, fov...), changed live; reset, or save to the map",
+      permissionLevel: CommandPermissionLevel.Any,
+      cheatsRequired: false,
+      optionalParameters: [
+        { name: BOARD_CAM_ENUM, type: CustomCommandParamType.Enum },
+        { name: "value", type: CustomCommandParamType.Integer },
+      ],
+    },
+    (origin, word?: string, value?: number) => tune(origin.sourceEntity, (game, player) => game.boardCam(player, word, value)),
+  );
+  customCommandRegistry.registerEnum(SPACE_CAM_ENUM, [...SPACE_CAM_WORDS]);
+  customCommandRegistry.registerCommand(
+    {
+      name: "blockparty:spacecam",
+      description: "Testing: a space's cutscene camera (way, pitch, distance, free, board, default), changed live; space <id> picks one",
+      permissionLevel: CommandPermissionLevel.Any,
+      cheatsRequired: false,
+      optionalParameters: [
+        { name: SPACE_CAM_ENUM, type: CustomCommandParamType.Enum },
+        { name: "value", type: CustomCommandParamType.Integer },
+      ],
+    },
+    (origin, word?: string, value?: number) => tune(origin.sourceEntity, (game, player) => game.spaceCam(player, word, value)),
+  );
 });
+
+/** Runs a camera command a tick later (a command can't move the camera where it runs) and tells the player what it did. */
+function tune(source: Entity | undefined, run: (game: BlockPartySpike, player: Player) => Promise<string>): { status: CustomCommandStatus; message?: string } {
+  if (source?.typeId !== "minecraft:player") return { status: CustomCommandStatus.Failure, message: "Only a player can tune the camera." };
+  const player = source as Player;
+  system.run(() => {
+    if (!player.isValid) return;
+    if (!current) return player.sendMessage("Block Party isn't running yet.");
+    run(current, player)
+      .then((text) => {
+        if (player.isValid && text) player.sendMessage(say.info(text));
+      })
+      .catch((error: unknown) => log.warn(`blockparty: a camera command failed: ${String(error)}`));
+  });
+  return { status: CustomCommandStatus.Success };
+}
 
 runGameServer((ctx) => (current = new BlockPartySpike(ctx, config)));

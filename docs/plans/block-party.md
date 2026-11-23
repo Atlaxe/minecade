@@ -1069,6 +1069,11 @@ board there should be nothing: the game uses the empty space around it for the a
   (`villager`: { "biome", "profession", "level" }, lower case names; plain Plains, Unskilled, Stone
   when left out), the same lists as the Tests' NPC menu (core `VILLAGER_PARTS`). The Panel only, as
   with bends and golems (my call).
+- **Space cameras (built 2026-11-23, not yet seen in game):** the user asked that a board camera
+  that never turns turn every cutscene its way, unless a space opts out, and that a space's
+  cutscene angles can be set. A space's `camera` (map.json, core `SpaceCamera`): its own way, pitch
+  and distance, or `free`. Set in game with `/spacecam` and saved from a preview (block-party-ui.md,
+  "Cameras"); no Panel controls yet.
 - The beacon beam is a model the game draws with the vanilla beam's texture (proposed), so it works under a ceiling (an Ancient City
   board). A real beacon would need open sky over every candidate.
 
@@ -1594,6 +1599,9 @@ reward was dropped.
      before and after each turn, so nothing rolled or used is used up: what they held when they
      typed it, or what Dice and items held sets meanwhile. Typed again (Let the game go on), the
      game goes on from the seat where it stopped. Only while testing, as `/minigame win`.
+     2026-11-23 (the user asked): `/boardcam` and `/spacecam` tune the board camera and a space's
+     cutscene camera live, and `/boardcam save` keeps them on the map from a preview
+     (block-party-ui.md, "Cameras").
    - **Results** (seventh look: the winners' title ran off the screen and the titles flickered): a
      short title for everyone (one name, Red or Blue, a tie counted) with each player's own place
      and coins under it, the whole list in chat; titles that follow each other quickly (the

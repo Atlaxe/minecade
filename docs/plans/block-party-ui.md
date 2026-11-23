@@ -680,6 +680,40 @@ stays as proposals.
     as built": the black is gone), and the way back mirrors it; Minigame!, the format and the wheel
     are still to come.
   - Pieces stand facing their next space, on landing and when placed.
+- **Tuned in game, and every cutscene the board camera's way (2026-11-23, the user: "a way to
+  edit the camera settings for board in live time when in dev", and "when board camera turns is
+  set to 0 ... it should apply to ALL cameras for that map, unless disabled on a per space basis";
+  `camera-tuning.ts`, `stage.ts` lay, `stage-layout.ts` cutsceneWay; not yet seen in game):**
+  - **The cutscenes' way.** While Board camera turns is 0, every shot of a cutscene on the board
+    looks the board view's way (Board camera direction, or the picked side): the NPC two-shots (the
+    Shop's Villager, the Referee, the Witch and the rest, Chris at the Star, the Trader), the space
+    shots (the Star reveal, the Trader walking in, a pan to a space), two seats (a swap), a
+    hand-over's shot of each seat (who turns to face it), the Lightning Strike, Chris's balloon
+    flight, a fork's way (the fork and the way picked, so picking still pans), the golems' swap
+    (the golem turns to the camera; the pan over the board slides instead of swinging), and Board's
+    view. The camera stands back along that way from what it shows, as far back as each shot was
+    before, looking down a little. Not the podiums, the intro, the end's podiums or the minigames:
+    the map's own cameras stay theirs.
+  - **Per space** (map.json, the space's `camera`): its own way (yaw), pitch and distance, which
+    its cutscenes use whether the board camera turns or not; or **free**, which keeps the shots'
+    own angles there while the board camera looks one way. A shot of a seat belongs to the space
+    they stand on.
+  - **`/boardcam <setting> <value>`** (`blockparty:boardcam`; not `/camera`, the game's own): the
+    board camera's settings, in the Game settings' units and ranges (turns, direction, distance,
+    height, pitch, fov, turndistance, turnfov, ease), for everyone at once: the view eases to the
+    new values, and a cutscene shot on screen is laid again. `/boardcam` alone lists them (changes
+    marked); `/boardcam reset` undoes every change not saved.
+  - **`/spacecam <setting> [value]`** (`blockparty:spacecam`): the camera of the space the
+    cutscene on screen is at, else the one the turn's player stands on: `way <degrees>` (0 south,
+    90 west, 180 north, 270 east), `pitch`, `distance`, `free`, `board` (the board camera's way
+    again), `default` (nothing of its own). The shot on screen is laid again; a space whose shot
+    isn't on screen gets its space shot, to see it. `/spacecam space <id>` shows a space to tune it,
+    and `/spacecam back` puts back the shot from before it (the board camera's, or the cutscene's). `/spacecam` alone says how it looks.
+  - **Saving:** `/boardcam save` (or `/spacecam save`) keeps every change on the map, but only in a
+    preview from the map editor (docs/editor.md, "Preview": the game asks the editor to change the
+    map). Anywhere else it lists what to set by hand: the Game settings, and each space's `camera`.
+  - Testing only, as `/hold`: a test game, `DEV_MIN_PLAYERS` at 1, or a preview. The answers are in
+    chat (`/chat` shows it).
 - **Facing:** a teleport with the facing; `setRotation` doesn't reach the player's screen (the
   spike).
 - **The falling pig:** proposed, an NPC with gravity and slow falling, so each client moves it

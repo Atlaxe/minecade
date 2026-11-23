@@ -47,7 +47,7 @@ import {
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
 import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say, showForm, spacesOf, worldPoint, type GameContext, type MapPosition, type Result, type SpawnReason } from "@minecade/minigame-core";
-import { BLOCK_PARTY_BOARD } from "@minecade/minigame-core/config";
+import { BLOCK_PARTY_BOARD, type MapEdit, type MapSettingConfig } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import skins from "#skins";
 import { HOTBAR_SIZE, KEEP_UP, READY_CODE, SIDE_TWO_CODE, STANDINGS_CODE, STAR_LEVELS, holdingCode } from "./bar-codes.ts";
@@ -58,6 +58,7 @@ import { mapGolems } from "./golem-rules.ts";
 import { layTestBoard, testBoardSpaces } from "./test-board.ts";
 import { BoardLoop } from "./board-loop.ts";
 import { BoardCamera, autoDirection, cameraSettings, type BoardCameraSettings } from "./board-camera.ts";
+import { CameraTuning } from "./camera-tuning.ts";
 import { BoardMenu } from "./board-ui.ts";
 import { StarField } from "./stars.ts";
 import { boardOverview } from "./board-view.ts";
@@ -84,7 +85,7 @@ import { TEST_WORDS, type TestWord } from "./tests-menu.ts";
 import { TurnFade } from "./fade.ts";
 import { SpaceMarkers } from "./space-markers.ts";
 import { Stage, type StageMarkup } from "./stage.ts";
-import type { Marker } from "./stage-layout.ts";
+import { nearestSpace, type Marker } from "./stage-layout.ts";
 import { STAGE_POINTS, chrisKey } from "./stage-markup.ts";
 import { line } from "./lines.ts";
 import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
@@ -217,6 +218,8 @@ const STAR_STEP = 1;
 const STARS_AFTER_BLACK = 4;
 /** Blocks placed a millisecond, about (docs/spike-results.md, "Block Party": Sinkhole's 667,648 in 608 to 676 ms). */
 const BLOCKS_PER_MS = 1000;
+/** How long a save from /boardcam waits for the map editor's answer, in ticks. */
+const SAVE_WAIT = 200;
 /** What a testing command says when Block Party isn't being tested (spike.ts, testing). */
 const ONLY_TESTING = "is only for testing: a test game, DEV_MIN_PLAYERS at 1, or a preview from the map editor.";
 
@@ -288,6 +291,10 @@ export class BlockPartySpike extends Minigame<Config> {
   /** Board's view of the whole board is up (board-ui.ts's Board): nobody is faded meanwhile. */
   private boardViewing = false;
   private autoYaw: number | undefined;
+  /** The camera tuned in game (/boardcam, /spacecam: camera-tuning.ts), over the map's own. */
+  private tuning!: CameraTuning;
+  /** Saves asked of the map editor so far (each its own request id). */
+  private saves = 0;
   /** The rolls the loop is waiting for, by lowercased name: what a jump resolves, and whether everyone watches. */
   private readonly pendingRolls = new Map<string, { resolve: (value: RollOutcome | undefined) => void; shot: boolean }>();
   /** The board's blocks are down (play waits for it). */
@@ -517,6 +524,8 @@ export class BlockPartySpike extends Minigame<Config> {
       select: (space) => this.markers.select(space),
       // Golem Gardens' golems stand and walk off the spaces: their spots and walks stay loaded.
       held: () => (this.ownBoard ? mapGolems(this.map.config, this.spaces).flatMap((golem) => golem.walk) : []),
+      // While the board camera never turns, every cutscene on the board looks its way too (stage.ts lay).
+      boardWay: () => this.boardYaw(),
     });
     const length = Number(this.ctx.vars.settings.length);
     this.loop = new BoardLoop({
@@ -580,6 +589,27 @@ export class BlockPartySpike extends Minigame<Config> {
       // The board game's own camera from its first round, except while a minigame has the players.
       engaged: () => this.loop.active && this.loop.rounds.now >= 1 && !this.runner.active,
       focus: () => this.bodyOf(this.loop.focus),
+    });
+    this.tuning = new CameraTuning({
+      setting: (key) => {
+        const settings: Readonly<Record<string, MapSettingConfig>> = this.config.map?.settings ?? {};
+        const setting = settings[key];
+        if (!setting) throw new Error(`blockparty has no map setting "${key}"`);
+        return setting;
+      },
+      mapValue: (key) => this.mapSetting(key),
+      spaces: () => this.spaces,
+      boardYaw: () => this.boardYaw(),
+      retuned: () => {
+        this.boardCamera.refresh();
+        this.staging.restage();
+      },
+      spaceNow: () => this.staging.shotSpace ?? this.focusSpace(),
+      shotSpace: () => this.staging.shotSpace,
+      show: (space) => this.staging.showSpace(space),
+      back: () => this.staging.hideSpace(),
+      canSave: () => this.ctx.vars.preview !== "",
+      save: (edit, by) => this.saveToMap(edit, by),
     });
     this.scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
       if (damagingEntity.typeId !== "minecraft:player") return;
@@ -969,12 +999,64 @@ export class BlockPartySpike extends Minigame<Config> {
     this.drawCards();
   }
 
-  /** The board camera's settings: the map's (Game settings), a fixed one looking across the board's longer way unless the map says. */
+  /** The board camera's settings: the map's (Game settings) or as tuned in game (/boardcam), a fixed one looking across the board's longer way unless the map says. */
   private cameraSettingsNow(): BoardCameraSettings {
-    const settings = cameraSettings((key) => this.mapSetting(key));
+    const settings = cameraSettings((key) => (this.tuning ? this.tuning.value(key) : this.mapSetting(key)));
     if (settings.direction !== undefined) return settings;
     this.autoYaw ??= autoDirection(this.spaces);
     return { ...settings, direction: this.autoYaw };
+  }
+
+  /** The board camera's way while it never turns (a cutscene on the board looks that way too), else undefined. */
+  private boardYaw(): number | undefined {
+    const settings = this.cameraSettingsNow();
+    return settings.turns ? undefined : settings.direction;
+  }
+
+  /** The space the piece the board camera watches stands on, if any. */
+  private focusSpace(): Space | undefined {
+    const body = this.bodyOf(this.loop?.focus);
+    if (!body?.isValid) return undefined;
+    const at = body.location;
+    return nearestSpace(this.spaces, [at.x, at.y, at.z]);
+  }
+
+  /**
+   * /boardcam (main.ts): the board camera's settings, tuned for everyone at once (camera-tuning.ts),
+   * only while testing, as /minigame win. What to tell the player.
+   */
+  async boardCam(player: Player, word: string | undefined, value: number | undefined): Promise<string> {
+    if (!this.testing) return `/boardcam ${ONLY_TESTING}`;
+    return this.tuning.boardCommand(word, value, player.name);
+  }
+
+  /** /spacecam (main.ts): a space's cutscene camera, likewise. */
+  async spaceCam(player: Player, word: string | undefined, value: number | undefined): Promise<string> {
+    if (!this.testing) return `/spacecam ${ONLY_TESTING}`;
+    return this.tuning.spaceCommand(word, value, player.name);
+  }
+
+  /** Asks the map editor to change the map (a preview's map_edit, preview-session.ts): its answer, or why there's none. */
+  private saveToMap(edit: MapEdit, by: string): Promise<{ ok: boolean; message: string }> {
+    const requestId = `${this.ctx.vars.sessionId}.camera.${++this.saves}`;
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (answer: { ok: boolean; message: string }) => {
+        if (done) return;
+        done = true;
+        stop();
+        resolve(answer);
+      };
+      const stop = this.ctx.transport.onMessage((message) => {
+        if (message.t === "map_edit_reply" && message.requestId === requestId) finish({ ok: message.ok === true, message: String(message.message ?? "") });
+      });
+      this.scope.timeout(() => finish({ ok: false, message: "Not saved: the map editor didn't answer." }), SAVE_WAIT);
+      try {
+        this.ctx.transport.send({ t: "map_edit", requestId, sessionId: this.ctx.vars.sessionId, by, edit });
+      } catch (error) {
+        finish({ ok: false, message: `Not saved: ${describeError(error)}` });
+      }
+    });
   }
 
   /** A seat's body by key: the player, or the bot. */
@@ -1460,7 +1542,7 @@ export class BlockPartySpike extends Minigame<Config> {
    * (keepFade): every player, bot and zombie shows.
    */
   private boardView(on: boolean): void {
-    const shot = on ? boardOverview(this.spaces) : undefined;
+    const shot = on ? boardOverview(this.spaces, this.boardYaw()) : undefined;
     this.boardViewing = shot !== undefined;
     if (shot) this.staging.shot(shot, "Pan", Math.max(0.05, this.cameraSettingsNow().ease));
     else this.staging.clear();

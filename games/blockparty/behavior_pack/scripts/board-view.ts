@@ -63,32 +63,44 @@ const PAD = 1.5;
 /**
  * Board's view: the whole board from high up, looking down at its middle, from the side that puts the
  * board's longer way across the screen, far enough back that every space fits the narrowest screen.
+ * Given a `yaw` (the board camera's way, while it never turns), it looks that way instead, still
+ * far enough back for the whole board as it lies across that view.
  */
-export function boardOverview(spaces: readonly Pick<Space, "at" | "floor">[]): Shot | undefined {
+export function boardOverview(spaces: readonly Pick<Space, "at" | "floor">[], yaw?: number): Shot | undefined {
   if (spaces.length === 0) return undefined;
-  const xs = spaces.map((space) => space.at[0]);
-  const zs = spaces.map((space) => space.at[2]);
-  const minX = Math.min(...xs) - PAD;
-  const maxX = Math.max(...xs) + PAD;
-  const minZ = Math.min(...zs) - PAD;
-  const maxZ = Math.max(...zs) + PAD;
   const y = Math.max(...spaces.map((space) => floorOf(space)));
-  const middle: Vec3 = [(minX + maxX) / 2, y, (minZ + maxZ) / 2];
-  // Across the screen and away from it: the longer way across.
-  const alongX = maxX - minX >= maxZ - minZ;
-  const across = alongX ? maxX - minX : maxZ - minZ;
-  const deep = alongX ? maxZ - minZ : maxX - minX;
+  // The view's ways over the ground: ahead (where it looks) and across (the screen's width).
+  let forward: [number, number];
+  if (yaw === undefined) {
+    const xs = spaces.map((space) => space.at[0]);
+    const zs = spaces.map((space) => space.at[2]);
+    // From the south (+z) looking north, or from the east (+x) looking west: the longer way across.
+    const alongX = Math.max(...xs) - Math.min(...xs) >= Math.max(...zs) - Math.min(...zs);
+    forward = alongX ? [0, -1] : [-1, 0];
+  } else {
+    const radians = (yaw * Math.PI) / 180;
+    forward = [-Math.sin(radians), Math.cos(radians)];
+  }
+  const side: [number, number] = [-forward[1], forward[0]];
+  const across = spaces.map((space) => space.at[0] * side[0] + space.at[2] * side[1]);
+  const ahead = spaces.map((space) => space.at[0] * forward[0] + space.at[2] * forward[1]);
+  const [aMin, aMax] = [Math.min(...across) - PAD, Math.max(...across) + PAD];
+  const [dMin, dMax] = [Math.min(...ahead) - PAD, Math.max(...ahead) + PAD];
+  const a = (aMin + aMax) / 2;
+  const d = (dMin + dMax) / 2;
+  const middle: Vec3 = [a * side[0] + d * forward[0], y, a * side[1] + d * forward[1]];
+  const wide = aMax - aMin;
+  const deep = dMax - dMin;
   const pitch = (PITCH * Math.PI) / 180;
   const half = (FOV * Math.PI) / 360;
   const halfAcross = Math.atan(Math.tan(half) * ASPECT);
   // Far enough back for the width, and for the depth as it looks from this high (its near edge is closer).
-  const forWidth = across / 2 / Math.tan(halfAcross);
+  const forWidth = wide / 2 / Math.tan(halfAcross);
   const forDepth = ((deep / 2) * Math.sin(pitch)) / Math.tan(half) + (deep / 2) * Math.cos(pitch);
   const distance = Math.max(forWidth, forDepth, 8) * MARGIN;
   const up = Math.sin(pitch) * distance;
   const back = Math.cos(pitch) * distance;
-  // From the south (+z) looking north, or from the east (+x) looking west.
-  const location: Vec3 = alongX ? [middle[0], y + up, middle[2] + back] : [middle[0] + back, y + up, middle[2]];
+  const location: Vec3 = [middle[0] - forward[0] * back, y + up, middle[2] - forward[1] * back];
   return { location, facing: middle };
 }
 
@@ -96,16 +108,27 @@ export function boardOverview(spaces: readonly Pick<Space, "at" | "floor">[]): S
  * A pan over the whole board (Golem Gardens' golem swap, the user: "a camera pan over the entire
  * board"): Board's view of `points` (the spaces and whatever else must be in it), swung `turn`
  * degrees round its middle, from half of it one way to half the other. The camera eases from the
- * first to the second.
+ * first to the second. Given a `yaw` (the board camera's way, while it never turns), the view never
+ * turns from it: it slides across the board instead, about as far as the swing would take it.
  */
-export function boardPan(points: readonly Vec3[], turn: number): [Shot, Shot] | [] {
-  const view = boardOverview(points.map((at) => ({ at, floor: at[1] })));
+export function boardPan(points: readonly Vec3[], turn: number, yaw?: number): [Shot, Shot] | [] {
+  const view = boardOverview(points.map((at) => ({ at, floor: at[1] })), yaw);
   if (!view?.facing) return [];
   const middle = view.facing;
+  const dx = view.location[0] - middle[0];
+  const dz = view.location[2] - middle[2];
+  if (yaw !== undefined) {
+    // Across the view (square to the way it looks), as far as the swing's ends are from where it starts.
+    const level = Math.hypot(dx, dz) || 1;
+    const reach = level * Math.sin((turn * Math.PI) / 360);
+    const slid = (by: number): Shot => {
+      const [sx, sz] = [(-dz / level) * by, (dx / level) * by];
+      return { location: [view.location[0] + sx, view.location[1], view.location[2] + sz], facing: [middle[0] + sx, middle[1], middle[2] + sz] };
+    };
+    return [slid(-reach), slid(reach)];
+  }
   const swung = (degrees: number): Shot => {
     const radians = (degrees * Math.PI) / 180;
-    const dx = view.location[0] - middle[0];
-    const dz = view.location[2] - middle[2];
     return { location: [middle[0] + dx * Math.cos(radians) - dz * Math.sin(radians), view.location[1], middle[2] + dx * Math.sin(radians) + dz * Math.cos(radians)], facing: middle };
   };
   return [swung(-turn / 2), swung(turn / 2)];

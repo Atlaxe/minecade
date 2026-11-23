@@ -11,7 +11,51 @@
 // A space's NPC spot and a Shop's Villager (the user, 2026-11-23): where the NPC who comes to a space
 // stands ("npc": [x, y, z, yaw, pitch]; without one the game picks a spot beside it), and how a Shop
 // space's Villager looks ("villager": { "biome": "desert", "profession": "librarian", "level": "gold" }).
+// A space's cutscene camera (the user, 2026-11-23): which way the shots of a cutscene at the space
+// look, how far down and how far back ("camera": { "yaw": 135, "pitch": 25, "distance": 8 }), or
+// { "free": true } to keep the game's own angles there while the board camera looks one way all game.
+// Block Party's /spacecam sets them in game, and a preview from the map editor saves them.
 import type { MapPosition, Vec3 } from "../map-config.ts";
+
+/**
+ * How the shots of a cutscene at a space look (Block Party, docs/plans/block-party-ui.md "Cameras").
+ * Without one, they look the board camera's way when it doesn't turn, else each picks its own side.
+ */
+export interface SpaceCamera {
+  /** Each shot picks its own side here, even while the board camera always looks one way. */
+  free?: boolean;
+  /** Which way the shots look (degrees: 0 south, 90 west, 180 north, 270 east). */
+  yaw?: number;
+  /** How far down they look, in degrees. */
+  pitch?: number;
+  /** How far back from what they show, in blocks. */
+  distance?: number;
+}
+
+/** A space camera's limits (the map's numbers; whole numbers, as the game settings are). */
+export const SPACE_CAMERA_LIMITS = {
+  yaw: { min: 0, max: 359 },
+  pitch: { min: -30, max: 89 },
+  distance: { min: 2, max: 60 },
+} as const;
+
+/** The problems with a space's camera: { "free": true }, or any of a yaw, a pitch and a distance, each a whole number in its limits. */
+export function spaceCameraProblems(value: unknown, where: string): string[] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return [`${where} must be { "yaw", "pitch", "distance" } or { "free": true }`];
+  const problems: string[] = [];
+  for (const [key, given] of Object.entries(value as Record<string, unknown>)) {
+    if (key === "free") {
+      if (given !== true) problems.push(`${where}.free must be true (or left out)`);
+      continue;
+    }
+    const limits = SPACE_CAMERA_LIMITS[key as keyof typeof SPACE_CAMERA_LIMITS];
+    if (!limits) problems.push(`${where}.${key} isn't part of a space's camera (free, yaw, pitch or distance)`);
+    else if (!Number.isInteger(given) || (given as number) < limits.min || (given as number) > limits.max) problems.push(`${where}.${key} must be a whole number from ${limits.min} to ${limits.max}`);
+  }
+  const camera = value as SpaceCamera;
+  if (camera.free === true && camera.yaw !== undefined) problems.push(`${where} can't be free and have a yaw`);
+  return problems;
+}
 
 /** A Villager's looks (Block Party's NPC menu's, its entity's properties by index): the biome it's dressed for, its profession and its level. */
 export const VILLAGER_BIOMES = ["Plains", "Desert", "Jungle", "Savanna", "Snow", "Swamp", "Taiga"] as const;
@@ -70,6 +114,8 @@ export interface BoardSpace {
   npc?: MapPosition;
   /** A Shop space's Villager: how it looks. */
   villager?: VillagerLook;
+  /** How a cutscene's shots at this space look (SpaceCamera); without it, the board camera's way, or each shot its own. */
+  camera?: SpaceCamera;
 }
 
 export interface BoardSpaceType {
@@ -212,6 +258,7 @@ export function spaceProblems(value: unknown, board: BoardConfig | undefined): s
     }
     if (s.npc !== undefined && (!Array.isArray(s.npc) || ![3, 5].includes(s.npc.length) || !s.npc.every((n) => typeof n === "number" && Number.isFinite(n)))) problems.push(`${where}.npc must be [x, y, z] or [x, y, z, yaw, pitch]`);
     if (s.villager !== undefined) problems.push(...villagerProblems(s.villager, `${where}.villager`));
+    if (s.camera !== undefined) problems.push(...spaceCameraProblems(s.camera, `${where}.camera`));
   });
   for (const [i, space] of value.entries()) {
     const next = (space as Record<string, unknown>)?.next;
@@ -281,6 +328,25 @@ export function setSpaceNpc(spaces: readonly BoardSpace[], id: number, at: MapPo
   return update(spaces, id, (space) => {
     const { npc: _old, ...rest } = space;
     return at ? { ...rest, npc: [...at] as MapPosition } : rest;
+  });
+}
+
+/**
+ * Sets a space's cutscene camera (its parts in the map's order: free, or yaw, pitch and distance), or
+ * with none (or nothing in it) takes it away.
+ */
+export function setSpaceCamera(spaces: readonly BoardSpace[], id: number, camera: SpaceCamera | undefined): BoardSpace[] {
+  const problem = camera ? spaceCameraProblems(camera, "camera")[0] : undefined;
+  if (problem) throw new Error(problem);
+  return update(spaces, id, (space) => {
+    const { camera: _old, ...rest } = space;
+    const kept: SpaceCamera = {
+      ...(camera?.free === true ? { free: true } : {}),
+      ...(camera?.yaw !== undefined ? { yaw: camera.yaw } : {}),
+      ...(camera?.pitch !== undefined ? { pitch: camera.pitch } : {}),
+      ...(camera?.distance !== undefined ? { distance: camera.distance } : {}),
+    };
+    return Object.keys(kept).length > 0 ? { ...rest, camera: kept } : rest;
   });
 }
 

@@ -50,7 +50,8 @@ export class MapChanges {
     this.editor = editor;
   }
 
-  async edit(target: string, map: string, raw: unknown): Promise<ChangeAnswer> {
+  /** A change to a map: through game Edit when it has the map open, else here. `by`: who, for the undo history (the map viewer's, unless a preview's player asked). */
+  async edit(target: string, map: string, raw: unknown, by = VIEWER_BY): Promise<ChangeAnswer> {
     const edit = viewerEdit(raw);
     if (typeof edit === "string") return { status: 400, error: edit };
     const path = this.path(target, map);
@@ -60,9 +61,9 @@ export class MapChanges {
     if ("error" in current) return current;
     const problem = markupProblem(current.config, edit, (await loadTarget(this.root, target)).rules);
     if (problem) return { status: 422, error: problem, config: current.config };
-    const through = await this.throughEditor("/edit", { target, map, edit, by: VIEWER_BY }, target, map, path);
+    const through = await this.throughEditor("/edit", { target, map, edit, by }, target, map, path);
     if (through) return through;
-    return this.change(path, (config) => applyEdit(config, edit), describeEdit(edit));
+    return this.change(path, (config) => applyEdit(config, edit), describeEdit(edit), by);
   }
 
   async step(target: string, map: string, kind: "undo" | "redo"): Promise<ChangeAnswer> {
@@ -183,7 +184,7 @@ export class MapChanges {
   }
 
   /** Applies a change to map.json as it is now, as one undo step. */
-  private change(path: string, change: (config: MapConfig) => MapConfig, label: string): ChangeAnswer {
+  private change(path: string, change: (config: MapConfig) => MapConfig, label: string, by = VIEWER_BY): ChangeAnswer {
     const read = this.read(path);
     if ("error" in read) return read;
     let next: MapConfig;
@@ -194,7 +195,7 @@ export class MapChanges {
       throw error;
     }
     const state = this.state(path, read.text);
-    state.history.record(read.config, `${label} (${VIEWER_BY})`);
+    state.history.record(read.config, `${label} (${by})`);
     const text = this.write(path, next, read.text);
     return { status: 200, config: next, stamp: stampOf(text), ...this.labels(state), via: "panel" };
   }

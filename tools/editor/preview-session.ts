@@ -6,12 +6,14 @@
 // lobby's, for a preview started there), and guests to GUEST_LOBBY_PORT, the editor lobby's
 // second entrance. A match that's over asks each player what's next first; end_game then says who picked
 // Replay and Edit. The runner (runner.ts) moves the players there and back.
+// The game may also ask to change the map it plays (map_edit: Block Party's /boardcam save); the
+// runner applies it to the map and the answer goes back to the game as a map_edit_reply.
 import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type Docker from "dockerode";
 import * as tar from "tar";
-import { NET_SCRIPT_EVENT_ID, encodeMessage, parseOutboundEvent } from "@minecade/minigame-core/protocol";
+import { NET_SCRIPT_EVENT_ID, encodeMessage, parseOutboundEvent, type MapEditRequest } from "@minecade/minigame-core/protocol";
 import { attachConsole, connectDocker, findContainerByName, type ServerConsole } from "../build/docker-util.ts";
 import { PlayerLog, playerEvent } from "../control-panel/core.ts";
 import { EDITOR_IMAGE, editorImage } from "./editor-image.ts";
@@ -60,6 +62,8 @@ export class PreviewSession {
   onEnd: ((why: string, next: { replay: string[]; edit: string[] }) => void) | undefined;
   /** A player joined or left the game. */
   onPlayer: () => void = () => {};
+  /** The game asks to change its map (map_edit); answer with reply(). */
+  onMapEdit: ((request: MapEditRequest) => void) | undefined;
   private readonly options: PreviewOptions;
   private container: Docker.Container | undefined;
   private console: ServerConsole | undefined;
@@ -193,6 +197,7 @@ export class PreviewSession {
     }
     const event = parseOutboundEvent(payload);
     if (event?.t === "server_ready") this.serverReady?.();
+    else if (event?.t === "map_edit") this.onMapEdit?.(event);
     else if (event?.t === "end_game") {
       this.options.note(`Preview: the game ended (${event.reason}).`);
       this.finish(event.reason === "finished" ? "the match is over" : `the game ended (${event.reason})`, { replay: event.replay ?? [], edit: event.edit ?? [] });
@@ -203,6 +208,13 @@ export class PreviewSession {
     if (this.ended) return;
     this.ended = true;
     this.onEnd?.(why, next);
+  }
+
+  /** The answer to the game's map_edit. */
+  reply(requestId: string, ok: boolean, text: string): void {
+    if (this.state !== "ready") return;
+    // A message that would be too long for the console is cut.
+    this.send({ t: "map_edit_reply", requestId, ok, message: text.slice(0, 600) });
   }
 
   private send(message: Parameters<typeof encodeMessage>[0]): void {

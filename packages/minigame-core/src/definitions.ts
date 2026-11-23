@@ -188,9 +188,11 @@ export {
   removeSpace,
   retypeSpaces,
   setSpace,
+  setSpaceCamera,
   setSpaceNpc,
   setVillager,
   spaceLabel,
+  spaceCameraProblems,
   spaceNpc,
   spaceProblems,
   spacesOf,
@@ -198,6 +200,7 @@ export {
   unlinkSpaces,
   villagerIndexes,
   villagerProblems,
+  SPACE_CAMERA_LIMITS,
   SPACE_NPCS,
   VILLAGER_BIOMES,
   VILLAGER_LEVELS,
@@ -207,6 +210,7 @@ export {
   type BoardRules,
   type BoardSpace,
   type BoardSpaceType,
+  type SpaceCamera,
   type VillagerLook,
 } from "./board/board-map.ts";
 export {

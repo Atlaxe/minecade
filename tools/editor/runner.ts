@@ -14,6 +14,7 @@ import { join } from "node:path";
 import {
   MapEditError,
   chatMapName,
+  describeEdit,
   mapChecklist,
   openKey,
   type GuestInfo,
@@ -25,6 +26,7 @@ import {
   type SelectionInfo,
   type ServerInfo,
 } from "@minecade/minigame-core/config";
+import type { MapEditRequest } from "@minecade/minigame-core/protocol";
 import { connectDocker } from "../build/docker-util.ts";
 import { readEnv } from "../control-panel/core.ts";
 import { storeDir } from "../maps/paths.ts";
@@ -43,6 +45,7 @@ import { StartCanceled, delay, message, type ServerSession } from "./server-sess
 import { EditorSession } from "./session.ts";
 import { loadTarget, mapsDirOf } from "./targets.ts";
 import { clientWorlds } from "./worlds.ts";
+import { MapChanges, type EditorLink } from "../viewer/map-changes.ts";
 
 const LOG_KEPT = 300;
 /** How long players get to leave a server that is about to stop. */
@@ -121,6 +124,8 @@ export class EditorRunner {
   private previewFrom: { from: PreviewPlan["from"]; by: string } | undefined;
   /** What the running preview plays, for a Replay. */
   private previewPlan: PreviewPlan | undefined;
+  /** A preview's changes to its map (previewMapEdit), made the Panel's way. */
+  private mapChanges: MapChanges | undefined;
   private selectBefore: Opened | undefined;
   /** Exports to open in Edit once they're cut out ("<target>/<map>"), and who exported each. */
   private readonly editAfterExport = new Map<string, string>();
@@ -251,6 +256,58 @@ export class EditorRunner {
       if (error instanceof MapEditError) return { outcome: "refused", error: error.message };
       throw error;
     }
+  }
+
+  /**
+   * A preview's game asks to change the map it plays (map_edit: Block Party's /boardcam save of the
+   * camera tuned in game). It's changed the way the Panel's map viewer changes a map (map-changes.ts:
+   * through game Edit when it has the map open, so it shows there at once and Edit's undo takes it
+   * back; else map.json itself), as one undo step, and a Replay plays the changed map. The game is
+   * told how it went.
+   */
+  private async previewMapEdit(session: PreviewSession, request: MapEditRequest): Promise<void> {
+    const plan = this.previewPlan;
+    const where = plan?.recent.request.to === "preview" ? plan.recent.request : undefined;
+    const id = String(request.requestId ?? "");
+    if (this.previewing !== session || !plan || !where) return session.reply(id, false, "The map editor doesn't know which map this preview plays.");
+    const by = typeof request.by === "string" && request.by.trim() ? request.by.trim().slice(0, 40) : "a preview";
+    try {
+      const answer = await this.previewChanges().edit(where.target, where.map, request.edit, `${by}, in a preview`);
+      if (answer.status !== 200) {
+        this.log(`${by}: a change from the preview of ${plan.source.label} wasn't made: ${answer.error}`);
+        return session.reply(id, false, `The map wasn't changed: ${answer.error}`);
+      }
+      if (this.previewPlan === plan) plan.source = { ...plan.source, map: { ...plan.source.map, config: answer.config } };
+      this.log(`${by}: ${describeEdit(request.edit)} on ${plan.source.label} (from the preview)`);
+      session.reply(id, true, answer.via === "editor" ? "Saved to the map. Edit has it open: its undo takes it back." : "Saved to the map.");
+    } catch (error) {
+      this.log(`${by}: a change from the preview of ${plan.source.label} went wrong: ${message(error)}`);
+      session.reply(id, false, `The map wasn't changed: ${message(error)}`);
+    }
+  }
+
+  /** Map changes as the Panel makes them (map-changes.ts), reaching game Edit here in the editor rather than over its control port. */
+  private previewChanges(): MapChanges {
+    if (this.mapChanges) return this.mapChanges;
+    const answerOf = (answer: OuterAnswer): { status: number; answer: Record<string, unknown> } => {
+      if (answer.outcome === "done") return { status: 200, answer: { config: answer.config, undo: answer.undo, redo: answer.redo, note: answer.note } };
+      if (answer.outcome === "notOpen") return { status: 409, answer: { notOpen: true, error: "Edit doesn't have that map open" } };
+      return { status: answer.outcome === "busy" ? 409 : 422, answer: { error: answer.error } };
+    };
+    const link: EditorLink = {
+      status: async () => this.status(),
+      change: async (path, body) => {
+        const target = String(body.target);
+        const map = String(body.map);
+        const by = typeof body.by === "string" ? body.by : "a preview";
+        if (path === "/edit") return answerOf(this.outerEdit(target, map, body.edit as MapEdit, by));
+        return answerOf(this.outerStep(target, map, path === "/undo" ? "undo" : "redo", by));
+      },
+      save: async () => ({ ok: false, error: "a preview doesn't save the map's world" }),
+      publish: async () => ({ ok: false, error: "a preview doesn't publish the map" }),
+    };
+    this.mapChanges = new MapChanges(this.root, link);
+    return this.mapChanges;
   }
 
   /** A map viewer's undo or redo on the map open in Edit (control.ts POST /undo and /redo). */
@@ -913,6 +970,7 @@ export class EditorRunner {
     }
     session.onEnd = (why, next) => void this.previewEnded(session, why, next);
     session.onPlayer = () => this.homeChanged();
+    session.onMapEdit = (request) => void this.previewMapEdit(session, request);
     await noteRecent(this.root, plan.recent).catch((error: unknown) => this.log(`Could not note it as recent: ${message(error)}`));
     const label = `the preview of ${source.label}`;
     if (replay) {

@@ -543,6 +543,11 @@ so. Publish it, then preview a map of the game: the preview brings every publish
    stage under way ends now (a building round's clock, a vote, the break after one, a best-of
    round; a game with one long stage ends), and before the countdown the game's own step does
    (Build Swap's prompts: whoever hasn't written is skipped). Chat says who skipped what.
+5. A game may change the map it plays while it runs (Block Party's **/boardcam save**: the camera
+   tuned in game). The game asks the map editor (`map_edit` over the console), which changes the map
+   the way the Panel does: through Edit when it has the map open (it shows there at once, and Edit's
+   undo takes it back), else map.json itself. Each save is one undo step named for the player, and a
+   Replay plays the changed map. Only a preview can: on the network a game can't reach the map.
 
 **Fake players:** the ones picked before the preview loads wait with you from the start (the game
 reads `PREVIEW_FAKES`), and **/fake** (`/minecade:fake`) adds more, `/fake 3` three, up to the

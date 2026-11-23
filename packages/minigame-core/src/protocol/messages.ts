@@ -1,7 +1,8 @@
 // Wire protocol between the servers' behavior packs and the orchestrator. Pure TypeScript with
 // no runtime imports: bundled into packs by esbuild and imported by the orchestrator under Node.
+import type { MapEdit } from "../map-edit.ts";
 
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 /**
  * Upper bound for one encoded message, in either direction and over either transport, so no
@@ -203,7 +204,21 @@ export interface PromptUsed {
   ids: number[];
 }
 
-export type OutboundEvent = ServerReady | StartGame | StatusRequest | PrepareGame | CancelPrepare | Configured | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks | PlayersSent | PromptSubmit | PromptRequest | PromptUsed;
+/**
+ * A preview's game asks the map editor to change the map it plays (Block Party's /boardcam save:
+ * the camera tuned in game). Only a preview from the map editor sends it, over the console; the
+ * editor applies it to the map's map.json as the Panel would, and answers with a map_edit_reply.
+ */
+export interface MapEditRequest {
+  t: "map_edit";
+  requestId: string;
+  sessionId: string;
+  /** Who asked (a player's name), for the map's undo history. */
+  by: string;
+  edit: MapEdit;
+}
+
+export type OutboundEvent = ServerReady | StartGame | StatusRequest | PrepareGame | CancelPrepare | Configured | PlayerCount | MatchStats | EndGame | StatsQuery | LobbyTeamPicks | PlayersSent | PromptSubmit | PromptRequest | PromptUsed | MapEditRequest;
 
 // ---- Orchestrator -> server ----------------------------------------------------------------
 
@@ -337,7 +352,15 @@ export interface PromptReply {
   prompts: BankPrompt[];
 }
 
-export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks | Configure | ExpectedPlayers | PromptReply;
+/** The map editor's answer to a map_edit: whether the map changed, and what to tell the player. */
+export interface MapEditReply {
+  t: "map_edit_reply";
+  requestId: string;
+  ok: boolean;
+  message: string;
+}
+
+export type InboundMessage = StartRejected | GameStarting | GameReady | GameFailed | GameEnded | Status | ReturnAll | StatsReply | TeamPicks | Configure | ExpectedPlayers | PromptReply | MapEditReply;
 
 // ---- Encoding --------------------------------------------------------------------------------
 
@@ -357,6 +380,7 @@ const OUTBOUND_TYPES: ReadonlySet<string> = new Set<OutboundEvent["t"]>([
   "prompt_submit",
   "prompt_request",
   "prompt_used",
+  "map_edit",
 ]);
 
 const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
@@ -372,6 +396,7 @@ const INBOUND_TYPES: ReadonlySet<string> = new Set<InboundMessage["t"]>([
   "configure",
   "expected_players",
   "prompt_reply",
+  "map_edit_reply",
 ]);
 
 export class MessageTooLargeError extends Error {

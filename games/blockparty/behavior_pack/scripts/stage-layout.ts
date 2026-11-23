@@ -36,15 +36,87 @@ function flat(a: Vec3, b: Vec3): [number, number] {
   return [dx / length, dz / length];
 }
 
+// ---- A cutscene's way (the user, 2026-11-23) --------------------------------------------------
+// While the board camera never turns, every shot of a cutscene on the board looks its way too, so a
+// board built to be seen from one side is only ever seen from that side; a space can opt out (its
+// camera "free") or look its own way (its camera's yaw, and the pitch and distance to go with it).
+
+/** Which way a cutscene's shots look (degrees: 0 south, 90 west), and, when given, how far down and how far back. */
+export interface ShotWay {
+  yaw: number;
+  pitch?: number;
+  distance?: number;
+}
+
+/** A space's cutscene camera, as the map gives it (core SpaceCamera). */
+export interface SpaceCameraLike {
+  free?: boolean;
+  yaw?: number;
+  pitch?: number;
+  distance?: number;
+}
+
+/**
+ * The way a cutscene's shots at a space look: the space's own yaw (with its pitch and distance),
+ * else the board camera's way (`boardYaw`, while it never turns) unless the space is free; undefined
+ * when each shot picks its own side (the board camera turns, or the space is free).
+ */
+export function cutsceneWay(own: SpaceCameraLike | undefined, boardYaw: number | undefined): ShotWay | undefined {
+  const tuned = { ...(own?.pitch !== undefined ? { pitch: own.pitch } : {}), ...(own?.distance !== undefined ? { distance: own.distance } : {}) };
+  if (own?.yaw !== undefined) return { yaw: own.yaw, ...tuned };
+  if (own?.free || boardYaw === undefined) return undefined;
+  return { yaw: boardYaw, ...tuned };
+}
+
+/**
+ * A shot looking along `way` at `look`: as far back as the way says (else `back`), and as high as
+ * looking down the way's pitch (else `pitch`) needs, so what it looks at is in the middle.
+ */
+export function wayShot(look: Vec3, way: ShotWay, back: number, pitch: number): Shot {
+  const tilt = way.pitch ?? pitch;
+  const away = way.distance ?? back;
+  const [fx, fz] = ahead(way.yaw);
+  const level = Math.cos((tilt * Math.PI) / 180) * away;
+  const up = Math.sin((tilt * Math.PI) / 180) * away;
+  return { location: [look[0] - fx * level, look[1] + up, look[2] - fz * level], rotation: { yaw: ((way.yaw % 360) + 360) % 360, pitch: tilt } };
+}
+
+/** The flat unit vector a yaw looks along (yaw 0 is +z, south). */
+function ahead(yaw: number): [number, number] {
+  const radians = (yaw * Math.PI) / 180;
+  return [-Math.sin(radians), Math.cos(radians)];
+}
+
+/** The space a seat stands on: the nearest whose middle is within `reach` blocks across (pieces stand on its corners), else none. */
+export function nearestSpace<T extends { at: Vec3 }>(spaces: readonly T[], at: Vec3, reach = 2.5): T | undefined {
+  let best: T | undefined;
+  let gap = reach;
+  for (const space of spaces) {
+    const d = Math.hypot(space.at[0] - at[0], space.at[2] - at[2]);
+    if (d <= gap && Math.abs(space.at[1] - at[1]) < 4) {
+      best = space;
+      gap = d;
+    }
+  }
+  return best;
+}
+
+/** How a two-shot laid along a way looks down, and a shot of a space. */
+const TWO_PITCH = 15;
+const SPACE_BACK = 7.6;
+const SPACE_PITCH = 26;
+
 /**
  * Two people talking (a player and an NPC), seen from the side of the line between them, a little
- * over their heads, both in frame: `side` picks which side (1 or -1).
+ * over their heads, both in frame: `side` picks which side (1 or -1). Along a `way`, the camera
+ * looks that way at the middle of them instead, as far back.
  */
-export function twoShot(a: Vec3, b: Vec3, side: 1 | -1 = 1): Shot {
+export function twoShot(a: Vec3, b: Vec3, side: 1 | -1 = 1, way?: ShotWay): Shot {
   const [dx, dz] = flat(a, b);
   const gap = Math.hypot(b[0] - a[0], b[2] - a[2]);
   const away = Math.max(4.5, gap * 1.3 + 2);
   const middle: Vec3 = [(a[0] + b[0]) / 2, Math.max(a[1], b[1]) + 1.1, (a[2] + b[2]) / 2];
+  if (way) return wayShot(middle, way, away, TWO_PITCH);
   return { location: [middle[0] - dz * side * away, middle[1] + 1.2, middle[2] + dx * side * away], facing: middle };
 }
 
@@ -155,11 +227,28 @@ export function introAround(spaces: readonly Space[]): Shot[] {
   return [at(135), at(225), at(330)];
 }
 
-/** A shot of a space (the Star reveal): from across the path and up, the space in the middle. */
-export function spaceShot(space: Space, spaces: readonly Space[]): Shot {
+/** A shot of a space (the Star reveal): from across the path and up, the space in the middle; along a `way`, from that way, as far back. */
+export function spaceShot(space: Space, spaces: readonly Space[], way?: ShotWay): Shot {
   const [dx, dz] = pathWay(space, spaces);
   const [x, y, z] = space.at;
+  if (way) return wayShot([x, y + 0.8, z], way, SPACE_BACK, SPACE_PITCH);
   return { location: [x + dz * 7 - dx * 3, y + 4.5, z - dx * 7 - dz * 3], facing: [x, y + 0.8, z] };
+}
+
+/** A Lightning Strike's shot along a way: from beside them that way, low, looking up their bolt (as the free one does). */
+export function lightningShot(at: Vec3, way: ShotWay): Shot {
+  const [fx, fz] = ahead(way.yaw);
+  const back = way.distance ?? 4.2;
+  return { location: [at[0] - fx * back, at[1] + 1, at[2] - fz * back], facing: [at[0], at[1] + 6, at[2]] };
+}
+
+/** How far back the camera on a flight is, and how far down it looks, along a way. */
+const FLIGHT_BACK = 9.5;
+const FLIGHT_PITCH = 18;
+
+/** The camera on someone flying (Chris under his balloon), looking along a way at them. */
+export function flightShot(at: Vec3, way: ShotWay): Shot {
+  return wayShot([at[0], at[1] + 1.2, at[2]], way, FLIGHT_BACK, FLIGHT_PITCH);
 }
 
 /** A close shot of someone standing at `at` facing `yaw`: in front of them, at their eyes. */
@@ -187,6 +276,13 @@ export function seatShot(at: Vec3, yaw: number, away = SEAT_SHOT_AWAY): Shot {
   const fx = -Math.sin(radians);
   const fz = Math.cos(radians);
   return { location: [at[0] + fx * away, at[1] + EYE + SEAT_SHOT_UP, at[2] + fz * away], facing: [at[0], at[1] + EYE + SEAT_SHOT_LOOK, at[2]] };
+}
+
+/** A hand-over's shot of one seat along a way: the same framing, the camera that way of them (they turn to face it). */
+export function seatWayShot(at: Vec3, way: ShotWay): Shot {
+  const look: Vec3 = [at[0], at[1] + EYE + SEAT_SHOT_LOOK, at[2]];
+  // Level with the look, as the free one is, unless the way says.
+  return wayShot(look, way, SEAT_SHOT_AWAY, 1);
 }
 
 /** The ways a seat shot is tried, by how far round from the seat's front (degrees): the front first, then further round either side, the back last. */

@@ -8,6 +8,7 @@ import {
   GOLEMS,
   GOLEM_PARTS,
   VILLAGER_PARTS,
+  spaceCameraProblems,
   villagerProblems,
   MAP_TIMES,
   QUEUE_COUNTDOWN,
@@ -86,6 +87,7 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
     case "removeGolemBend":
     case "spaceNpc":
     case "spaceVillager":
+    case "spaceCamera":
       return requires?.board ? undefined : "This game has no board.";
     case "retypeSpaces":
       for (const type of Object.values(edit.types)) {
@@ -263,6 +265,11 @@ export function viewerEdit(value: unknown, depth = 0): MapEdit | string {
     case "spaceVillager":
       if (!spaceId(edit.id)) return "a space id is a whole number from 1";
       return edit.villager === undefined || villagerProblems(edit.villager, "villager").length === 0 ? (edit as MapEdit) : `a Villager's looks are ${VILLAGER_PARTS.map((part) => part.key).join(", ")}, each one of its names`;
+    case "spaceCamera": {
+      if (!spaceId(edit.id)) return "a space id is a whole number from 1";
+      const problem = edit.camera === undefined ? undefined : spaceCameraProblems(edit.camera, "camera")[0];
+      return problem ?? (edit as MapEdit);
+    }
     case "stars":
       return typeof edit.on === "boolean" ? (edit as MapEdit) : "stars is true or false";
     case "gameThumbnail":

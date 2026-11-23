@@ -3,7 +3,7 @@
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
 import { addGolemBend, golemsOf, golemsWithoutSpace, moveGolemBend, removeGolemBend, setGolem, type BoardGolem, type GolemPart } from "./board/board-golems.ts";
-import { addBend, addSpace, clearBends, linkSpaces, moveBend, moveSpace, removeBend, removeSpace, retypeSpaces, setSpace, setSpaceNpc, setVillager, spacesOf, unlinkSpaces, type BoardSpace, type VillagerLook } from "./board/board-map.ts";
+import { addBend, addSpace, clearBends, linkSpaces, moveBend, moveSpace, removeBend, removeSpace, retypeSpaces, setSpace, setSpaceCamera, setSpaceNpc, setVillager, spacesOf, unlinkSpaces, type BoardSpace, type SpaceCamera, type VillagerLook } from "./board/board-map.ts";
 import { colorsProblems, tidyColors, type MapColors } from "./map-colors.ts";
 import { QUEUE_COUNTDOWN, boundsBoxes, mapTimeTicks, queueSettings, spectatorBoundsBoxes, type Box, type BuildLimitSide, type MapCamera, type MapMannequin, type Facing, type MapConfig, type MapPosition, type MapTime, type QueueSettings, type Vec3 } from "./map-config.ts";
 
@@ -92,6 +92,8 @@ export type MapEdit =
    */
   | { op: "spaceNpc"; id: number; at?: MapPosition }
   | { op: "spaceVillager"; id: number; villager?: VillagerLook }
+  /** A space's cutscene camera (Block Party's /spacecam, saved from a preview): its way, pitch and distance, or free; with none, the default. */
+  | { op: "spaceCamera"; id: number; camera?: SpaceCamera }
   /**
    * A board's golems (map.json "golems", the Panel's Golems): change golem `golem` (1 to 4): its post,
    * rest spot, the spaces before and after it (what's left out stays; `clear` takes parts away); and
@@ -220,7 +222,8 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
     case "removeBend":
     case "clearBends":
     case "spaceNpc":
-    case "spaceVillager": {
+    case "spaceVillager":
+    case "spaceCamera": {
       const changed = withSpaces(config, spaceEdit(spacesOf(config), edit));
       // A removed space's golems no longer name it.
       return edit.op === "removeSpace" ? withGolems(changed, golemsWithoutSpace(golemsOf(config), edit.id)) : changed;
@@ -339,6 +342,8 @@ export function describeEdit(edit: MapEdit): string {
       return edit.at ? `place space ${edit.id}'s NPC spot` : `take space ${edit.id}'s NPC spot away`;
     case "spaceVillager":
       return `change space ${edit.id}'s Villager`;
+    case "spaceCamera":
+      return edit.camera ? `change space ${edit.id}'s cutscene camera` : `take space ${edit.id}'s cutscene camera away`;
     case "setGolem":
       return `change golem ${edit.golem}`;
     case "addGolemBend":
@@ -441,7 +446,7 @@ function withEntry<T>(record: Record<string, T[]> | undefined, name: string, lis
  * data, before the editor's), or removes it when `value` is undefined.
  */
 /** A spaces edit on the list (board-map.ts's errors as MapEditErrors). */
-function spaceEdit(spaces: BoardSpace[], edit: Extract<MapEdit, { op: "addSpace" | "moveSpace" | "removeSpace" | "linkSpace" | "unlinkSpace" | "setSpace" | "retypeSpaces" | "addBend" | "moveBend" | "removeBend" | "clearBends" | "spaceNpc" | "spaceVillager" }>): BoardSpace[] {
+function spaceEdit(spaces: BoardSpace[], edit: Extract<MapEdit, { op: "addSpace" | "moveSpace" | "removeSpace" | "linkSpace" | "unlinkSpace" | "setSpace" | "retypeSpaces" | "addBend" | "moveBend" | "removeBend" | "clearBends" | "spaceNpc" | "spaceVillager" | "spaceCamera" }>): BoardSpace[] {
   try {
     switch (edit.op) {
       case "addSpace":
@@ -470,6 +475,8 @@ function spaceEdit(spaces: BoardSpace[], edit: Extract<MapEdit, { op: "addSpace"
         return setSpaceNpc(spaces, edit.id, edit.at);
       case "spaceVillager":
         return setVillager(spaces, edit.id, edit.villager);
+      case "spaceCamera":
+        return setSpaceCamera(spaces, edit.id, edit.camera);
     }
   } catch (error) {
     throw new MapEditError(error instanceof Error ? error.message : String(error));

@@ -27,6 +27,7 @@ import type { Seat } from "./seats.ts";
 import type { Party, Token } from "./tokens.ts";
 import { followTick, legOf, newFollow } from "./walk-follow.ts";
 import { planLeg, type TerrainReader } from "./walk-plan.ts";
+import { wayShot, type Shot, type ShotWay } from "./stage-layout.ts";
 
 /** The NPC role a golem is (npcs.ts; its entity blockparty:iron_golem). */
 const ROLE = "iron_golem";
@@ -138,9 +139,13 @@ export class GolemGates {
     await this.host.cutscene(true, async () => {
       await Promise.all([this.walking.get(leaving.number), this.walking.get(coming.number)]);
       const key = this.key(leaving);
-      // The one leaving speaks (its role's lines are the part last brought into a scene).
-      stage.face(key, ahead(leaving.post, 3));
-      stage.shot(golemShot(leaving.post), "Cut");
+      // The one leaving speaks (its role's lines are the part last brought into a scene), turned to
+      // the camera when the cutscene looks the board camera's way, else ahead along its post.
+      stage.lay(undefined, (way) => {
+        const shot = golemShot(leaving.post, way);
+        stage.face(key, way ? shot.location : ahead(leaving.post, 3));
+        return shot;
+      }, "Cut");
       await this.host.say("golem.swap", {}, true);
       if (stage.skipping) return;
       const ways = [walkTo(leaving, false), walkTo(coming, true)];
@@ -148,6 +153,7 @@ export class GolemGates {
       const [from, to] = boardPan(
         [...this.host.spaces().map((space) => space.at), ...this.golems.flatMap((golem) => [golem.post.at, golem.rest.at])],
         PAN_TURN,
+        stage.wayAt(undefined)?.yaw,
       );
       if (from && to) {
         stage.shot(from, "Cut");
@@ -262,10 +268,11 @@ function planOf(terrain: TerrainReader, a: Vec3, b: Vec3) {
   }
 }
 
-/** A close shot of a golem on its spot: in front of it, at its eyes. */
-export function golemShot(spot: GolemSpot): { location: Vec3; facing: Vec3 } {
-  const [fx, fz] = forward(spot.yaw);
+/** A close shot of a golem on its spot: in front of it, at its eyes; along a cutscene's `way`, that way of it (it turns to face the camera). */
+export function golemShot(spot: GolemSpot, way?: ShotWay): Shot {
   const [x, y, z] = spot.at;
+  if (way) return wayShot([x, y + GOLEM_EYES - 0.2, z], way, FACE_AWAY, 3);
+  const [fx, fz] = forward(spot.yaw);
   return { location: [x + fx * FACE_AWAY, y + GOLEM_EYES, z + fz * FACE_AWAY], facing: [x, y + GOLEM_EYES - 0.2, z] };
 }
 
