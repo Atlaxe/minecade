@@ -83,6 +83,7 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   if (isPosition(map.queueSpawn)) points.push(["queueSpawn", xyz(map.queueSpawn)]);
   problems.push(...spaceProblems(map.spaces, rules.requires?.board));
   for (const space of spacesOf(map)) if (isPosition(space.at)) points.push([`space ${space.id}`, xyz(space.at)]);
+  for (const space of spacesOf(map)) if (space.npc !== undefined && isPosition(space.npc)) points.push([`space ${space.id}'s NPC spot`, xyz(space.npc)]);
   problems.push(...golemProblems(map.golems));
   if (golemProblems(map.golems).length === 0) {
     golemsOf(map).forEach((golem, i) => {

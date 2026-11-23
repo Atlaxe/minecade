@@ -1052,6 +1052,18 @@ board there should be nothing: the game uses the empty space around it for the a
   drop, a ladder or vines up a wall. "Moving over the board" (below) says what a piece gets over.
 - Leave a free block beside every Star candidate and every Item space: Chris stands beside the
   Star, and the Wandering Trader beside its Item space.
+- **NPC spots (built 2026-11-23, not yet seen in game):** the user asked for a way to place where
+  the NPCs go at special spaces like Versus and Shops, not needed for every one. Any space an NPC
+  comes to can have an NPC spot (map.json: the space's `npc`, [x, y, z, yaw, pitch]), placed in the
+  Panel from the space's panel (docs/viewer.md, "NPC spots"): the Shop's Villager, the Versus
+  Referee, Chance Time's Witch, the Warden, the Wandering Trader at an Item space, and Chris at a Star
+  candidate of any other type (core `spaceNpc`). Every NPC that comes to that space stands there
+  (stage.ts besideSpace: the item NPCs too, as they always shared the space's spot), facing the way
+  the spot faces while nobody talks to it; without a spot the game picks one beside the space as
+  before. A Shop space also sets its Villager's looks (the user): Biome, Profession and Level
+  (`villager`: { "biome", "profession", "level" }, lower case names; plain Plains, Unskilled, Stone
+  when left out), the same lists as the Tests' NPC menu (core `VILLAGER_PARTS`). The Panel only, as
+  with bends and golems (my call).
 - The beacon beam is a model the game draws with the vanilla beam's texture (proposed), so it works under a ceiling (an Ancient City
   board). A real beacon would need open sky over every candidate.
 
@@ -1088,7 +1100,7 @@ stand-ins: the lineup on Start's corners, Chris on the space after Start, the ca
 and three high intro shots round the board. The camera rows are points rather than Camera tool
 cameras: those are the lobby's pictures, which servers never get.
 
-**Map settings** for a board (Panel and game Edit): the NPCs' vanilla variants (the Villager's biome type and profession, Chris's pig variant), the
+**Map settings** for a board (Panel and game Edit): the NPCs' vanilla variants (the Villager's biome type and profession, Chris's pig variant; a Shop's Villager is now set on its space instead, "NPC spots" above), the
 Happening flavor (a few lines of text, one picked each time, and a sound), the special event and
 its timing, and the map's time of day.
 

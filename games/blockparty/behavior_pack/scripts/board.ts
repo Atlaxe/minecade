@@ -4,7 +4,7 @@
 // model standing on the floor (space-markers.ts; the plan's "Space markers"), and a piece stands on
 // the marker's top, STAND over the floor. testSpaces is a flat ring of 12 the tests lay out boards
 // with. Pure, so the tests can check the layout and the paths.
-import type { BoardSpace } from "@minecade/minigame-core/config";
+import { villagerIndexes, type BoardSpace } from "@minecade/minigame-core/config";
 import model from "../../space-model.json";
 
 export type Vec3 = [number, number, number];
@@ -35,6 +35,14 @@ export interface Space {
   /** A spot the Star can be at, and one the first Star can be at. */
   star?: boolean;
   opening?: boolean;
+  /**
+   * Where the NPC who comes to it stands (the map's NPC spot, the user, 2026-11-23: its Villager,
+   * Referee, Witch, Warden, the Wandering Trader, or Chris at a Star): a block's middle, y its floor,
+   * and the way it faces when the map says. Without one the stage picks a spot beside it.
+   */
+  npc?: { at: Vec3; yaw?: number };
+  /** A Shop's Villager's looks, as its entity's properties (core villagerIndexes). */
+  villager?: { biome: number; profession: number; level: number };
 }
 
 /** The test board's Star candidates, by index, and its two opening spots among them. */
@@ -89,6 +97,8 @@ export function mapSpaces(list: readonly BoardSpace[]): Space[] {
       ...(bends.length > 0 ? { bends: Object.fromEntries(bends) } : {}),
       ...(space.star ? { star: true } : {}),
       ...(space.opening ? { opening: true } : {}),
+      ...(space.npc ? { npc: { at: [middle(space.npc[0]), space.npc[1], middle(space.npc[2])] as Vec3, ...(space.npc.length === 5 ? { yaw: space.npc[3] } : {}) } } : {}),
+      ...(space.villager ? { villager: villagerIndexes(space.villager) } : {}),
     };
   });
 }

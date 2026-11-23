@@ -242,6 +242,14 @@ a second.
   moves a space with its gizmo (onto a block's middle) and deletes it with Delete; its links go too.
   Select also picks a link by its arrow (it turns yellow): its panel names both ends (each picks its
   space) and has **Delete link**, as does the Delete key.
+- **NPC spots** (the Panel only, 2026-11-23): a space an NPC comes to has its spot in its panel,
+  under the switches: **Villager's spot** on a Shop, **Referee's** on Versus, **Witch's** on Chance
+  Time, **Warden's** on a Warden space, **Wandering Trader's** on an Item space, and **Chris's** on
+  any other Star candidate. It says **Beside the space** until one is placed: **Place** (then click a
+  block; it faces the space), and once placed its position (picks it), **Place again**, and an X back
+  to the spot the game picks. The spot is a mannequin in the space's color; Select drags it, its red
+  knob turns it, and Delete takes it away. A **Shop** space's panel also has its Villager's
+  **Biome**, **Profession** and **Level** (Plains, Unskilled and Stone unless set).
 - **Bends** (the Panel only, the user's pick, 2026-11-22): a path that curves between two spaces is
   walked in straight legs through its bends. A picked link's panel lists its **Bends** (each picks
   its dot, with an X that takes it away), **Add bends** (each click on a block adds a bend on that

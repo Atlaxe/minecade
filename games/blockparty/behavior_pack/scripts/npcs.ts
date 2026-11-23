@@ -14,6 +14,7 @@
 import type { Dimension, Entity, Player } from "@minecraft/server";
 import { ActionFormData } from "@minecraft/server-ui";
 import { describeError, showForm, type Scope } from "@minecade/minigame-core";
+import { VILLAGER_BIOMES, VILLAGER_LEVELS, VILLAGER_PROFESSIONS } from "@minecade/minigame-core/config";
 import { CLIPS, SHOWN, movesOf } from "./animations.ts";
 import type { Vec3 } from "./board.ts";
 import type { Moves } from "./moves.ts";
@@ -44,9 +45,6 @@ export interface NpcRole {
   shows?: string;
 }
 
-const VILLAGER_BIOMES = ["Plains", "Desert", "Jungle", "Savanna", "Snow", "Swamp", "Taiga"];
-const PROFESSIONS = ["Unskilled", "Farmer", "Fisherman", "Shepherd", "Fletcher", "Librarian", "Cartographer", "Cleric", "Armorer", "Weaponsmith", "Toolsmith", "Butcher", "Leatherworker", "Stonemason", "Nitwit"];
-
 export const NPC_ROLES: readonly NpcRole[] = [
   { id: "chris", name: "Chris", role: "The piggy bank: guide, Star seller, commentator", animations: [], variants: [{ property: "blockparty:variant", label: "Pig", values: ["Temperate", "Warm", "Cold"] }] },
   {
@@ -55,9 +53,10 @@ export const NPC_ROLES: readonly NpcRole[] = [
     role: "The shopkeeper",
     animations: [{ label: "Raise arms", animation: "animation.villager.raise_arms", hold: true }],
     variants: [
+      // The same lists a map's Shop spaces dress their Villagers from (minigame-core's board-map.ts).
       { property: "blockparty:biome", label: "Biome", values: VILLAGER_BIOMES },
-      { property: "blockparty:profession", label: "Profession", values: PROFESSIONS },
-      { property: "blockparty:level", label: "Level", values: ["Stone", "Iron", "Gold", "Emerald", "Diamond"] },
+      { property: "blockparty:profession", label: "Profession", values: VILLAGER_PROFESSIONS },
+      { property: "blockparty:level", label: "Level", values: VILLAGER_LEVELS },
     ],
   },
   { id: "witch", name: "Witch", role: "Hosts Chance Time", animations: [] },

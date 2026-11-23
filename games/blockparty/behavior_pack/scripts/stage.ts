@@ -130,6 +130,10 @@ const LLAMA_GAP = 1.9;
 const FORK_PAN = 0.8;
 /** A llama's coat (trader_llama.json): creamy, white, brown or gray. */
 const COAT = "blockparty:coat";
+/** A Villager's looks (villager.json, npcs.ts): the biome it's dressed for, its profession and its level, each an index. */
+const VILLAGER_BIOME = "blockparty:biome";
+const VILLAGER_PROFESSION = "blockparty:profession";
+const VILLAGER_LEVEL = "blockparty:level";
 /** The end's fades to black (seconds): in, held while everyone is put on a podium, and out on its camera. */
 const END_FADE = { in: 0.6, hold: 1.2, out: 0.8 };
 /** The end's Chris and Allay. */
@@ -344,8 +348,12 @@ export class Stage {
     }
   }
 
-  /** A spot beside a space with ground under it and room to stand (the first one, if none has). */
+  /**
+   * Where an NPC who comes to a space stands: the map's NPC spot for it (the user, 2026-11-23), else
+   * a spot beside it with ground under it and room to stand (the first one, if none has).
+   */
   besideSpace(space: Space): Vec3 {
+    if (space.npc) return [...space.npc.at];
     const spots = besideSpace(space, this.deps.spaces());
     for (const spot of spots) if (this.standable(spot)) return spot;
     return spots[0];
@@ -446,7 +454,17 @@ export class Stage {
     const key = residentKey(space);
     if (!this.get(key)) {
       const at = this.besideSpace(space);
-      this.put(key, role, at, yawFrom(at, space.at));
+      const entity = this.put(key, role, at, restingYaw(space, at));
+      // A Shop's Villager as the map dresses it (biome, profession, level).
+      if (entity && role === "villager" && space.villager) {
+        try {
+          entity.setProperty(VILLAGER_BIOME, space.villager.biome);
+          entity.setProperty(VILLAGER_PROFESSION, space.villager.profession);
+          entity.setProperty(VILLAGER_LEVEL, space.villager.level);
+        } catch (error) {
+          log.warn(`blockparty: dressing the Villager failed: ${describeError(error)}`);
+        }
+      }
     }
     return key;
   }
@@ -469,10 +487,17 @@ export class Stage {
     return key;
   }
 
-  /** A resident turns back to its space when its scene is over. */
+  /** A resident turns back to its space (or the way its NPC spot faces) when its scene is over. */
   backToSpace(key: string): void {
     const space = this.deps.spaces().find((one) => residentKey(one) === key);
-    if (space) this.face(key, space.at);
+    const entity = this.get(key);
+    if (!space || !entity) return;
+    if (space.npc?.yaw === undefined) return this.face(key, space.at);
+    try {
+      entity.setRotation({ x: 0, y: space.npc.yaw });
+    } catch {
+      // gone
+    }
   }
 
   /**
@@ -482,7 +507,7 @@ export class Stage {
    */
   async starChris(space: Space, drop: boolean): Promise<void> {
     const at = this.besideSpace(space);
-    const yaw = yawFrom(at, space.at);
+    const yaw = restingYaw(space, at);
     if (drop) await this.balloonIn(starKey(space), at, yaw);
     else this.put(starKey(space), "chris", at, yaw);
     this.starModel(space);
@@ -1213,6 +1238,11 @@ function lineupMiddle(podium: Podium): Vec3 {
 function centerOf(spaces: readonly Space[]): Vec3 {
   const box = boardBox(spaces);
   return [(box.min[0] + box.max[0]) / 2, box.min[1], (box.min[2] + box.max[2]) / 2];
+}
+
+/** The way an NPC standing at `at` by `space` faces while nobody's talking to it: its NPC spot's facing, else the space. */
+export function restingYaw(space: Space, at: Vec3): number {
+  return space.npc?.yaw ?? yawFrom(at, space.at);
 }
 
 function vec(at: Vec3): Vector3 {

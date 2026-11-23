@@ -10,6 +10,11 @@
 //     Golems 1 to 4; a golem's panel places each spot (a click on a block, facing the space before it
 //     or its post; then the knob turns it), picks its spaces, and bends its walk. Its walk is drawn
 //     from its post to its rest spot.
+//   - NPC spots (the user, 2026-11-23): a space an NPC comes to (spaceNpc: the Shop's Villager, the
+//     Versus Referee, the Witch, the Warden, the Wandering Trader, Chris at a Star candidate) can have
+//     a spot of its own for that NPC, placed from the space's panel (facing the space; the knob turns
+//     it); without one, the game picks a spot beside the space. A Shop space's panel also sets how its
+//     Villager looks: Biome, Profession and Level.
 import {
   GOLEMS,
   GOLEMS_ACTIVE,
@@ -18,11 +23,14 @@ import {
   golemsOf,
   hasGolems,
   positionText,
+  spaceNpc,
   spacesOf,
+  VILLAGER_PARTS,
   worldPoint,
   xyzOf,
   type BoardConfig,
   type BoardGolem,
+  type BoardSpace,
   type MapConfig,
   type MapEdit,
   type MapPosition,
@@ -39,11 +47,15 @@ export const GOLEM_WALK_COLOR = 0x9fd47a;
 /** The Golems list's key, under Board. */
 export const GOLEMS_LIST = "golems";
 
-/** A bend's, a golem spot's or a golem bend's point, by its markup key. */
-export type BoardPoint = { kind: "bend"; from: number; to: number; index: number } | { kind: "golem"; golem: number; part: "post" | "rest" } | { kind: "golemBend"; golem: number; index: number };
+/** A bend's, a golem spot's, a golem bend's or a space's NPC spot's point, by its markup key. */
+export type BoardPoint =
+  | { kind: "bend"; from: number; to: number; index: number }
+  | { kind: "golem"; golem: number; part: "post" | "rest" }
+  | { kind: "golemBend"; golem: number; index: number }
+  | { kind: "npc"; space: number };
 
-/** What a click on a block places: a link's bend, a golem's bend, or a golem's post or rest spot. */
-export type Placing = { kind: "bend"; from: number; to: number } | { kind: "golemBend"; golem: number } | { kind: "golem"; golem: number; part: "post" | "rest" };
+/** What a click on a block places: a link's bend, a golem's bend, a golem's post or rest spot, or a space's NPC spot. */
+export type Placing = { kind: "bend"; from: number; to: number } | { kind: "golemBend"; golem: number } | { kind: "golem"; golem: number; part: "post" | "rest" } | { kind: "npc"; space: number };
 
 /** "bend:3>4#0": the first bend of space 3's link to space 4. */
 export const bendKey = (from: number, to: number, index: number) => `bend:${from}>${to}#${index}`;
@@ -51,6 +63,8 @@ export const bendKey = (from: number, to: number, index: number) => `bend:${from
 export const golemKey = (golem: number) => `golem:${golem}`;
 export const golemSpotKey = (golem: number, part: "post" | "rest") => `golem:${golem}.${part}`;
 export const golemBendKey = (golem: number, index: number) => `golem:${golem}.bend#${index}`;
+/** "npc:12": space 12's NPC spot. */
+export const npcKey = (space: number) => `npc:${space}`;
 
 /** The bend or golem point a key names. */
 export function boardPointOf(key: string | undefined): BoardPoint | undefined {
@@ -61,6 +75,8 @@ export function boardPointOf(key: string | undefined): BoardPoint | undefined {
   if (spot) return { kind: "golem", golem: Number(spot[1]), part: spot[2] as "post" | "rest" };
   const golemBend = /^golem:(\d+)\.bend#(\d+)$/.exec(key);
   if (golemBend) return { kind: "golemBend", golem: Number(golemBend[1]), index: Number(golemBend[2]) };
+  const npc = /^npc:(\d+)$/.exec(key);
+  if (npc) return { kind: "npc", space: Number(npc[1]) };
   return undefined;
 }
 
@@ -76,41 +92,50 @@ export function blockPosition(position: MapPosition | Vec3): Vec3 {
   return [Math.floor(position[0]), Math.round(position[1]), Math.floor(position[2])];
 }
 
-/** Where a bend or a golem point is in map.json. */
+/** Where a bend, a golem point or an NPC spot is in map.json. */
 export function boardPointPosition(config: MapConfig, point: BoardPoint): MapPosition | undefined {
   if (point.kind === "bend") return spacesOf(config).find((space) => space.id === point.from)?.bends?.[String(point.to)]?.[point.index];
+  if (point.kind === "npc") return spacesOf(config).find((space) => space.id === point.space)?.npc;
   const golem = golemsOf(config)[point.golem - 1];
   return point.kind === "golem" ? golem?.[point.part] : golem?.bends?.[point.index];
 }
 
-/** The edit that puts a bend or a golem point at `at` (a golem spot keeps its facing unless `at` has one). */
+/** The edit that puts a bend, a golem point or an NPC spot at `at` (a spot keeps its facing unless `at` has one). */
 export function boardPointSet(config: MapConfig, point: BoardPoint, at: MapPosition): MapEdit {
   const block = blockPosition(at);
   if (point.kind === "bend") return { op: "moveBend", from: point.from, to: point.to, index: point.index, at: block };
   if (point.kind === "golemBend") return { op: "moveGolemBend", golem: point.golem, index: point.index, at: block };
   const old = boardPointPosition(config, point);
   const yaw = at.length === 5 ? at[3] : old?.length === 5 ? old[3] : 0;
+  if (point.kind === "npc") return { op: "spaceNpc", id: point.space, at: [...block, yaw, 0] };
   return { op: "setGolem", golem: point.golem, [point.part]: [...block, yaw, 0] };
 }
 
-/** The edit that turns a golem's spot to `yaw` (bends have no facing). */
+/** The edit that turns a golem's spot or an NPC spot to `yaw` (bends have no facing). */
 export function boardPointFace(config: MapConfig, point: BoardPoint, yaw: number): MapEdit | undefined {
-  if (point.kind !== "golem") return undefined;
+  if (point.kind !== "golem" && point.kind !== "npc") return undefined;
   const old = boardPointPosition(config, point);
-  return old ? { op: "setGolem", golem: point.golem, [point.part]: [...xyzOf(old), yaw, 0] } : undefined;
+  if (!old) return undefined;
+  if (point.kind === "npc") return { op: "spaceNpc", id: point.space, at: [...xyzOf(old), yaw, 0] };
+  return { op: "setGolem", golem: point.golem, [point.part]: [...xyzOf(old), yaw, 0] };
 }
 
 export function boardPointRemove(point: BoardPoint): MapEdit {
   if (point.kind === "bend") return { op: "removeBend", from: point.from, to: point.to, index: point.index };
   if (point.kind === "golemBend") return { op: "removeGolemBend", golem: point.golem, index: point.index };
+  if (point.kind === "npc") return { op: "spaceNpc", id: point.space };
   return { op: "setGolem", golem: point.golem, clear: [point.part] };
 }
 
-/** The edit a click on a block makes while placing; a golem's spot faces the space before it (its post) or its post (its rest spot). */
+/** The edit a click on a block makes while placing; a golem's spot faces the space before it (its post) or its post (its rest spot), an NPC spot its space. */
 export function placeEdit(config: MapConfig, placing: Placing, position: MapPosition): MapEdit {
   const at = blockPosition(position);
   if (placing.kind === "bend") return { op: "addBend", from: placing.from, to: placing.to, at };
   if (placing.kind === "golemBend") return { op: "addGolemBend", golem: placing.golem, at };
+  if (placing.kind === "npc") {
+    const space = spacesOf(config).find((candidate) => candidate.id === placing.space);
+    return { op: "spaceNpc", id: placing.space, at: [...at, space ? yawFrom(at, xyzOf(space.at)) : 0, 0] };
+  }
   const golem = golemsOf(config)[placing.golem - 1];
   const toward = placing.part === "post" ? spacesOf(config).find((space) => space.id === golem.before)?.at : golem.post;
   const yaw = toward ? yawFrom(at, xyzOf(toward)) : 0;
@@ -289,6 +314,68 @@ export function golemPanel(golem: number, options: BoardPointOptions): HTMLEleme
     ),
     findings.length > 0 ? el("ul", { className: "check-list" }, findings.map((finding) => el("li", {}, el("span", { className: "check" }, el("span", { className: "dot bad" }), el("span", { className: "grow" }, finding.text))))) : null,
     Object.keys(it).length > 0 ? el("div", { className: "buttons" }, el("button", { className: "small danger", onclick: () => edit({ op: "setGolem", golem, clear: ["post", "rest", "before", "after", "bends"] }) }, "Clear golem")) : null,
+  );
+}
+
+/** The spaces' NPC spots as points: a mannequin in the space type's color, facing its way. */
+export function npcPoints(config: MapConfig, board: BoardConfig | undefined): PointMark[] {
+  const types = new Map((board?.types ?? []).map((type) => [type.id, type]));
+  return spacesOf(config).flatMap((space): PointMark[] => {
+    if (!space.npc) return [];
+    return [
+      {
+        key: npcKey(space.id),
+        list: "npcs",
+        index: space.id,
+        label: `${spaceNpc(space) ?? "NPC"}, space ${space.id}`,
+        at: worldPoint(xyzOf(space.npc)),
+        yaw: space.npc.length === 5 ? space.npc[3] : 0,
+        pitch: 0,
+        faced: true,
+        color: types.get(space.type ?? "")?.color ?? 0xffffff,
+        shape: { kind: "player" },
+      },
+    ];
+  });
+}
+
+/**
+ * A space's NPC spot in its panel (a space an NPC comes to): who stands there, where (it picks the
+ * spot), Place or Place again (then click a block), and an X back to the spot the game picks; and on
+ * a Shop space, its Villager's Biome, Profession and Level.
+ */
+export function npcSection(space: BoardSpace, options: BoardPointOptions): HTMLElement | null {
+  const who = spaceNpc(space);
+  if (!who) return null;
+  const on = options.placing?.kind === "npc" && options.placing.space === space.id;
+  const look = space.villager ?? {};
+  const villager =
+    space.type === "shop"
+      ? VILLAGER_PARTS.map((part) =>
+          el(
+            "label",
+            { className: "setting" },
+            el("span", { className: "group-label" }, part.label),
+            el(
+              "select",
+              { onchange: (event: Event) => options.edit({ op: "spaceVillager", id: space.id, villager: { ...look, [part.key]: (event.target as HTMLSelectElement).value } }) },
+              part.values.map((value) => el("option", { value: value.toLowerCase(), selected: value.toLowerCase() === (look[part.key] ?? part.values[0]).toLowerCase() }, value)),
+            ),
+          ),
+        )
+      : [];
+  return el(
+    "div",
+    {},
+    el("div", { className: "group-label" }, `${who}'s spot`),
+    el(
+      "div",
+      { className: "buttons" },
+      space.npc ? el("button", { className: "small", onclick: () => options.showKey(npcKey(space.id)) }, positionText(space.npc)) : el("span", { className: "sub" }, "Beside the space"),
+      el("button", { className: `small${on ? " on" : ""}`, dataset: { tip: "Then click a block" }, onclick: () => options.place(on ? undefined : { kind: "npc", space: space.id }) }, on ? "Click a block" : space.npc ? "Place again" : "Place"),
+      space.npc ? el("button", { className: "flow-unlink bend-x", dataset: { tip: "Back to a spot beside the space" }, onclick: () => options.edit({ op: "spaceNpc", id: space.id }) }, "×") : null,
+    ),
+    villager,
   );
 }
 

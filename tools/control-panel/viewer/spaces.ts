@@ -13,6 +13,8 @@
 //     leads to, in the view or the list) as tiles of their own; then Delete.
 // A Star candidate's name says so ("Space 3: Blue, Star"), in the list and over its post. A link's
 // bends (board-points.ts) are dots its arrow runs through; a picked link's panel adds and takes them.
+// A space an NPC comes to has its NPC's spot in its panel (board-points.ts npcSection), and a Shop
+// its Villager's looks; the spot is a mannequin in the space's color.
 import {
   checkBoard,
   dealAgain,
@@ -30,7 +32,7 @@ import {
   type MapEdit,
   type MapPosition,
 } from "@minecade/minigame-core/config";
-import { bendPoints, bendsSection, golemFindings, type BoardPointOptions } from "./board-points.ts";
+import { bendPoints, bendsSection, golemFindings, npcPoints, npcSection, type BoardPointOptions } from "./board-points.ts";
 import { colorText, el } from "./sidebar.ts";
 import type { MarkupList, PointMark } from "./markup.ts";
 
@@ -108,8 +110,8 @@ export function spaceMarkup(config: MapConfig, board: BoardConfig | undefined, n
     entries: points.map((point, index) => ({ key: point.key, label: point.label, detail: positionText(spaces[index].at) })),
     ...need,
   };
-  // The links' bends: dots on their lines, picked and dragged like the spaces (not in the list).
-  return { points: [...points, ...bendPoints(config)], list, links };
+  // The links' bends (dots on their lines) and the NPC spots, picked and dragged like the spaces (not in the list).
+  return { points: [...points, ...bendPoints(config), ...npcPoints(config, board)], list, links };
 }
 
 /** A space's position for a spot in the viewer: its block's middle (whole x and z), the spot's floor. */
@@ -161,6 +163,7 @@ export function spacePanel(space: BoardSpace, options: SpacePanelOptions): HTMLE
     flag("locked", "Lock"),
     flag("star", "Star candidate"),
     space.star ? flag("opening", "Opening spot") : null,
+    npcSection(space, options),
     el("div", { className: "group-label" }, "Paths"),
     pathsFlow(space, options),
     el("div", { className: "buttons" }, el("button", { className: "small danger", onclick: () => edit({ op: "removeSpace", id }) }, "Delete space")),

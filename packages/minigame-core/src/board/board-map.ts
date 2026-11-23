@@ -8,7 +8,43 @@
 // (board-check.ts, /boardcheck) show in it.
 // A link's bends (the user, 2026-11-22): a path that curves between two spaces is several straight
 // legs, through the blocks its bends are on, in order. The Panel's Spaces tool places them.
+// A space's NPC spot and a Shop's Villager (the user, 2026-11-23): where the NPC who comes to a space
+// stands ("npc": [x, y, z, yaw, pitch]; without one the game picks a spot beside it), and how a Shop
+// space's Villager looks ("villager": { "biome": "desert", "profession": "librarian", "level": "gold" }).
 import type { MapPosition, Vec3 } from "../map-config.ts";
+
+/** A Villager's looks (Block Party's NPC menu's, its entity's properties by index): the biome it's dressed for, its profession and its level. */
+export const VILLAGER_BIOMES = ["Plains", "Desert", "Jungle", "Savanna", "Snow", "Swamp", "Taiga"] as const;
+export const VILLAGER_PROFESSIONS = ["Unskilled", "Farmer", "Fisherman", "Shepherd", "Fletcher", "Librarian", "Cartographer", "Cleric", "Armorer", "Weaponsmith", "Toolsmith", "Butcher", "Leatherworker", "Stonemason", "Nitwit"] as const;
+export const VILLAGER_LEVELS = ["Stone", "Iron", "Gold", "Emerald", "Diamond"] as const;
+
+/** A Shop space's Villager (map.json, lower case names from the lists above; what's left out is the first). */
+export interface VillagerLook {
+  biome?: string;
+  profession?: string;
+  level?: string;
+}
+
+/** Each part of a Villager's looks: its key in VillagerLook, its name, and its choices. */
+export const VILLAGER_PARTS = [
+  { key: "biome", label: "Biome", values: VILLAGER_BIOMES },
+  { key: "profession", label: "Profession", values: VILLAGER_PROFESSIONS },
+  { key: "level", label: "Level", values: VILLAGER_LEVELS },
+] as const;
+
+/** A Villager's looks as its entity's properties (each the index of its choice; 0 for none or one not in the list). */
+export function villagerIndexes(look: VillagerLook | undefined): { biome: number; profession: number; level: number } {
+  const index = (values: readonly string[], value: string | undefined) => Math.max(0, values.findIndex((candidate) => candidate.toLowerCase() === value?.toLowerCase()));
+  return { biome: index(VILLAGER_BIOMES, look?.biome), profession: index(VILLAGER_PROFESSIONS, look?.profession), level: index(VILLAGER_LEVELS, look?.level) };
+}
+
+/** The space types an NPC comes to (Block Party's: the Shop's Villager, the Referee, the Witch, the Warden, the Wandering Trader), by type id. A Star candidate's is Chris. */
+export const SPACE_NPCS: Readonly<Record<string, string>> = { shop: "Villager", versus: "Referee", chance: "Witch", warden: "Warden", item: "Wandering Trader" };
+
+/** Who stands at a space's NPC spot: its type's NPC, else Chris on a Star candidate; undefined when nobody comes to it. */
+export function spaceNpc(space: Pick<BoardSpace, "type" | "star">): string | undefined {
+  return SPACE_NPCS[space.type ?? ""] ?? (space.star ? "Chris" : undefined);
+}
 
 /** One space on a board. Ids stay the same when a space moves, so links survive. */
 export interface BoardSpace {
@@ -30,6 +66,10 @@ export interface BoardSpace {
   star?: boolean;
   /** A Star candidate the first Star can be at (two per board). */
   opening?: boolean;
+  /** Where the NPC who comes to this space stands (spaceNpc), and the way it faces; without it, a spot beside the space is picked. */
+  npc?: MapPosition;
+  /** A Shop space's Villager: how it looks. */
+  villager?: VillagerLook;
 }
 
 export interface BoardSpaceType {
@@ -170,6 +210,8 @@ export function spaceProblems(value: unknown, board: BoardConfig | undefined): s
         }
       }
     }
+    if (s.npc !== undefined && (!Array.isArray(s.npc) || ![3, 5].includes(s.npc.length) || !s.npc.every((n) => typeof n === "number" && Number.isFinite(n)))) problems.push(`${where}.npc must be [x, y, z] or [x, y, z, yaw, pitch]`);
+    if (s.villager !== undefined) problems.push(...villagerProblems(s.villager, `${where}.villager`));
   });
   for (const [i, space] of value.entries()) {
     const next = (space as Record<string, unknown>)?.next;
@@ -232,6 +274,40 @@ export function setSpace(spaces: readonly BoardSpace[], id: number, change: { ty
     if (next.opening && !next.star) delete next.opening;
     return next;
   });
+}
+
+/** Places a space's NPC spot (where the NPC who comes to it stands), or with none takes it away. */
+export function setSpaceNpc(spaces: readonly BoardSpace[], id: number, at: MapPosition | undefined): BoardSpace[] {
+  return update(spaces, id, (space) => {
+    const { npc: _old, ...rest } = space;
+    return at ? { ...rest, npc: [...at] as MapPosition } : rest;
+  });
+}
+
+/** Sets a Shop space's Villager's looks (what's left out, or the first of its list, is left out of the map), or with none, the plain one. */
+export function setVillager(spaces: readonly BoardSpace[], id: number, look: VillagerLook | undefined): BoardSpace[] {
+  const problem = look ? villagerProblems(look, "villager")[0] : undefined;
+  if (problem) throw new Error(problem);
+  return update(spaces, id, (space) => {
+    const { villager: _old, ...rest } = space;
+    const kept = VILLAGER_PARTS.flatMap((part) => {
+      const value = look?.[part.key]?.toLowerCase();
+      return value && value !== part.values[0].toLowerCase() ? [[part.key, value] as const] : [];
+    });
+    return kept.length > 0 ? { ...rest, villager: Object.fromEntries(kept) as VillagerLook } : rest;
+  });
+}
+
+/** The problems with a Villager's looks: an object of known biome, profession and level names. */
+export function villagerProblems(value: unknown, where: string): string[] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return [`${where} must be { "biome", "profession", "level" }`];
+  const problems: string[] = [];
+  for (const [key, given] of Object.entries(value as Record<string, unknown>)) {
+    const part = VILLAGER_PARTS.find((candidate) => candidate.key === key);
+    if (!part) problems.push(`${where}.${key} isn't a Villager's look (biome, profession or level)`);
+    else if (typeof given !== "string" || !part.values.some((choice) => choice.toLowerCase() === given.toLowerCase())) problems.push(`${where}.${key} must be one of ${part.values.join(", ")}`);
+  }
+  return problems;
 }
 
 /** Gives several spaces new types at once (Deal again's result). */

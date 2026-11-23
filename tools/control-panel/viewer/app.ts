@@ -1426,18 +1426,19 @@ async function main(): Promise<void> {
     renderPanel();
     if (next?.kind === "bend") notice(`Click blocks along the path from space ${next.from} to space ${next.to}: each is a bend. Esc when done.`);
     else if (next?.kind === "golemBend") notice(`Click blocks along golem ${next.golem}'s walk: each is a bend. Esc when done.`);
+    else if (next?.kind === "npc") notice(`Click the block where space ${next.space}'s NPC stands.`);
     else if (next) notice(`Click the block for golem ${next.golem}'s ${next.part === "post" ? "post" : "rest spot"}.`);
   };
   const renderPanel = () => {
     const point = pointOf(picked);
     const box = boxOf(picked);
     const height = heightMarkOf(picked);
-    const spaceId = spaceIdOf(picked);
+    // A bend's panel is its link's; a golem's spot, bend or walk, its golem's; an NPC spot, its space's.
+    const boardPoint = boardPointOf(picked);
+    const spaceId = spaceIdOf(picked) ?? (boardPoint?.kind === "npc" ? boardPoint.space : undefined);
     const space = spaceId === undefined ? undefined : spacesOf(config).find((candidate) => candidate.id === spaceId);
     const spaces = spaceOptions();
     let content: HTMLElement | null = null;
-    // A bend's panel is its link's; a golem's spot, bend or walk, its golem's.
-    const boardPoint = boardPointOf(picked);
     const link = linkOf(picked) ?? (boardPoint?.kind === "bend" ? { from: boardPoint.from, to: boardPoint.to } : undefined);
     const golem = golemOf(picked);
     if (tool === "select") content = also.size > 0 ? manyPanel() : golem !== undefined && spaces ? golemPanel(golem, spaces) : link && spaces ? linkPanel(link, spaces) : space && spaces ? spacePanel(space, spaces) : point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
@@ -1503,13 +1504,13 @@ async function main(): Promise<void> {
   };
   const middle = () => mapMiddle(config);
 
-  /** A click on a block while placing (board-points.ts): a bend (more may follow, until Esc), or a golem's spot (then its panel again). */
+  /** A click on a block while placing (board-points.ts): a bend (more may follow, until Esc), or a golem's or an NPC's spot (then its panel again). */
   const placeAt = (clientX: number, clientY: number) => {
     if (!placing) return;
     const spot = spotUnder(clientX, clientY);
     if (!spot) return notice("Nothing to stand on there: click the top of a block.", true);
     if (!edit(placeEdit(config, placing, spot.position))) return;
-    if (placing.kind === "golem") setPlacing(undefined);
+    if (placing.kind === "golem" || placing.kind === "npc") setPlacing(undefined);
     else renderPanel();
   };
 

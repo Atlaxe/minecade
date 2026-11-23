@@ -31,6 +31,16 @@ describe("a path's bends in the game", () => {
   });
 });
 
+describe("a space's NPC spot and a Shop's Villager in the game", () => {
+  it("are the spot's block middle at its floor with its facing, and the Villager's properties", () => {
+    const [, shop, plain] = mapSpaces([BOARD[0], { ...BOARD[1], type: "shop", npc: [11, 64, 2, 270, 0], villager: { biome: "taiga", level: "iron" } }, BOARD[2]]);
+    expect(shop.npc).toEqual({ at: [11.5, 64, 2.5], yaw: 270 });
+    expect(shop.villager).toEqual({ biome: 6, profession: 0, level: 1 });
+    expect(plain.npc).toBeUndefined();
+    expect(mapSpaces([{ ...BOARD[0], npc: [1, 64, 1] }])[0].npc).toEqual({ at: [1.5, 64, 1.5] });
+  });
+});
+
 describe("golems", () => {
   const spaces = mapSpaces(BOARD);
   const config = { golems: [golem(2, 3, 12), golem(2, 4, 15), golem(3, 1, 8), golem(4, 1, 18)] };

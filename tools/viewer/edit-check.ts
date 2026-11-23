@@ -7,6 +7,8 @@
 import {
   GOLEMS,
   GOLEM_PARTS,
+  VILLAGER_PARTS,
+  villagerProblems,
   MAP_TIMES,
   QUEUE_COUNTDOWN,
   bigEnough,
@@ -82,6 +84,8 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
     case "addGolemBend":
     case "moveGolemBend":
     case "removeGolemBend":
+    case "spaceNpc":
+    case "spaceVillager":
       return requires?.board ? undefined : "This game has no board.";
     case "retypeSpaces":
       for (const type of Object.values(edit.types)) {
@@ -253,6 +257,12 @@ export function viewerEdit(value: unknown, depth = 0): MapEdit | string {
     case "removeGolemBend":
       if (!golemNumber(edit.golem)) return `a golem is 1 to ${GOLEMS}`;
       return index(edit.index) ?? (edit as MapEdit);
+    case "spaceNpc":
+      if (!spaceId(edit.id)) return "a space id is a whole number from 1";
+      return edit.at === undefined || position(edit.at) ? (edit as MapEdit) : "an NPC spot is a position";
+    case "spaceVillager":
+      if (!spaceId(edit.id)) return "a space id is a whole number from 1";
+      return edit.villager === undefined || villagerProblems(edit.villager, "villager").length === 0 ? (edit as MapEdit) : `a Villager's looks are ${VILLAGER_PARTS.map((part) => part.key).join(", ")}, each one of its names`;
     case "stars":
       return typeof edit.on === "boolean" ? (edit as MapEdit) : "stars is true or false";
     case "gameThumbnail":

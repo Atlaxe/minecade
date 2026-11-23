@@ -2,7 +2,7 @@
 // or a drag makes, and how they're drawn and listed.
 import { BLOCK_PARTY_BOARD, applyEdit, type EditorRules, type MapConfig } from "@minecade/minigame-core/config";
 import { describe, expect, it } from "vitest";
-import { bendKey, boardPointFace, boardPointOf, boardPointPosition, boardPointRemove, boardPointSet, golemBendKey, golemOf, golemSpotKey, placeEdit } from "../board-points.ts";
+import { bendKey, boardPointFace, boardPointOf, boardPointPosition, boardPointRemove, boardPointSet, golemBendKey, golemOf, golemSpotKey, npcKey, placeEdit } from "../board-points.ts";
 import { buildMarkup } from "../markup.ts";
 
 const RULES: EditorRules = { kind: "game", maxPlayers: 4, requires: { board: BLOCK_PARTY_BOARD } };
@@ -56,5 +56,24 @@ describe("board points", () => {
     const board = markup.sections.find((section) => section.title === "Board");
     expect(board?.lists.map((list) => list.label)).toEqual(["Spaces", "Golems"]);
     expect(board?.lists[1].entries.map((entry) => entry.detail)).toEqual(["blocks 1 to 2, starts on its post", "not set", "not set", "not set"]);
+  });
+});
+
+describe("NPC spots", () => {
+  const shop: MapConfig = { ...CONFIG, spaces: [CONFIG.spaces![0], { ...CONFIG.spaces![1], type: "shop", npc: [12, 64, 2, 90, 0] }] };
+
+  it("are placed facing their space, moved keeping their facing, turned and taken away", () => {
+    const npc = boardPointOf(npcKey(2))!;
+    expect(npc).toEqual({ kind: "npc", space: 2 });
+    expect(placeEdit(CONFIG, { kind: "npc", space: 2 }, [10, 64, 4])).toEqual({ op: "spaceNpc", id: 2, at: [10, 64, 4, 180, 0] });
+    expect(boardPointPosition(shop, npc)).toEqual([12, 64, 2, 90, 0]);
+    expect(boardPointSet(shop, npc, [13.2, 64, 2.8])).toEqual({ op: "spaceNpc", id: 2, at: [13, 64, 2, 90, 0] });
+    expect(boardPointFace(shop, npc, 0)).toEqual({ op: "spaceNpc", id: 2, at: [12, 64, 2, 0, 0] });
+    expect(boardPointRemove(npc)).toEqual({ op: "spaceNpc", id: 2 });
+  });
+
+  it("are drawn as a mannequin named for who stands there", () => {
+    const point = buildMarkup(shop, RULES).points.find((candidate) => candidate.key === npcKey(2));
+    expect(point).toMatchObject({ label: "Villager, space 2", shape: { kind: "player" }, yaw: 90, faced: true, at: { x: 12.5, y: 64, z: 2.5 } });
   });
 });
