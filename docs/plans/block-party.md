@@ -1614,7 +1614,8 @@ reward was dropped.
      scene, No or sneak skips it; it was a lobby option until the user's look), how long the game
      is, the call to roll, everyone turning to the camera and rolling for the order, then the
      reveal (the camera moves to each player in turn order as Chris calls their place,
-     `pregame.place.1` to `.4`), the starting coins (`pregame.coins`), and the Star reveal (the
+     `pregame.place.1` to `.4`), the starting coins (`pregame.coins`; everyone has 0 coins on their
+     card until Chris hands these out, the user, 2026-11-23), and the Star reveal (the
      camera pans to each Star's space and a Chris drops in beside it with slow falling).
      Everything but the roll is a cutscene everyone can vote to skip; skipped, everyone still ends
      on Start and every Star has its Chris.

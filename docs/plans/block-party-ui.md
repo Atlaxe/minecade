@@ -542,7 +542,8 @@ Party. Built for every change of hands, which also covers the pops above (`token
   Witch; the Warden's Sculk Tax and Star Tax to him and his Sonic Boom's Star; the zombie's bite;
   every payment between players (a duel's stake, Hush Money, the Iron Golem's shakedown, Reverse
   Fortune, Lightning Strike); Coin Swap's difference; the Shooting Star; Happening's item swap; and
-  Chris handing everyone their starting coins in the pre-game (shown only).
+  Chris handing everyone their starting coins in the pre-game (everyone has 0 coins until then, and
+  the cards show the coins as he hands them out; the user, 2026-11-23).
 - **The bank:** coins or Stars that change with nobody giving or taking (a Blue or Red space, a
   minigame's coins, a die's face, a Battle's pot, a bet) drop in from above the head or fly up off
   it, found by the loop's watcher (it shows only what no transfer showed). Items from an Item space

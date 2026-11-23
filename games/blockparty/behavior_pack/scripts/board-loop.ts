@@ -430,7 +430,8 @@ export class BoardLoop {
    * Shows `count` of `token` going from one to another (transfers.ts: a seat, an NPC's entity, or
    * nobody for the bank), and marks the seats' coins and Stars it shows going in and out so the
    * watcher (watchMoods) doesn't show them again: call it as the change is made, before anything
-   * waits. `gift`: shown only, for coins or Stars already in hand (the starting coins). Resolves once
+   * waits. `gift`: shown only, for coins or Stars the watcher has already taken as seen (the starting
+   * coins: giveStartingCoins). Resolves once
    * the last has landed.
    */
   transfer(from: Party, to: Party, token: Token, count: number, gift = false): Promise<void> {
@@ -787,7 +788,8 @@ export class BoardLoop {
   async run(): Promise<Result> {
     this.running = true;
     const spaces = this.host.spaces();
-    for (const who of this.host.present()) this.seat(who, this.host.startCoins);
+    // Everyone sits down with no coins: Chris hands out the starting coins in the pre-game.
+    for (const who of this.host.present()) this.seat(who, 0);
     this.stars = firstStars(spaces, activeStars(this.host.turns), this.host.random);
     this.host.changed();
     await this.pregame();
@@ -901,8 +903,10 @@ export class BoardLoop {
         // Their roll's number over their head goes once their place is said.
         if (seat >= 0) this.host.count?.(seats[seat], undefined);
       }
-      // Chris hands everyone their starting coins (shown only: the seats have them already).
+      // Chris hands everyone their starting coins: theirs from now, not before (the user, 2026-11-23),
+      // and on the cards as he hands them out.
       const chris = stage.speaker("chris");
+      this.giveStartingCoins();
       if (!stage.skipping) for (const who of seats) void this.transfer(chris, who, "coin", this.host.startCoins, true);
       await this.host.say("pregame.coins", { coins: count(this.host.startCoins, "coin") });
       for (const star of this.stars) {
@@ -946,6 +950,19 @@ export class BoardLoop {
     if (this.round === turns) {
       await this.host.say("announce.final", {}, true);
     }
+  }
+
+  /**
+   * Chris's starting coins (the pre-game): every seat gets them now, and the cards show them at once.
+   * The watcher takes them as already seen, so they bring no mood, no coin swing for the bonus Stars
+   * and no coins dropping in from the bank: Chris's hand-out (a gift transfer) is all that shows them.
+   */
+  private giveStartingCoins(): void {
+    for (const [key, seat] of this.seats) {
+      seat.coins += this.host.startCoins;
+      this.seen.set(key, { coins: seat.coins, stars: seat.stars });
+    }
+    this.host.changed();
   }
 
   /** Someone sits down with `coins` and no Stars, last in the turn order. */
