@@ -84,9 +84,13 @@ export function followTick(plan: LegPlan, leg: Leg, state: FollowState, at: { x:
   const { a, span, ux, uz } = leg;
   const along = (at.x - a[0]) * ux + (at.z - a[2]) * uz;
   if (span - along <= perTick) return { kind: "end", along };
+  // How far the piece is off the leg's line, to its left (-uz, ux) when over 0; the steer is back
+  // toward the line, against that. (Pass 2 had it the other way, away from the line: any drift grew
+  // by STEER every tick and flung pieces off long straight runs, the user's 2026-11-23 look at Golem
+  // Gardens.)
   const side = (at.x - a[0]) * -uz + (at.z - a[2]) * ux;
   state.drift = Math.max(state.drift, Math.abs(side));
-  const steer = { x: -uz * side * STEER, z: ux * side * STEER };
+  const steer = { x: uz * side * STEER, z: -ux * side * STEER };
   const pending = plan.climbs[state.climb];
   if (pending && along >= pending.at - CLIMB_REACH) {
     const up = pending.to > pending.from;

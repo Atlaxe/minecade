@@ -142,7 +142,7 @@ Rerun: `npx tsx spike/knockback/run.ts <cases.json>` with cases like `{ "id": "a
 
 ### Walking the test board (checked 2026-11-20)
 
-`npx tsx spike/blockparty/walk.ts [--bot] [--only 0,3]` boots a throwaway BDS (`minecade-bpwalk`, no published ports) on a void world, lays Block Party's test board with its markers' floors, and walks a SimulatedPlayer (`--bot`: the game's bot entity, moved as `bots.ts` moves it) over each of the 12 stretches with the game's own code: `walk-pack/main.ts` bundles `test-board.ts`, `terrain.ts`, `walk-plan.ts` and `walk-follow.ts`. It prints each stretch's outcome and writes every tick (place, speed, the plan's target, the push) to `spike/results/walk.json`. Asked after the user's first look at the walk over the ground, where almost nothing worked; 6 of the 12 stretches failed the same way here (the server moves a real player with the same physics: server-authoritative movement).
+`npx tsx spike/blockparty/walk.ts [--bot] [--only 0,3] [--off 0.3]` boots a throwaway BDS (`minecade-bpwalk`, no published ports) on a void world, lays Block Party's test board with its markers' floors, and walks a SimulatedPlayer (`--bot`: the game's bot entity, moved as `bots.ts` moves it) over each of the 12 stretches with the game's own code: `walk-pack/main.ts` bundles `test-board.ts`, `terrain.ts`, `walk-plan.ts` and `walk-follow.ts`. It prints each stretch's outcome and writes every tick (place, speed, the plan's target, the push) to `spike/results/walk.json`. Asked after the user's first look at the walk over the ground, where almost nothing worked; 6 of the 12 stretches failed the same way here (the server moves a real player with the same physics: server-authoritative movement).
 
 | Question | Finding |
 |---|---|
@@ -156,6 +156,7 @@ Rerun: `npx tsx spike/knockback/run.ts <cases.json>` with cases like `{ "id": "a
 | `getVelocity` on a pushed player | Reads the last tick's move. A push keeps it x 0.273 on the ground (half of friction's 0.546) and x 0.455 in the air (half of 0.91), then adds 0.4 x the force. Asking the ground's fixed 1 / 1.375 everywhere let a piece in the air (any slope up) speed up to 0.5 a tick and fall behind its plan; each push now asks for exactly a step from the speed read. |
 | Before | The ladders (down 2, up 3), the block up, the void gap and the hurdle: stuck (plans a block low); the partial blocks: blocked (read as walls); the other 6 got there. With only the reader fixed, the stairs up stuck on their last step (half the gap) and the water's plan walked into it. |
 | After | All 12 get there, a player and a bot alike, at 0.4 a tick with no stops; within 0.16 of the plan going up and on jumps; jumps peak 0.9 to 1.25 over their takeoff; climbs 0.15 a tick from the foot, 0.1 over the top, then on. Going down lags the plan by up to half a block (down before along): a stepped way down, a stair at a time. |
+| Off the line (2026-11-23) | Every stretch started on its line standing still, so a steer that pushed away from the line (pass 2's, which flung pieces off Golem Gardens' long straight run) never showed. `--off 0.3` starts each stretch 0.3 to the side, its line still through the space's middle: with the steer fixed, all 12 end on the line (0 off), a player and a bot. |
 
 ## Block physics (BDS 1.26.60.6, @minecraft/server 2.11.0, checked 2026-11-11)
 

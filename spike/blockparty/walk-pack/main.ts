@@ -3,7 +3,9 @@
 // player (walk-plan.ts plans the leg, walk-follow.ts says each tick's push, applyKnockback pushes),
 // printing every tick. With server-authoritative movement the server moves a real player the same
 // way, so where a SimulatedPlayer sticks a player does too. "bot" walks the game's bot entity instead,
-// set moving each tick as the game moves a bot (bots.ts, moveBot).
+// set moving each tick as the game moves a bot (bots.ts, moveBot). "off=<blocks>" starts each stretch
+// that far to the left of its line (the line still runs through the space's middle), so the steer back
+// onto it shows: the leg line has its most off the line and where it ended up.
 // Bundled by spike/blockparty/walk.ts, which reads the BP|{json} lines it prints.
 import { GameMode, system, world, type Entity, type Vector3 } from "@minecraft/server";
 import { spawnSimulatedPlayer } from "@minecraft/server-gametest";
@@ -25,7 +27,7 @@ const out = (id: string, data: object): void => console.log(`BP|${JSON.stringify
 const wait = (ticks: number): Promise<void> => new Promise((resolve) => system.runTimeout(() => resolve(), ticks));
 const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
-async function run(bot: boolean, only: number[] | undefined): Promise<void> {
+async function run(bot: boolean, only: number[] | undefined, off: number): Promise<void> {
   const dimension = world.getDimension("overworld");
   const [mx, my, mz] = MIDDLE;
   await world.tickingAreaManager.createTickingArea("bp_walk", { dimension, from: { x: mx - 24, y: my - 8, z: mz - 24 }, to: { x: mx + 24, y: my + 8, z: mz + 24 } });
@@ -62,10 +64,12 @@ async function run(bot: boolean, only: number[] | undefined): Promise<void> {
     if (only && !only.includes(i)) continue;
     const from = spaces[i];
     const to = spaces[(i + 1) % spaces.length];
-    sim.teleport({ x: from.at[0], y: from.at[1] + 0.05, z: from.at[2] }, { rotation: { x: 0, y: yawTo(from.at, to.at) } });
+    // Off to the line's left (-uz, ux) by `off`.
+    const line = legOf(from.at, to.at);
+    sim.teleport({ x: from.at[0] - line.uz * off, y: from.at[1] + 0.05, z: from.at[2] + line.ux * off }, { rotation: { x: 0, y: yawTo(from.at, to.at) } });
     await wait(15);
     const here = sim.location;
-    const a: Vec3 = [here.x, here.y, here.z];
+    const a: Vec3 = off === 0 ? [here.x, here.y, here.z] : [from.at[0], here.y, from.at[2]];
     const b = to.at;
     const leg = legOf(a, b);
     const plan = planLeg(terrain, a, b, PER_TICK);
@@ -92,7 +96,8 @@ async function run(bot: boolean, only: number[] | undefined): Promise<void> {
       await wait(1);
     }
     const end = sim.location;
-    out("leg", { i, outcome, ticks, budget, endY: r3(end.y), bY: r3(b[1]), alongLeft: r3(leg.span - ((end.x - a[0]) * leg.ux + (end.z - a[2]) * leg.uz)) });
+    const side = (end.x - a[0]) * -leg.uz + (end.z - a[2]) * leg.ux;
+    out("leg", { i, outcome, ticks, budget, endY: r3(end.y), bY: r3(b[1]), alongLeft: r3(leg.span - ((end.x - a[0]) * leg.ux + (end.z - a[2]) * leg.uz)), drift: r3(state.drift), side: r3(side) });
     if (bot) moveBot(sim, 0, 0, 0);
     else sim.applyKnockback({ x: 0, z: 0 }, 0);
     await wait(5);
@@ -105,7 +110,8 @@ system.afterEvents.scriptEventReceive.subscribe((event) => {
     const words = event.message.split(" ").filter(Boolean);
     const bot = words.includes("bot");
     const list = words.find((word) => /^[\d,]+$/.test(word));
+    const off = Number(words.find((word) => word.startsWith("off="))?.slice(4) ?? 0) || 0;
     out("started", {});
-    run(bot, list?.split(",").map(Number)).catch((error) => out("done", { error: String(error) }));
+    run(bot, list?.split(",").map(Number), off).catch((error) => out("done", { error: String(error) }));
   }
 });

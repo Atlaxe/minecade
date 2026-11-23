@@ -4,8 +4,9 @@
 // terrain.ts, walk-plan.ts and walk-follow.ts). Prints each stretch's outcome (end: got there; stuck:
 // ran out of ticks; blocked, fell: put at the end) and writes every tick to spike/results/walk.json.
 // Findings: docs/spike-results.md, "Walking the test board".
-//   npx tsx spike/blockparty/walk.ts [--bot] [--only 0,3,5] [--verbose]
-// --bot walks the game's bot entity (as bots.ts moves it) in place of a SimulatedPlayer.
+//   npx tsx spike/blockparty/walk.ts [--bot] [--only 0,3,5] [--off 0.2] [--verbose]
+// --bot walks the game's bot entity (as bots.ts moves it) in place of a SimulatedPlayer. --off starts
+// each stretch that many blocks to the side of its line, to see the walk steer back onto it.
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -24,6 +25,8 @@ const verbose = process.argv.includes("--verbose");
 const onlyAt = process.argv.indexOf("--only");
 const only = onlyAt > 0 ? process.argv[onlyAt + 1] : "";
 const bot = process.argv.includes("--bot");
+const offAt = process.argv.indexOf("--off");
+const off = offAt > 0 ? Number(process.argv[offAt + 1]) || 0 : 0;
 const STRETCHES = ["stairs up 2", "ladder down 2", "block up", "void gap 2", "slab down", "ladder up 3", "stair, drop 2", "partial blocks", "water gap 3", "vines up 2", "stairs down 2", "hurdle"];
 
 const SERVER_SCRIPT = `
@@ -76,7 +79,8 @@ async function main(): Promise<void> {
       platform: "neutral",
       target: "es2022",
       external: ["@minecraft/*"],
-      alias: { "@minecade/minigame-core": join(here, "walk-pack", "core-shim.ts") },
+      // The core's config (map definitions) is plain data and checks; the rest is the shim.
+      alias: { "@minecade/minigame-core/config": join(root, "packages", "minigame-core", "src", "definitions.ts"), "@minecade/minigame-core": join(here, "walk-pack", "core-shim.ts") },
       logLevel: "warning",
     });
     const manifest = JSON.parse(await readFile(join(pack, "manifest.json"), "utf8"));
@@ -107,7 +111,7 @@ async function main(): Promise<void> {
         () => true,
         () => false,
       );
-      serverConsole.send(`scriptevent bp:walk ${bot ? "bot" : ""} ${only}`.trim());
+      serverConsole.send(`scriptevent bp:walk ${bot ? "bot" : ""} ${only} ${off ? `off=${off}` : ""}`.replace(/ +/g, " ").trim());
       if (await answered) break;
     }
     await done;
@@ -129,7 +133,7 @@ async function main(): Promise<void> {
 
 function summary(line: Line): string {
   const i = line.i ?? 0;
-  return `${String(i + 1).padStart(2)} to ${String(((i + 1) % 12) + 1).padEnd(2)} ${STRETCHES[i].padEnd(16)} ${String(line.outcome).padEnd(8)} ${line.ticks}/${line.budget} ticks, ended ${line.alongLeft} short at y ${line.endY} (space ${line.bY})`;
+  return `${String(i + 1).padStart(2)} to ${String(((i + 1) % 12) + 1).padEnd(2)} ${STRETCHES[i].padEnd(16)} ${String(line.outcome).padEnd(8)} ${line.ticks}/${line.budget} ticks, ended ${line.alongLeft} short at y ${line.endY} (space ${line.bY}), at most ${line.drift} off the line, ${line.side} at the end`;
 }
 
 function delay(ms: number): Promise<void> {

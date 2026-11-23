@@ -407,6 +407,41 @@ describe("a tick's push", () => {
     expect(knockbackFor({ x: 0.4, z: 0 }, 0.3, { x: 0.4, y: 0, z: 0 }, true).strength).toBe(pushUp(0.3, 0));
   });
 
+  it("steers a piece that's off its leg's line back onto it, whichever way the leg goes and whichever side it's on", () => {
+    // Pass 2 steered away from the line, so a hair of drift grew by 40% a tick and flung pieces off a
+    // long straight run (Golem Gardens' spaces 9 to 16, the user, 2026-11-23). A piece moved exactly
+    // as each push asks, starting 0.3 off the line, comes back to it and stays.
+    const flat: TerrainReader = { ground: () => 0, climbable: () => false };
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [0.6, 0.8], [-0.8, 0.6]])
+      for (const off of [0.3, -0.3]) {
+        const a: Vec3 = [0.5, 0, 0.5];
+        const b: Vec3 = [0.5 + dx * 12, 0, 0.5 + dz * 12];
+        const leg = legOf(a, b);
+        const plan = planLeg(flat, a, b, PER_TICK);
+        const state = newFollow();
+        // Off to the leg's left (-uz, ux) by `off`.
+        const at = { x: a[0] - leg.uz * off, y: 0, z: a[2] + leg.ux * off };
+        const sideOf = () => (at.x - a[0]) * -leg.uz + (at.z - a[2]) * leg.ux;
+        let last = Math.abs(sideOf());
+        let ended = false;
+        for (let tick = 0; tick < 60; tick++) {
+          const step = followTick(plan, leg, state, at, PER_TICK);
+          if (step.kind !== "push") {
+            ended = step.kind === "end";
+            break;
+          }
+          at.x += step.want.x;
+          at.z += step.want.z;
+          const side = Math.abs(sideOf());
+          expect(side).toBeLessThanOrEqual(last + 1e-9);
+          last = side;
+        }
+        expect(ended).toBe(true);
+        expect(last).toBeLessThan(0.01);
+        expect(state.drift).toBeCloseTo(Math.abs(off));
+      }
+  });
+
   it("walks to a ladder's foot at the height it's on, climbs it to a lip over the top, and walks off without going back on", () => {
     const reader = eastward(
       (x) => (x < 3 ? 0 : 3),

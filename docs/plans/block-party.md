@@ -1283,8 +1283,9 @@ each stretch:
 The types, Stars and openings are the old test board's. `test/walk-plan.test.ts` plans every stretch
 of it with each block's shape (as the server's rays see them) and checks each does what it has, and
 follows each plan with a model of a pushed piece (down before along, stopped by any edge) to its end
-without a stop. `npx tsx spike/blockparty/walk.ts` (`--bot` for a bot) lays it on a throwaway server
-and walks it for real, printing each stretch's outcome and writing every tick to
+without a stop. `npx tsx spike/blockparty/walk.ts` (`--bot` for a bot, `--off 0.3` to start each
+stretch that far off its line) lays it on a throwaway server and walks it for real, printing each
+stretch's outcome, how far it got off its line and where it ended, and writing every tick to
 `spike/results/walk.json`: run it after changing the walk.
 
 **Not yet seen in game:** pass 2. The headless check runs the server's own physics, which moves a
@@ -1292,6 +1293,19 @@ real player too (server-authoritative movement), so what's left for a look is ho
 client: the jumps' height, the stepped way down stairs (a player can't go down while any of them is
 over the step above), the climbs, and the pieces' speed (the walk's report says it: about 8 a
 second). Corner stairs' left and right as Java's aren't checked.
+
+**The user's look at Golem Gardens (2026-11-23):** from space 9 to 16, pieces clipped into the hill
+beside the stairs or flew off the map sideways, and the golems seemed to do it too. Pass 2 had turned
+the steer around: each tick's push went 40% of the piece's drift further off the leg's line instead
+of back onto it, so any drift grew 1.4 times a tick. A corner turned more than 3 degrees puts the
+piece back on the space's middle, so on most stretches nothing grew; Golem Gardens' spaces 8 to 17
+are one straight line (z 8), so a piece walked all of it without being put back, and a hair of drift
+from the first leg's corner start was blocks by space 15. Golems follow their walks with the same
+code. The steer points back at the line again (walk-follow.ts); `walk-plan.test.ts` walks legs every
+way from 0.3 off either side and checks the piece only comes closer, and the headless check's new
+`--off 0.3` starts each stretch that far off: all 12 end on the line, a player and a bot. The check
+had started every stretch exactly on its line and standing still, so it never saw this. Not yet
+seen in game.
 
 **Bends (built 2026-11-22, not yet seen in game):** the user asked, for every board, for a way to
 make the path between two spaces several straight legs that follow a curving path instead of one.
