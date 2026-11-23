@@ -26,14 +26,15 @@
         "move": "animation.iron_golem.move"
       },
       "scripts": {
+        "pre_animation": [
+          "v.modified_tcos0 = math.clamp(math.cos(q.modified_distance_moved * 13.5) * math.min(q.modified_move_speed, 0.6) * 25.0, -12.5, 12.5);"
+        ],
         "animate": [
           "look_at_target",
           {
             "walk": "q.modified_move_speed"
           },
-          {
-            "move": "q.modified_move_speed"
-          }
+          "move"
         ]
       }
     }
