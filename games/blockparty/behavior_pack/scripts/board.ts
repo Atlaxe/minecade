@@ -24,6 +24,12 @@ export interface Space {
   floor?: number;
   /** The spaces it leads to, by index (a piece takes the first for now). */
   next: number[];
+  /**
+   * A link's bends, by the index of the space it leads to: the points its path goes through on the
+   * way (a block's middle, y its floor), so a curving path is walked in straight legs (the user,
+   * 2026-11-22; the Panel's Spaces tool places them).
+   */
+  bends?: Record<number, Vec3[]>;
   /** Its id on the map (a map's spaces only). */
   id?: number;
   /** A spot the Star can be at, and one the first Star can be at. */
@@ -69,16 +75,33 @@ export function mapSpaces(list: readonly BoardSpace[]): Space[] {
   const ordered = [...list].sort((a, b) => (a.type === "start" ? -1 : b.type === "start" ? 1 : 0));
   const index = new Map(ordered.map((space, i) => [space.id, i]));
   const middle = (value: number) => (Number.isInteger(value) ? value + 0.5 : value);
-  return ordered.map((space, i) => ({
-    index: i,
-    id: space.id,
-    type: space.type ?? "blue",
-    at: [middle(space.at[0]), space.at[1] + STAND, middle(space.at[2])],
-    floor: space.at[1],
-    next: (space.next ?? []).flatMap((id) => (index.has(id) ? [index.get(id)!] : [])),
-    ...(space.star ? { star: true } : {}),
-    ...(space.opening ? { opening: true } : {}),
-  }));
+  return ordered.map((space, i) => {
+    const bends = Object.entries(space.bends ?? {}).flatMap(([to, points]): [number, Vec3[]][] =>
+      index.has(Number(to)) && points.length > 0 ? [[index.get(Number(to))!, points.map((point): Vec3 => [middle(point[0]), point[1], middle(point[2])])]] : [],
+    );
+    return {
+      index: i,
+      id: space.id,
+      type: space.type ?? "blue",
+      at: [middle(space.at[0]), space.at[1] + STAND, middle(space.at[2])],
+      floor: space.at[1],
+      next: (space.next ?? []).flatMap((id) => (index.has(id) ? [index.get(id)!] : [])),
+      ...(bends.length > 0 ? { bends: Object.fromEntries(bends) } : {}),
+      ...(space.star ? { star: true } : {}),
+      ...(space.opening ? { opening: true } : {}),
+    };
+  });
+}
+
+/**
+ * The bends a piece walks through going from space `from` to space `to` (indexes): the link's own,
+ * or a link the other way's, backward (walking back); none when the path is straight.
+ */
+export function bendsBetween(spaces: readonly Space[], from: number, to: number): Vec3[] {
+  const ahead = spaces[from]?.bends?.[to];
+  if (ahead) return ahead;
+  const behind = spaces[to]?.bends?.[from];
+  return behind ? [...behind].reverse() : [];
 }
 
 /** The spaces a piece passes from `from`, `steps` ahead (the last is where it lands), taking each space's first way on. */

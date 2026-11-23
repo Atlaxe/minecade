@@ -80,6 +80,8 @@ export interface StageDeps {
   select?(space: Space | undefined): void;
   /** The characters' moves (moves.ts): what move() plays. */
   moves?: Moves;
+  /** Spots off the spaces that must stay loaded too (Golem Gardens' golems: their spots and walks). */
+  held?(): readonly Vec3[];
 }
 
 /** How a shot comes in. */
@@ -181,6 +183,7 @@ export class Stage {
       if (manager.hasTickingArea(BOARD_AREA)) manager.removeTickingArea(BOARD_AREA);
       const markup = this.deps.markup();
       const markers = [...markup.lineup, ...(markup.final ?? []), ...[markup.chris, markup.podiumCamera, markup.finalChris, markup.finalCamera].filter((marker): marker is Marker => marker !== undefined)].map((marker) => marker.at);
+      markers.push(...(this.deps.held?.() ?? []));
       const xs = [box.min[0], box.max[0], ...markers.map((at) => at[0])];
       const zs = [box.min[2], box.max[2], ...markers.map((at) => at[2])];
       await manager.createTickingArea(BOARD_AREA, {

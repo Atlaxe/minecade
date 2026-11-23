@@ -1026,6 +1026,29 @@
     ],
     "bonus.team": [
       "Best Team Player"
+    ],
+    "golem.toll": [
+      "Halt, §b{player}§r. Passing this way costs §6{toll}§r.",
+      "This garden path is mine. §6{toll}§r to go by."
+    ],
+    "golem.toll.paid": [
+      "The path is yours. Mind the flowers."
+    ],
+    "golem.toll.declined": [
+      "Then this is as far as you go."
+    ],
+    "golem.toll.short": [
+      "No coins, no passing. Come back with §6{toll}§r."
+    ],
+    "golem.swap": [
+      "My shift is over. Somebody else can guard a path for a while.",
+      "The garden needs tending. I have to move."
+    ],
+    "golem.toll.pay": [
+      "Pay {toll}"
+    ],
+    "golem.toll.no": [
+      "Not now"
     ]
   },
   "moments": {
@@ -2458,6 +2481,45 @@
     "bonus.team": {
       "character": "Game",
       "delivery": "Dialogue box"
+    },
+    "golem.toll": {
+      "character": "Iron Golem",
+      "delivery": "Dialogue box",
+      "choices": [
+        {
+          "key": "c1",
+          "text": "Pay"
+        },
+        {
+          "key": "c2",
+          "text": "Not now"
+        }
+      ],
+      "chooser": "Player"
+    },
+    "golem.toll.paid": {
+      "character": "Iron Golem",
+      "delivery": "Dialogue box"
+    },
+    "golem.toll.declined": {
+      "character": "Iron Golem",
+      "delivery": "Dialogue box"
+    },
+    "golem.toll.short": {
+      "character": "Iron Golem",
+      "delivery": "Dialogue box"
+    },
+    "golem.swap": {
+      "character": "Iron Golem",
+      "delivery": "Dialogue box"
+    },
+    "golem.toll.pay": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "golem.toll.no": {
+      "character": "Game",
+      "delivery": "Form button"
     }
   },
   "characters": {

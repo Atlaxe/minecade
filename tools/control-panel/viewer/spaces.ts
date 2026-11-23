@@ -11,7 +11,8 @@
 //     tile that picks its space, each link with an X that takes it away, then Create path (the Spaces
 //     tool, the next space placed leading on from this one) and Lead to (then click the space it
 //     leads to, in the view or the list) as tiles of their own; then Delete.
-// A Star candidate's name says so ("Space 3: Blue, Star"), in the list and over its post.
+// A Star candidate's name says so ("Space 3: Blue, Star"), in the list and over its post. A link's
+// bends (board-points.ts) are dots its arrow runs through; a picked link's panel adds and takes them.
 import {
   checkBoard,
   dealAgain,
@@ -29,6 +30,7 @@ import {
   type MapEdit,
   type MapPosition,
 } from "@minecade/minigame-core/config";
+import { bendPoints, bendsSection, golemFindings, type BoardPointOptions } from "./board-points.ts";
 import { colorText, el } from "./sidebar.ts";
 import type { MarkupList, PointMark } from "./markup.ts";
 
@@ -60,11 +62,15 @@ export function linkOf(key: string | undefined): { from: number; to: number } | 
 /** A link's name: "Space 3 to space 4". */
 export const linkLabel = (link: { from: number; to: number }) => `Space ${link.from} to space ${link.to}`;
 
-/** An arrow from one space toward the next. */
+/** An arrow from one space toward the next (through its bends), or a golem's walk. */
 export interface LinkMark {
   key: string;
   from: { x: number; y: number; z: number };
   to: { x: number; y: number; z: number };
+  /** The bends it goes through on the way, in order. */
+  via?: { x: number; y: number; z: number }[];
+  /** Its color, when it isn't a link's white. */
+  color?: number;
 }
 
 /** The spaces' markers, their list, and the links' arrows (none without a board). */
@@ -86,7 +92,13 @@ export function spaceMarkup(config: MapConfig, board: BoardConfig | undefined, n
     noLine: true,
   }));
   const at = new Map(spaces.map((space) => [space.id, worldPoint(space.at)]));
-  const links: LinkMark[] = spaces.flatMap((space) => (space.next ?? []).flatMap((id) => (at.has(id) ? [{ key: linkKey(space.id, id), from: at.get(space.id)!, to: at.get(id)! }] : [])));
+  const links: LinkMark[] = spaces.flatMap((space) =>
+    (space.next ?? []).flatMap((id) => {
+      if (!at.has(id)) return [];
+      const via = (space.bends?.[String(id)] ?? []).map((bend) => worldPoint(bend));
+      return [{ key: linkKey(space.id, id), from: at.get(space.id)!, to: at.get(id)!, ...(via.length > 0 ? { via } : {}) }];
+    }),
+  );
   const list: MarkupList = {
     key: SPACES_LIST,
     label: board.label ?? "Spaces",
@@ -96,7 +108,8 @@ export function spaceMarkup(config: MapConfig, board: BoardConfig | undefined, n
     entries: points.map((point, index) => ({ key: point.key, label: point.label, detail: positionText(spaces[index].at) })),
     ...need,
   };
-  return { points, list, links };
+  // The links' bends: dots on their lines, picked and dragged like the spaces (not in the list).
+  return { points: [...points, ...bendPoints(config)], list, links };
 }
 
 /** A space's position for a spot in the viewer: its block's middle (whole x and z), the spot's floor. */
@@ -113,7 +126,7 @@ export function placeSpace(config: MapConfig, board: BoardConfig, position: MapP
   return { edit: { op: "addSpace", at, type, ...(from === undefined ? {} : { from }) }, id: nextSpaceId(spaces) };
 }
 
-export interface SpacePanelOptions {
+export interface SpacePanelOptions extends BoardPointOptions {
   config: MapConfig;
   board: BoardConfig;
   previous: number | undefined;
@@ -212,7 +225,7 @@ function pathsFlow(space: BoardSpace, options: SpacePanelOptions): HTMLElement {
   );
 }
 
-/** A picked link's panel: where it runs (each end picks its space), and Delete. */
+/** A picked link's panel: where it runs (each end picks its space), its bends, and Delete. */
 export function linkPanel(link: { from: number; to: number }, options: SpacePanelOptions): HTMLElement {
   return el(
     "section",
@@ -225,6 +238,7 @@ export function linkPanel(link: { from: number; to: number }, options: SpacePane
       el("span", { className: "sub" }, "leads to"),
       el("button", { className: "small", onclick: () => options.show(link.to) }, `Space ${link.to}`),
     ),
+    bendsSection(link, options),
     el("div", { className: "buttons" }, el("button", { className: "small danger", onclick: () => options.edit({ op: "unlinkSpace", ...link }) }, "Delete link")),
   );
 }
@@ -256,7 +270,7 @@ export function spacesToolPanel(options: SpacePanelOptions): HTMLElement {
           "div",
           {},
           el("div", { className: "group-label" }, "Board check"),
-          el("ul", { className: "check-list" }, [...report.errors.map((error) => finding(error.text, error.spaces, true)), ...report.warnings.map((warning) => finding(warning.text, warning.spaces, false))]),
+          el("ul", { className: "check-list" }, [...report.errors.map((error) => finding(error.text, error.spaces, true)), ...golemFindings(config).map((text) => finding(text, [], true)), ...report.warnings.map((warning) => finding(warning.text, warning.spaces, false))]),
           summary.map((line) => el("p", { className: "sub" }, line)),
         )
       : null,

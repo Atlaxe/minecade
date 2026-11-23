@@ -242,6 +242,25 @@ a second.
   moves a space with its gizmo (onto a block's middle) and deletes it with Delete; its links go too.
   Select also picks a link by its arrow (it turns yellow): its panel names both ends (each picks its
   space) and has **Delete link**, as does the Delete key.
+- **Bends** (the Panel only, the user's pick, 2026-11-22): a path that curves between two spaces is
+  walked in straight legs through its bends. A picked link's panel lists its **Bends** (each picks
+  its dot, with an X that takes it away), **Add bends** (each click on a block adds a bend on that
+  block, in the part of the path it's nearest, so the order you click in doesn't matter; Esc or
+  **Done adding bends** stops) and **Straighten** (no bends). Bends are small white dots on the
+  link's line: Select picks one (its panel is its link's), drags it or moves it with the gizmo, and
+  Delete takes it away. A piece turns at each bend as it does at a space, with no step sound and
+  nothing counted. Put a bend at every corner of the path; a bend's block is where the piece walks.
+- **Golems** (a board with golems: Golem Gardens, the Panel only): **Golems** under **Board** lists
+  Golems 1 to 4 (golems 1 and 2 start on their posts, 3 and 4 at their rest spots). A golem's panel:
+  **Post** (where it stands while it's active, blocking a path) and **Rest spot**, each with
+  **Place** (then click a block: the post faces the space before it, the rest spot faces the post;
+  pick the spot and drag its red knob to turn it); **The path it blocks**: **From space** and **To
+  space** (the spaces before and after it; To space lists only where From space leads); **Walk
+  bends** for its walk between the two spots (as a link's: **Add bends**, **Straighten**, each with
+  an X), and **Clear golem**. Its spots are mannequins, its bends green dots, and its walk a green
+  line from its post to its rest spot (Select picks it for the golem's panel). The Spaces tool's
+  board check lists the golems' problems in red: a map with golems sets all four, each on a path
+  from a space to one it leads to, no two on one path. Publish refuses them.
 - **Center on block** (on at first, remembered) puts an entry at its block's middle; off, it goes
   exactly where you click. Switching it on with a marker picked that stands at an exact spot moves
   that marker to its block's middle, at the same height and facing the same way, as game Edit's

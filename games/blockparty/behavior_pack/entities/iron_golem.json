@@ -13,7 +13,7 @@
         ]
       },
       "minecraft:collision_box": {
-        "width": 1.4,
+        "width": 1,
         "height": 2.9
       },
       "minecraft:health": {
@@ -40,7 +40,11 @@
         "always_show": true,
         "allow_name_tag_renaming": false
       },
-      "minecraft:fire_immune": true
+      "minecraft:fire_immune": true,
+      "minecraft:movement": {
+        "value": 0.1
+      },
+      "minecraft:movement.basic": {}
     }
   }
 }

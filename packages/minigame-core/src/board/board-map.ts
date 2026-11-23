@@ -2,10 +2,12 @@
 // pure, so it loads under Node too ("@minecade/minigame-core/config"), for the map editors, the
 // build and the game. A space is a marker with an id, linked to the spaces that come after it, so a
 // board is a loop with branches. In map.json:
-//   "spaces": [{ "id": 1, "at": [x, y, z], "next": [2], "type": "start" }, ...]
+//   "spaces": [{ "id": 1, "at": [x, y, z], "next": [2], "type": "start", "bends": { "2": [[x, y, z]] } }, ...]
 // A game turns spaces on with its config's map.board (the space types, their shares and blocks);
 // both editors then have the Spaces tool, the checklist has a Spaces row, and the board's checks
 // (board-check.ts, /boardcheck) show in it.
+// A link's bends (the user, 2026-11-22): a path that curves between two spaces is several straight
+// legs, through the blocks its bends are on, in order. The Panel's Spaces tool places them.
 import type { MapPosition, Vec3 } from "../map-config.ts";
 
 /** One space on a board. Ids stay the same when a space moves, so links survive. */
@@ -14,6 +16,12 @@ export interface BoardSpace {
   at: MapPosition;
   /** The spaces a piece can go on to: one, or 2-3 at a branch, where the player picks. */
   next?: number[];
+  /**
+   * Each link's bends, by the id of the space it leads to: the blocks its path goes through on the
+   * way there, in order (x, y, z of the block a piece walks through, as a space's "at"). A link
+   * without bends is one straight leg.
+   */
+  bends?: Record<string, Vec3[]>;
   /** The space type's id (BoardConfig.types). */
   type?: string;
   /** Deal again leaves it alone. */
@@ -152,6 +160,16 @@ export function spaceProblems(value: unknown, board: BoardConfig | undefined): s
     else if (Array.isArray(s.next) && s.next.length > MAX_EXITS) problems.push(`${where} leads to ${s.next.length} spaces; at most ${MAX_EXITS}`);
     if (s.type !== undefined && (typeof s.type !== "string" || (types && !types.has(s.type)))) problems.push(`${where}.type must be one of ${types ? [...types].join(", ") : "the board's types"}`);
     for (const flag of ["locked", "star", "opening"]) if (s[flag] !== undefined && typeof s[flag] !== "boolean") problems.push(`${where}.${flag} must be true or false`);
+    if (s.bends !== undefined) {
+      const next = Array.isArray(s.next) ? s.next : [];
+      if (typeof s.bends !== "object" || s.bends === null || Array.isArray(s.bends)) problems.push(`${where}.bends must map the spaces it leads to to lists of [x, y, z]`);
+      else {
+        for (const [to, list] of Object.entries(s.bends as Record<string, unknown>)) {
+          if (!next.includes(Number(to))) problems.push(`${where}.bends.${to}: it doesn't lead to space ${to}`);
+          else problems.push(...bendListProblems(list, `${where}.bends.${to}`));
+        }
+      }
+    }
   });
   for (const [i, space] of value.entries()) {
     const next = (space as Record<string, unknown>)?.next;
@@ -178,7 +196,7 @@ export function moveSpace(spaces: readonly BoardSpace[], id: number, at: Vec3): 
   return update(spaces, id, (space) => ({ ...space, at: space.at.length === 5 ? [at[0], at[1], at[2], space.at[3], space.at[4]] : [at[0], at[1], at[2]] }));
 }
 
-/** Removes a space and every link to it. */
+/** Removes a space and every link to it (their bends go too). */
 export function removeSpace(spaces: readonly BoardSpace[], id: number): BoardSpace[] {
   find(spaces, id);
   return spaces.filter((space) => space.id !== id).map((space) => (space.next?.includes(id) ? withNext(space, space.next.filter((next) => next !== id)) : space));
@@ -232,7 +250,109 @@ function update(spaces: readonly BoardSpace[], id: number, change: (space: Board
   return spaces.map((space) => (space.id === id ? change(space) : space));
 }
 
+/** A space with these links: the bends of a link that's gone go with it. */
 function withNext(space: BoardSpace, next: number[]): BoardSpace {
-  const { next: _old, ...rest } = space;
-  return next.length > 0 ? { ...rest, next } : rest;
+  const { next: _old, bends, ...rest } = space;
+  const kept = Object.entries(bends ?? {}).filter(([to]) => next.includes(Number(to)));
+  return { ...rest, ...(next.length > 0 ? { next } : {}), ...(kept.length > 0 ? { bends: Object.fromEntries(kept) } : {}) };
+}
+
+// ---- Bends ----------------------------------------------------------------------------------
+
+/** The most bends one link (or one golem's walk) can have. */
+export const MAX_BENDS = 24;
+
+/** The problems with a list of bends: [x, y, z] each, at most MAX_BENDS. */
+export function bendListProblems(list: unknown, where: string): string[] {
+  if (!Array.isArray(list)) return [`${where} must be a list of [x, y, z]`];
+  if (list.length > MAX_BENDS) return [`${where} has ${list.length} bends; at most ${MAX_BENDS}`];
+  return list.every((point) => Array.isArray(point) && point.length === 3 && point.every((n) => typeof n === "number" && Number.isFinite(n))) ? [] : [`${where} must be a list of [x, y, z]`];
+}
+
+/** The bends of the link from `from` to `to` (none when it's straight, or isn't a link). */
+export function bendsOf(from: BoardSpace | undefined, to: number): Vec3[] {
+  return from?.bends?.[String(to)] ?? [];
+}
+
+/** The points a link's path goes through: its space, each bend, the space it leads to. */
+export function linkPath(spaces: readonly BoardSpace[], from: number, to: number): Vec3[] {
+  const a = spaces.find((space) => space.id === from);
+  const b = spaces.find((space) => space.id === to);
+  if (!a || !b) return [];
+  return [xyzOf(a.at), ...bendsOf(a, to).map((bend) => [...bend] as Vec3), xyzOf(b.at)];
+}
+
+/**
+ * Where a new point goes in a path's bends: before the bend that ends the leg it's nearest (so a
+ * bend clicked anywhere along a curve slots into its place). `ends` are the path's two ends.
+ */
+export function bendSlot(start: Vec3, bends: readonly Vec3[], end: Vec3, at: Vec3): number {
+  const points = [start, ...bends, end];
+  let best = 0;
+  let nearest = Infinity;
+  for (let i = 0; i < points.length - 1; i++) {
+    const gap = segmentGap(points[i], points[i + 1], at);
+    if (gap < nearest - 1e-9) {
+      nearest = gap;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/** Adds a bend to the link from `from` to `to`, in the leg it's nearest. */
+export function addBend(spaces: readonly BoardSpace[], from: number, to: number, at: Vec3): BoardSpace[] {
+  const target = find(spaces, to);
+  return updateBends(spaces, from, to, (bends, space) => {
+    if (bends.length >= MAX_BENDS) throw new Error(`a link can have at most ${MAX_BENDS} bends`);
+    const slot = bendSlot(xyzOf(space.at), bends, xyzOf(target.at), at);
+    return [...bends.slice(0, slot), [...at] as Vec3, ...bends.slice(slot)];
+  });
+}
+
+export function moveBend(spaces: readonly BoardSpace[], from: number, to: number, index: number, at: Vec3): BoardSpace[] {
+  return updateBends(spaces, from, to, (bends) => {
+    checkBend(bends, index);
+    return bends.map((bend, i) => (i === index ? ([...at] as Vec3) : bend));
+  });
+}
+
+export function removeBend(spaces: readonly BoardSpace[], from: number, to: number, index: number): BoardSpace[] {
+  return updateBends(spaces, from, to, (bends) => {
+    checkBend(bends, index);
+    return bends.filter((_, i) => i !== index);
+  });
+}
+
+/** Makes a link one straight leg again. */
+export function clearBends(spaces: readonly BoardSpace[], from: number, to: number): BoardSpace[] {
+  return updateBends(spaces, from, to, () => []);
+}
+
+function updateBends(spaces: readonly BoardSpace[], from: number, to: number, change: (bends: Vec3[], space: BoardSpace) => Vec3[]): BoardSpace[] {
+  return update(spaces, from, (space) => {
+    if (!(space.next ?? []).includes(to)) throw new Error(`space ${from} doesn't lead to space ${to}`);
+    const bends = change(bendsOf(space, to), space);
+    const others = Object.entries(space.bends ?? {}).filter(([key]) => key !== String(to));
+    const all = bends.length > 0 ? [...others, [String(to), bends] as [string, Vec3[]]] : others;
+    const { bends: _old, ...rest } = space;
+    return all.length > 0 ? { ...rest, bends: Object.fromEntries(all) } : rest;
+  });
+}
+
+function checkBend(bends: readonly Vec3[], index: number): void {
+  if (!Number.isInteger(index) || index < 0 || index >= bends.length) throw new Error(`there's no bend ${index + 1} there`);
+}
+
+/** A position's x, y and z. */
+export function xyzOf(at: MapPosition | Vec3): Vec3 {
+  return [at[0], at[1], at[2]];
+}
+
+/** How far `at` is from the segment from `a` to `b`. */
+function segmentGap(a: Vec3, b: Vec3, at: Vec3): number {
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const length = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+  const t = length === 0 ? 0 : Math.max(0, Math.min(1, ((at[0] - a[0]) * d[0] + (at[1] - a[1]) * d[1] + (at[2] - a[2]) * d[2]) / length));
+  return Math.hypot(a[0] + d[0] * t - at[0], a[1] + d[1] * t - at[1], a[2] + d[2] * t - at[2]);
 }

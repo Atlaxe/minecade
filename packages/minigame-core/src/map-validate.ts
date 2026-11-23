@@ -2,6 +2,7 @@
 // problems live). validateMapConfig returns a list of problems (empty when valid) so everything
 // is reported at once; mapWarnings lists things worth a look that don't stop a build.
 import { checkBoard } from "./board/board-check.ts";
+import { checkGolems, golemLabel, golemProblems, golemsOf } from "./board/board-golems.ts";
 import { spaceProblems, spacesOf } from "./board/board-map.ts";
 import type { MapRequirementsConfig } from "./config.ts";
 import { colorsProblems } from "./map-colors.ts";
@@ -82,6 +83,15 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   if (isPosition(map.queueSpawn)) points.push(["queueSpawn", xyz(map.queueSpawn)]);
   problems.push(...spaceProblems(map.spaces, rules.requires?.board));
   for (const space of spacesOf(map)) if (isPosition(space.at)) points.push([`space ${space.id}`, xyz(space.at)]);
+  problems.push(...golemProblems(map.golems));
+  if (golemProblems(map.golems).length === 0) {
+    golemsOf(map).forEach((golem, i) => {
+      for (const spot of ["post", "rest"] as const) {
+        const at = golem[spot];
+        if (at && isPosition(at)) points.push([`${golemLabel(i)}'s ${spot === "post" ? "post" : "rest spot"}`, xyz(at)]);
+      }
+    });
+  }
   const teamIds = rules.teams?.map((team) => team.id);
   for (const [field, entries] of [
     ["teamSpawns", map.teamSpawns],
@@ -147,6 +157,8 @@ export function validateMapConfig(raw: unknown, rules: MapRules): string[] {
   if (board && spaces.length > 0 && requirements.some((requirement) => requirement.field === "spaces")) {
     for (const error of checkBoard(spaces, board).errors) problems.push(error.spaces.length > 0 ? `${error.text} (space${error.spaces.length === 1 ? "" : "s"} ${error.spaces.slice(0, 6).join(", ")}${error.spaces.length > 6 ? ", ..." : ""})` : error.text);
   }
+  // A board's golems (Golem Gardens): all four set, each on a path between two spaces.
+  if (board && golemProblems(map.golems).length === 0) for (const error of checkGolems(golemsOf(map), spaces)) problems.push(error.text);
 
   if (map.build !== undefined) {
     const commands = isRecord(map.build) ? map.build.commands : undefined;

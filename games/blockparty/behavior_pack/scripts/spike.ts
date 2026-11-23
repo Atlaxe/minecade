@@ -54,6 +54,7 @@ import { HOTBAR_SIZE, KEEP_UP, READY_CODE, SIDE_TWO_CODE, STANDINGS_CODE, STAR_L
 import type config from "../../game.config.ts";
 import { boardBox, floorOf, mapSpaces, standAt, type Space, type Vec3 } from "./board.ts";
 import { WorldTerrain } from "./terrain.ts";
+import { mapGolems } from "./golem-rules.ts";
 import { layTestBoard, testBoardSpaces } from "./test-board.ts";
 import { BoardLoop } from "./board-loop.ts";
 import { BoardCamera, autoDirection, cameraSettings, type BoardCameraSettings } from "./board-camera.ts";
@@ -514,6 +515,8 @@ export class BlockPartySpike extends Minigame<Config> {
       shotUp: () => this.boardCamera?.held ?? true,
       moves: this.moves,
       select: (space) => this.markers.select(space),
+      // Golem Gardens' golems stand and walk off the spaces: their spots and walks stay loaded.
+      held: () => (this.ownBoard ? mapGolems(this.map.config, this.spaces).flatMap((golem) => golem.walk) : []),
     });
     const length = Number(this.ctx.vars.settings.length);
     this.loop = new BoardLoop({
@@ -566,6 +569,9 @@ export class BlockPartySpike extends Minigame<Config> {
       confetti: (who) => confettiOver(who.body),
       zombies: this.zombies,
       random: () => this.ctx.random(),
+      // Golem Gardens' golems (golem-rules.ts), on a map's own board only; they walk the ground as pieces do.
+      golems: () => (this.ownBoard ? mapGolems(this.map.config, this.spaces) : []),
+      terrain: new WorldTerrain(world.getDimension("overworld"), () => this.spaces),
     });
     this.boardCamera = new BoardCamera({
       scope: this.scope,

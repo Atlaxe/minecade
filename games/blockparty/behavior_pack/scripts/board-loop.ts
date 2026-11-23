@@ -61,6 +61,9 @@ import type { PlayOptions, Results, Settle } from "./minigame-runner.ts";
 import type { MinigameDef, Outcome } from "./minigames/kit.ts";
 import type { Pieces } from "./pieces.ts";
 import { placesOf, type ResultSeat } from "./results.ts";
+import type { Golem } from "./golem-rules.ts";
+import { GolemGates } from "./golems.ts";
+import type { TerrainReader } from "./walk-plan.ts";
 
 export interface LoopHost {
   scope: Scope;
@@ -144,6 +147,10 @@ export interface LoopHost {
   arrive?(to: Who, from: Who | undefined, token: Token, count: number): Promise<void>;
   /** Confetti bursts over a seat's head (the user, 2026-11-18): a Star gained, a minigame, duel or the game won. */
   confetti?(who: Who): void;
+  /** The board's golems (Golem Gardens, golem-rules.ts): none on a board without them. */
+  golems?(): readonly Golem[];
+  /** The ground a walk goes over (walk-plan.ts): the golems walk it as the pieces do. */
+  terrain?: TerrainReader;
 }
 
 /** A seat as its card shows it (block-party-ui.md, "Player cards"), in turn order. */
@@ -236,6 +243,8 @@ export class BoardLoop {
   /** The items in play, and the spaces past Blue, Red and Versus (pass 7). */
   readonly items: ItemPlay;
   readonly spacePlay: SpacePlay;
+  /** The board's golems, if it has any (Golem Gardens: golems.ts). */
+  readonly golems: GolemGates;
   /** What the game keeps on each seat for the bonus Stars (end-game.ts). */
   readonly stats = new GameStats();
   /** Tests: the end's tie, if one is asked for. */
@@ -245,6 +254,7 @@ export class BoardLoop {
     this.host = host;
     this.items = new ItemPlay(this, host);
     this.spacePlay = new SpacePlay(this, host, this.items);
+    this.golems = new GolemGates(this, host);
     host.scope.interval(() => this.drawBeams(), BEAM_TICKS);
     host.scope.interval(() => this.watchMoods(), MOOD_TICKS);
   }
@@ -622,26 +632,32 @@ export class BoardLoop {
     const spaces = this.host.spaces();
     const stretch: Space[] = [];
     let at = this.host.pieces.spaceOf(who.body);
+    // A golem on a path walked back steps aside for free, and back after (Golem Gardens).
+    const passing: Golem[] = [];
     for (let i = 0; i < steps; i++) {
       const before = back(spaces, at, 1);
       if (before === at) break;
+      const golem = this.golems.blocking(before, at);
+      if (golem) passing.push(golem);
       at = before;
       stretch.push(spaces[at]);
     }
     if (stretch.length === 0) return;
+    await Promise.all(passing.map((golem) => this.golems.aside(golem)));
     this.host.stage.clear();
     await this.host.pieces.walkThrough(who.body, stretch, { land: true, quiet: true });
+    for (const golem of passing) this.golems.back(golem);
   }
 
-  /** A bonus roll now (a Happening's Roll again): the standard die, the walk, and the space it lands on. */
+  /** A bonus roll now (a Happening's Roll again): the standard die, the walk, and the space it lands on (none if a golem kept them where they were). */
   async bonusRoll(who: Who): Promise<void> {
     if (this.turnNow?.key === who.key) this.turnNow.bonus = true;
     this.host.stage.clear();
     const rolled = await this.host.roll(who, true);
     if (rolled === undefined || !who.body.isValid) return;
     this.stats.rolled(who.key, rolled.move);
-    await this.move(who, rolled.move);
-    if (!who.body.isValid) return;
+    const walked = await this.move(who, rolled.move);
+    if (!who.body.isValid || walked === 0) return;
     await this.land(who);
   }
 
@@ -855,6 +871,8 @@ export class BoardLoop {
     const spaces = this.host.spaces();
     const seats = this.host.present();
     await stage.loadBoard();
+    // The board's golems take their places (Golem Gardens).
+    this.golems.start();
     await this.host.cutscene(true, async () => {
       await Promise.all([stage.intro(), this.host.say("pregame.welcome")]);
       await stage.podium(seats);
@@ -1037,10 +1055,11 @@ export class BoardLoop {
     await this.rolledFaces(who, rolled);
     if (!who.body.isValid) return false;
     this.stats.rolled(who.key, rolled.move);
-    await this.move(who, rolled.move);
+    const walked = await this.move(who, rolled.move);
     this.steering.delete(who.key);
     if (!who.body.isValid) return false;
-    await this.land(who);
+    // A golem that kept them where they stood (they didn't pay): no landing on the same space again.
+    if (walked > 0) await this.land(who);
     // Back to the board's own camera after any NPC's shot.
     this.host.stage.clear();
     await this.host.scope.wait(20);
@@ -1108,9 +1127,13 @@ export class BoardLoop {
   /**
    * Walks the piece `steps` spaces, stopping to pick a way at each branch and at each Star (and the
    * Wandering Trader) it passes. The moves left ride over their head (the roll's burst put them
-   * there), one fewer at each space reached, gone as they land.
+   * there), one fewer at each space reached, gone as they land. Resolves with the spaces walked.
+   *
+   * Golem Gardens: an active golem's path stops the walk at the space before it, and the golem asks
+   * its toll (golems.ts). Paid, it steps aside, the piece goes by, and it steps back. Not paid: at a
+   * fork the player picks another way, elsewhere the walk ends there.
    */
-  private async move(who: Who, steps: number): Promise<void> {
+  private async move(who: Who, steps: number): Promise<number> {
     const spaces = this.host.spaces();
     let left = steps;
     let shown = steps;
@@ -1120,30 +1143,62 @@ export class BoardLoop {
       shown--;
       this.host.count?.(who, shown > 0 ? shown : undefined);
     };
-    // The space the piece came from (which way it faces at a fork).
+    // The space the piece came from (which way it faces at a fork), and the spaces walked so far.
     let before: number | undefined;
+    let walked = 0;
     try {
       while (left > 0 && who.body.isValid) {
         const stretch: Space[] = [];
+        // The golems paid on this stretch, to step back once the piece has gone by.
+        const passing: Golem[] = [];
+        let stopped = false;
         let here = at;
         while (left > 0) {
           const space = spaces[here];
           if (space.next.length > 1 && stretch.length > 0) break;
-          const next = space.next.length > 1 ? await this.choosePath(who, space, before) : (space.next[0] ?? here);
+          // A golem's path ahead: walk up to the space before it first.
+          if (stretch.length > 0 && this.golems.blocking(here, space.next[0] ?? here)) break;
+          let ways = space;
+          let next = ways.next.length > 1 ? await this.choosePath(who, ways, before) : (ways.next[0] ?? here);
+          let golem = this.golems.blocking(here, next);
+          while (golem) {
+            if (await this.golems.toll(who, golem, ways.next.length > 1, this.pathToStar(here)?.[0] === next)) {
+              passing.push(golem);
+              break;
+            }
+            // Not paid: at a fork, another way (asked again while there's still a choice); else the walk ends here.
+            ways = { ...ways, next: ways.next.filter((way) => way !== next) };
+            if (ways.next.length === 0) {
+              stopped = true;
+              break;
+            }
+            next = ways.next.length > 1 ? await this.choosePath(who, ways, before) : ways.next[0];
+            golem = this.golems.blocking(here, next);
+          }
+          if (stopped || !who.body.isValid) {
+            left = 0;
+            break;
+          }
           before = here;
           here = next;
           stretch.push(spaces[here]);
+          walked++;
           left--;
           if ((this.stars.includes(here) || this.spacePlay.traderSpace === here) && left > 0) break;
         }
-        if (!who.body.isValid) return;
+        if (!who.body.isValid) return walked;
         // The board's camera follows the walk (after the Star's shot, for one).
         this.host.stage.clear();
-        await this.host.pieces.walkThrough(who.body, stretch, { land: left === 0, quiet: true, reached });
+        if (stretch.length > 0) await this.host.pieces.walkThrough(who.body, stretch, { land: left === 0, quiet: true, reached });
+        // Stopped by a golem after walking up to it (in the middle of the space): onto its corner there.
+        else if (stopped && walked > 0) await this.host.pieces.walkThrough(who.body, [spaces[here]], { land: true, quiet: true });
+        for (const golem of passing) this.golems.back(golem);
         at = here;
+        if (stopped) break;
         if (this.stars.includes(at)) await this.offerStar(who, at);
         if (this.spacePlay.traderSpace === at) await this.spacePlay.trader(who);
       }
+      return walked;
     } finally {
       this.host.count?.(who, undefined);
     }
@@ -1228,6 +1283,11 @@ export class BoardLoop {
     await stage.starMoved(spaces[at], spaces[moved]);
     await this.host.say("star.chris.moves", { space: this.spaceName(spaces[moved]) }, false, who);
     await this.showResults(before);
+    // Golem Gardens: a Star bought, two golems trade places (the user, 2026-11-22).
+    if (this.golems.any) {
+      await this.golems.swap();
+      stage.clear();
+    }
   }
 
   /** Landing: the space's effect. */

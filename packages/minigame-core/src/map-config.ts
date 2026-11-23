@@ -1,6 +1,7 @@
 // A map's map.json. The build validates it, `npm run bake` builds the world from it, the map
 // editor writes it, and the runtime receives it (without the editor-only keys) as the mapConfig
 // server variable.
+import type { BoardGolem } from "./board/board-golems.ts";
 import type { BoardSpace } from "./board/board-map.ts";
 import type { MapKitsConfig } from "./config.ts";
 import type { MapColors } from "./map-colors.ts";
@@ -240,6 +241,8 @@ export interface MapConfig {
   regions?: Record<string, Box[]>;
   /** A board's spaces (the board kit; map.board in its game's config): each with an id, its position, the spaces it leads to, a type and flags. */
   spaces?: BoardSpace[];
+  /** A board's golems (Block Party's Golem Gardens, board-golems.ts): four, each with its post, rest spot, the path it blocks and its walk's bends. */
+  golems?: BoardGolem[];
   /**
    * The map editor only: the map's own requirement options, for the rows its game lets a map change
    * (MapRequirementsConfig.adjustable): false turns a row off, a number is its count. Only what

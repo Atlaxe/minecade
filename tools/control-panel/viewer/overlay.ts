@@ -84,8 +84,12 @@ interface LinkObject {
   mark: LinkMark;
   objects: THREE.Object3D[];
   materials: (THREE.LineBasicMaterial | THREE.MeshBasicMaterial)[];
-  ends: [[number, number, number], [number, number, number]];
+  /** Its legs, where its line runs (it's picked by them). */
+  legs: [[number, number, number], [number, number, number]][];
 }
+
+/** A path's bend: a small cube over its block's floor, in its tint. */
+const DOT_GEO = { "minecraft:geometry": [{ description: { identifier: "geometry.bend_dot" }, bones: [{ name: "tint", pivot: [0, 0, 0], cubes: [{ origin: [-2.5, 4, -2.5], size: [5, 5, 5], uv: [0, 0] }] }] }] };
 
 export class Overlay {
   private readonly root = new THREE.Group();
@@ -122,6 +126,7 @@ export class Overlay {
     scene.add(this.root);
     this.shapes.set("player", shapeModel(parseGeo(assets.shapes.player)));
     this.shapes.set("post", shapeModel(parseGeo(assets.shapes.post)));
+    this.shapes.set("dot", shapeModel(parseGeo(DOT_GEO)));
     for (const [name, model] of Object.entries(assets.models)) {
       try {
         const texture = new THREE.TextureLoader().load(model.texture, () => scene.requestRender());
@@ -286,27 +291,32 @@ export class Overlay {
   }
 
   /**
-   * A board's link: a line from one space toward the next, stopping short of both, with a cone at
-   * its end, drawn through blocks so the way shows from anywhere.
+   * A board's link: a line from one space toward the next, through its bends, stopping short of both
+   * spaces, with a cone at its end, drawn through blocks so the way shows from anywhere. A golem's
+   * walk is drawn the same way, in its own color.
    */
   private link(mark: LinkMark): LinkObject | undefined {
-    const from = new THREE.Vector3(mark.from.x, mark.from.y + LINK_HEIGHT, mark.from.z);
-    const to = new THREE.Vector3(mark.to.x, mark.to.y + LINK_HEIGHT, mark.to.z);
-    const length = from.distanceTo(to);
+    const raise = (at: { x: number; y: number; z: number }) => new THREE.Vector3(at.x, at.y + LINK_HEIGHT, at.z);
+    const points = [raise(mark.from), ...(mark.via ?? []).map(raise), raise(mark.to)];
+    const length = points.slice(1).reduce((sum, point, i) => sum + point.distanceTo(points[i]), 0);
     if (length < 1.5) return undefined;
-    const way = to.clone().sub(from).normalize();
-    const start = from.clone().addScaledVector(way, 0.7);
-    const tip = to.clone().addScaledVector(way, -0.7);
-    const material = new THREE.LineBasicMaterial({ color: LINK_COLOR, transparent: true, opacity: 0.9, depthTest: false });
-    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([start, tip]), material);
-    const headMaterial = new THREE.MeshBasicMaterial({ color: LINK_COLOR, depthTest: false });
+    const first = points[1].clone().sub(points[0]).normalize();
+    const way = points[points.length - 1].clone().sub(points[points.length - 2]).normalize();
+    const start = points[0].clone().addScaledVector(first, Math.min(0.7, points[0].distanceTo(points[1]) / 2));
+    const tip = points[points.length - 1].clone().addScaledVector(way, -Math.min(0.7, points[points.length - 1].distanceTo(points[points.length - 2]) / 2));
+    const line = [start, ...points.slice(1, -1), tip];
+    const color = mark.color ?? LINK_COLOR;
+    const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.9, depthTest: false });
+    const drawn = new THREE.Line(new THREE.BufferGeometry().setFromPoints(line), material);
+    const headMaterial = new THREE.MeshBasicMaterial({ color, depthTest: false });
     const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.6, 12).translate(0, -0.3, 0), headMaterial);
     head.position.copy(tip);
     head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), way);
-    line.renderOrder = 4;
+    drawn.renderOrder = 4;
     head.renderOrder = 4;
-    this.root.add(line, head);
-    return { mark, objects: [line, head], materials: [material, headMaterial], ends: [start.toArray(), tip.toArray()] };
+    this.root.add(drawn, head);
+    const legs = line.slice(1).map((point, i): [[number, number, number], [number, number, number]] => [line[i].toArray(), point.toArray()]);
+    return { mark, objects: [drawn, head], materials: [material, headMaterial], legs };
   }
 
   /** Shows an entry as picked (or none): a ring around a point, brighter edges and faces on a box; and any others picked with it. */
@@ -366,7 +376,7 @@ export class Overlay {
     };
     for (const box of this.boxes) consider(box.mark.key, boxEdges(box.mark.box));
     // A board's links show through blocks, so they're picked through them too.
-    for (const link of this.links) consider(link.mark.key, [link.ends]);
+    for (const link of this.links) consider(link.mark.key, link.legs);
     if (heights) {
       const rect = this.sheetRect();
       for (const plane of this.planes) if (this.scene.isHeightKept(plane.mark.y)) consider(plane.mark.key, sheetEdges(plane.mark.y, rect));
@@ -443,6 +453,13 @@ export class Overlay {
       const center = new THREE.Vector3((min[0] + max[0] + 1) / 2, (min[1] + max[1] + 1) / 2, (min[2] + max[2] + 1) / 2);
       return { center, radius: Math.max(2, Math.hypot(max[0] - min[0] + 1, max[1] - min[1] + 1, max[2] - min[2] + 1) / 2), floor: max[1] };
     }
+    // A link or a golem's walk: the middle of its line.
+    const link = this.links.find((candidate) => candidate.mark.key === key);
+    if (link && link.legs.length > 0) {
+      const ends = link.legs.flatMap((leg) => leg.map((at) => new THREE.Vector3(...at)));
+      const center = new THREE.Box3().setFromPoints(ends).getCenter(new THREE.Vector3());
+      return { center, radius: Math.max(4, ...ends.map((at) => at.distanceTo(center))), floor: Math.floor(Math.min(...ends.map((at) => at.y))) };
+    }
     const plane = this.planes.find((candidate) => candidate.mark.key === key);
     if (plane) {
       const box = plane.sheet.geometry.boundingBox ?? plane.sheet.geometry.computeBoundingBox() ?? plane.sheet.geometry.boundingBox;
@@ -501,7 +518,7 @@ export class Overlay {
     }
     for (const link of this.links) {
       const picked = this.isPicked(link.mark.key);
-      for (const material of link.materials) material.color.setHex(picked ? LINK_PICKED : LINK_COLOR);
+      for (const material of link.materials) material.color.setHex(picked ? LINK_PICKED : (link.mark.color ?? LINK_COLOR));
     }
     for (const box of this.boxes) {
       const picked = this.isPicked(box.mark.key);

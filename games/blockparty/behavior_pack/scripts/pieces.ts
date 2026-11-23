@@ -30,7 +30,7 @@
 // step's speed each tick (a push's overshoot is a player's client's) and has nothing to lock.
 import { EasingType, InputPermissionCategory, system, world, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
-import { angleGap, distance, route, standAt, yawTo, type Space, type Vec3 } from "./board.ts";
+import { angleGap, bendsBetween, distance, route, standAt, yawTo, type Space, type Vec3 } from "./board.ts";
 import { isPlayer, moveBot, nameOf, stepBot } from "./bots.ts";
 import { eventCue, playCue } from "./sounds.ts";
 import { followTick, knockbackFor, legOf, newFollow } from "./walk-follow.ts";
@@ -183,7 +183,8 @@ export class Pieces {
    * it lands (on its corner of the spot), else it stops on that space's middle (at a branch, or the
    * Star) to go on later. `quiet`: no chat report, and the camera is left as it is for the next
    * stretch (the board loop's walks). `reached` hears of each space as the piece gets to it (the
-   * moves left counting down), and each plays the walk.step sound cue.
+   * moves left counting down), and each plays the walk.step sound cue. A link's bends are corners on
+   * the way (board.ts bendsBetween), with no sound and nothing counted.
    */
   async walkThrough(player: Entity, passed: readonly Space[], options: { land?: boolean; quiet?: boolean; reached?: (space: Space) => void } = {}): Promise<void> {
     const state = this.state(player);
@@ -194,7 +195,20 @@ export class Pieces {
     const landing = passed[passed.length - 1];
     const end = land ? standAt(landing, state.corner) : landing.at;
     const here = player.location;
-    const points: Vec3[] = [[here.x, here.y, here.z], ...passed.slice(0, -1).map((space) => space.at), end];
+    // Each point the walk goes through, and the space it is (none for a bend).
+    const spaces = this.host.spaces();
+    const points: Vec3[] = [[here.x, here.y, here.z]];
+    const stops: (Space | undefined)[] = [undefined];
+    let from = state.space;
+    passed.forEach((space, i) => {
+      for (const bend of spaces[from] ? bendsBetween(spaces, from, space.index) : []) {
+        points.push(bend);
+        stops.push(undefined);
+      }
+      points.push(i === passed.length - 1 ? end : space.at);
+      stops.push(space);
+      from = space.index;
+    });
     const length = points.slice(1).reduce((sum, point, i) => sum + distance(points[i], point), 0);
     state.walking = true;
     const startedAt = system.currentTick;
@@ -216,7 +230,7 @@ export class Pieces {
         const line = legOf(a, b);
         const span = line.span;
         if (span < 0.05) {
-          this.reached(passed[leg], options.reached);
+          this.reached(stops[leg + 1], options.reached);
           continue;
         }
         const yaw = yawTo(a, b);
@@ -258,14 +272,16 @@ export class Pieces {
         if (last) miss = Math.hypot(at.x - b[0], at.z - b[2]);
         // A corner (or the end): onto the space's block middle, facing the next leg. Straight on, no
         // teleport. Landed, the piece faces its next space (the plan: pieces stand facing where they go).
+        // A bend's corner keeps the height the piece walked to (its point is only the floor's block).
         const onward = last && land ? this.host.spaces()[landing.next[0] ?? -1] : undefined;
+        const bend = stops[leg + 1] === undefined;
         if (last || stuck > 0 || (next !== undefined && Math.abs(angleGap(yaw, next)) > TURN_OVER)) {
-          this.face(player, { x: b[0], y: b[1], z: b[2] }, onward ? yawTo(landing.at, onward.at) : (next ?? facing));
+          this.face(player, { x: b[0], y: bend && stuck === 0 ? at.y : b[1], z: b[2] }, onward ? yawTo(landing.at, onward.at) : (next ?? facing));
           if (next !== undefined && Math.abs(angleGap(yaw, next)) > TURN_OVER) turns++;
           facing = next ?? facing;
           stuck = 0;
         }
-        this.reached(passed[leg], options.reached);
+        this.reached(stops[leg + 1], options.reached);
       }
       this.stop(player);
       state.space = landing.index;

@@ -47,6 +47,7 @@ import { ViewCube } from "./viewcube.ts";
 import type { CustomShape } from "./shapes.ts";
 import { buildVolume, spotsOf, type FaceColors } from "./volume.ts";
 import { linkLabel, linkOf, linkPanel, placeSpace, spaceIdOf, spaceKey, spacePanel, spacePosition, spacesToolPanel, type SpacePanelOptions } from "./spaces.ts";
+import { boardPointFace, boardPointOf, boardPointPosition, boardPointRemove, boardPointSet, golemOf, golemPanel, placeEdit, type Placing } from "./board-points.ts";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const params = new URLSearchParams(location.search);
@@ -245,6 +246,8 @@ async function main(): Promise<void> {
   let previousSpace: number | undefined;
   /** Lead to: the space whose next one the next space clicked (in the view or the list) becomes. */
   let leadingFrom: number | undefined;
+  /** What a click on a block places with Select (board-points.ts): a link's or a golem's bends, or a golem's spot. */
+  let placing: Placing | undefined;
   /** Entries picked with `picked` (Shift + click, or a rectangle in Top view). */
   const also = new Set<string>();
   /**
@@ -271,7 +274,7 @@ async function main(): Promise<void> {
   let arming: CutAxis | undefined;
   let cutAxis: CutAxis = "y";
   /** Whether a click in the view does something with the active tool: the pointer is a crosshair then. */
-  const aims = () => (tool !== "select" && tool !== "time" && !(tool === "mirror" && mirrorStep === "pick")) || arming !== undefined;
+  const aims = () => (tool !== "select" && tool !== "time" && !(tool === "mirror" && mirrorStep === "pick")) || arming !== undefined || placing !== undefined;
 
   const allLists = () => markup.sections.flatMap((section) => section.lists);
   const listsFor = (which: ToolId): MarkupList[] =>
@@ -309,8 +312,8 @@ async function main(): Promise<void> {
   });
   const redraw = () => {
     markup = buildMarkup(config, data.rules);
-    // A board's links aren't list entries, but they're picked like them.
-    const found = (key: string) => findEntry(markup, key) !== undefined || markup.links.some((link) => link.key === key);
+    // A board's links, bends and golem spots aren't list entries, but they're picked like them.
+    const found = (key: string) => findEntry(markup, key) !== undefined || markup.links.some((link) => link.key === key) || markup.points.some((point) => point.key === key);
     if (picked && !found(picked)) picked = undefined;
     for (const key of [...also]) if (!found(key)) also.delete(key);
     if (!picked && also.size > 0) {
@@ -415,18 +418,20 @@ async function main(): Promise<void> {
   const positionOf = (point: PointMark): MapPosition | undefined => {
     const id = spaceIdOf(point.key);
     if (id !== undefined) return spacesOf(config).find((space) => space.id === id)?.at;
+    const boardPoint = boardPointOf(point.key);
+    if (boardPoint) return boardPointPosition(config, boardPoint);
     const list = findEntry(markup, point.key)?.list;
     return list?.spawn ? listOf(config, list.spawn.target)[point.index] : undefined;
   };
   /** An entry's name, or a board link's ("Space 3 to space 4"), which has no list entry. */
   const labelOf = (key: string | undefined): string | undefined => {
     const link = linkOf(key);
-    return link ? linkLabel(link) : key ? findEntry(markup, key)?.entry.label : undefined;
+    return link ? linkLabel(link) : key ? (findEntry(markup, key)?.entry.label ?? pointOf(key)?.label) : undefined;
   };
   const showPicked = () => {
     const found = picked ? findEntry(markup, picked) : undefined;
     const link = linkOf(picked);
-    $("picked").textContent = found ? `${found.entry.label}: ${found.entry.detail}` : link ? linkLabel(link) : "";
+    $("picked").textContent = found ? `${found.entry.label}: ${found.entry.detail}` : link ? linkLabel(link) : (pointOf(picked)?.label ?? "");
     renderPanel();
     placeGizmo();
   };
@@ -613,7 +618,10 @@ async function main(): Promise<void> {
         const height = heightMarkOf(key);
         const space = spaceIdOf(key);
         const link = linkOf(key);
-        if (link) removals.push({ list: "links", index: 0, edit: { op: "unlinkSpace", ...link } });
+        const boardPoint = boardPointOf(key);
+        // Bends: the last of a path first, so the others keep their places.
+        if (boardPoint) removals.push({ list: key.replace(/#\d+$/, ""), index: "index" in boardPoint ? boardPoint.index : 0, edit: boardPointRemove(boardPoint) });
+        else if (link) removals.push({ list: "links", index: 0, edit: { op: "unlinkSpace", ...link } });
         else if (space !== undefined) removals.push({ list: point?.list ?? "spaces", index: space, edit: { op: "removeSpace", id: space } });
         else if (point && pointList?.spawn) removals.push({ list: point.list, index: point.index, edit: { op: "remove", target: pointList.spawn.target, index: point.index } });
         else if (box) removals.push({ list: box.list, index: box.entry.region?.index ?? box.entry.bounds ?? 0, edit: removeBoxEdit(box.entry) });
@@ -632,7 +640,9 @@ async function main(): Promise<void> {
     const height = heightMarkOf(picked);
     const space = spaceIdOf(picked);
     const link = linkOf(picked);
-    if (link) edit({ op: "unlinkSpace", ...link });
+    const boardPoint = boardPointOf(picked);
+    if (boardPoint) edit(boardPointRemove(boardPoint));
+    else if (link) edit({ op: "unlinkSpace", ...link });
     else if (space !== undefined) edit({ op: "removeSpace", id: space });
     else if (point && pointList?.spawn) edit({ op: "remove", target: pointList.spawn.target, index: point.index });
     else if (box) edit(removeBoxEdit(box.entry));
@@ -645,6 +655,8 @@ async function main(): Promise<void> {
   const savePoint = (point: PointMark, at: MapPosition) => {
     const space = spaceIdOf(point.key);
     if (space !== undefined) return void edit({ op: "moveSpace", id: space, at: spacePosition(at) });
+    const boardPoint = boardPointOf(point.key);
+    if (boardPoint) return void edit(boardPointSet(config, boardPoint, at));
     const list = findEntry(markup, point.key)?.list;
     if (!list?.spawn) return;
     edit({ op: "set", target: list.spawn.target, index: point.index, at });
@@ -657,6 +669,13 @@ async function main(): Promise<void> {
       const before = positionOf(point);
       if (before && Math.floor(before[0]) === next[0] && before[1] === next[1] && Math.floor(before[2]) === next[2]) return;
       return void edit({ op: "moveSpace", id: space, at: next });
+    }
+    const boardPoint = boardPointOf(point.key);
+    if (boardPoint) {
+      const before = positionOf(point);
+      const next = spacePosition(at);
+      if (before && Math.floor(before[0]) === next[0] && before[1] === next[1] && Math.floor(before[2]) === next[2]) return;
+      return void edit(boardPointSet(config, boardPoint, next));
     }
     const list = findEntry(markup, point.key)?.list;
     if (!list?.spawn) return;
@@ -1395,8 +1414,20 @@ async function main(): Promise<void> {
       },
       leading: leadingFrom,
       show: (id) => pickEntry(spaceKey(id), true),
+      showKey: (key) => pickEntry(key, true),
       note: notice,
+      placing,
+      place: (next) => setPlacing(next),
     };
+  /** Starts (or stops) placing bends or a golem's spot with clicks on blocks; Esc stops. */
+  const setPlacing = (next: Placing | undefined) => {
+    placing = next;
+    canvas.classList.toggle("aiming", aims());
+    renderPanel();
+    if (next?.kind === "bend") notice(`Click blocks along the path from space ${next.from} to space ${next.to}: each is a bend. Esc when done.`);
+    else if (next?.kind === "golemBend") notice(`Click blocks along golem ${next.golem}'s walk: each is a bend. Esc when done.`);
+    else if (next) notice(`Click the block for golem ${next.golem}'s ${next.part === "post" ? "post" : "rest spot"}.`);
+  };
   const renderPanel = () => {
     const point = pointOf(picked);
     const box = boxOf(picked);
@@ -1405,8 +1436,11 @@ async function main(): Promise<void> {
     const space = spaceId === undefined ? undefined : spacesOf(config).find((candidate) => candidate.id === spaceId);
     const spaces = spaceOptions();
     let content: HTMLElement | null = null;
-    const link = linkOf(picked);
-    if (tool === "select") content = also.size > 0 ? manyPanel() : link && spaces ? linkPanel(link, spaces) : space && spaces ? spacePanel(space, spaces) : point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
+    // A bend's panel is its link's; a golem's spot, bend or walk, its golem's.
+    const boardPoint = boardPointOf(picked);
+    const link = linkOf(picked) ?? (boardPoint?.kind === "bend" ? { from: boardPoint.from, to: boardPoint.to } : undefined);
+    const golem = golemOf(picked);
+    if (tool === "select") content = also.size > 0 ? manyPanel() : golem !== undefined && spaces ? golemPanel(golem, spaces) : link && spaces ? linkPanel(link, spaces) : space && spaces ? spacePanel(space, spaces) : point ? pointEditor(point) : box ? boxEditor(box) : height ? heightEditor(height) : null;
     else if (tool === "spaces") content = spaces ? spacesToolPanel(spaces) : null;
     else if (tool === "spawn" || tool === "marker") content = placeToolPanel(tool);
     else if (tool === "region") content = regionToolPanel();
@@ -1430,6 +1464,7 @@ async function main(): Promise<void> {
     if (next === "spaces" && !board) return;
     tool = next;
     newRegion = undefined;
+    placing = undefined;
     timeTool.reset();
     for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tool]")) button.classList.toggle("on", button.dataset.tool === next);
     if (next !== "select" && next !== "mirror" && (picked || also.size > 0)) pickEntry(undefined);
@@ -1467,6 +1502,16 @@ async function main(): Promise<void> {
     return { position, at: worldPoint(position) };
   };
   const middle = () => mapMiddle(config);
+
+  /** A click on a block while placing (board-points.ts): a bend (more may follow, until Esc), or a golem's spot (then its panel again). */
+  const placeAt = (clientX: number, clientY: number) => {
+    if (!placing) return;
+    const spot = spotUnder(clientX, clientY);
+    if (!spot) return notice("Nothing to stand on there: click the top of a block.", true);
+    if (!edit(placeEdit(config, placing, spot.position))) return;
+    if (placing.kind === "golem") setPlacing(undefined);
+    else renderPanel();
+  };
 
   /** A click with a tool: a point, a box's corner, a height, a cut, or the mirror plane (or, picking for Mirror, a marker). The Time tool's are its panel's. */
   const useTool = (clientX: number, clientY: number) => {
@@ -1748,6 +1793,7 @@ async function main(): Promise<void> {
           if (inGame.close()) break;
           if (press?.drag) cancelDrag();
           else if (arming) armCut(undefined);
+          else if (placing) setPlacing(undefined);
           else if (corner) armTool();
           else if (tool !== "select") setTool("select");
           else pickEntry(undefined);
@@ -1967,6 +2013,15 @@ async function main(): Promise<void> {
       return;
     }
     if (drag.kind === "move" && drag.offset) return moveGroup(drag.offset);
+    // A bend or a golem's spot: dragged along the floor, or (a golem's spot) turned by its knob.
+    const boardPoint = boardPointOf(drag.point.key);
+    if (boardPoint) {
+      if (drag.kind === "move" && drag.position) return movePoint(drag.point, [drag.position[0], drag.position[1], drag.position[2]]);
+      const turned = drag.kind === "face" && drag.yaw !== undefined && drag.yaw !== drag.point.yaw ? boardPointFace(config, boardPoint, drag.yaw) : undefined;
+      if (turned) edit(turned);
+      else cancelDrag();
+      return;
+    }
     const list = findEntry(markup, drag.point.key)?.list;
     if (!list?.spawn) return;
     if (drag.kind === "move" && drag.position) {
@@ -1992,7 +2047,7 @@ async function main(): Promise<void> {
     if (event.button !== 0) return;
     canvas.focus();
     press = { x: event.clientX, y: event.clientY };
-    if (arming || (tool !== "select" && tool !== "mirror")) return;
+    if (arming || placing || (tool !== "select" && tool !== "mirror")) return;
     const part = gizmo.partAt(event.clientX, event.clientY);
     if (part) {
       const origin = gizmo.center;
@@ -2095,6 +2150,7 @@ async function main(): Promise<void> {
       armCut(undefined);
       return;
     }
+    if (placing) return placeAt(event.clientX, event.clientY);
     if (tool === "mirror" && drag?.kind === "gizmo") {
       // A click on one of the plane's arrows moves it half a block that way.
       if (drag.part.kind === "arrow") setMirror({ ...mirror, ...(drag.part.axis === 0 ? { x: mirror.x + drag.part.sign / 2 } : { z: mirror.z + drag.part.sign / 2 }) });

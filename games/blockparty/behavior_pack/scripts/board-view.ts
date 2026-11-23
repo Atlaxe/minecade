@@ -91,3 +91,22 @@ export function boardOverview(spaces: readonly Pick<Space, "at" | "floor">[]): S
   const location: Vec3 = alongX ? [middle[0], y + up, middle[2] + back] : [middle[0] + back, y + up, middle[2]];
   return { location, facing: middle };
 }
+
+/**
+ * A pan over the whole board (Golem Gardens' golem swap, the user: "a camera pan over the entire
+ * board"): Board's view of `points` (the spaces and whatever else must be in it), swung `turn`
+ * degrees round its middle, from half of it one way to half the other. The camera eases from the
+ * first to the second.
+ */
+export function boardPan(points: readonly Vec3[], turn: number): [Shot, Shot] | [] {
+  const view = boardOverview(points.map((at) => ({ at, floor: at[1] })));
+  if (!view?.facing) return [];
+  const middle = view.facing;
+  const swung = (degrees: number): Shot => {
+    const radians = (degrees * Math.PI) / 180;
+    const dx = view.location[0] - middle[0];
+    const dz = view.location[2] - middle[2];
+    return { location: [middle[0] + dx * Math.cos(radians) - dz * Math.sin(radians), view.location[1], middle[2] + dx * Math.sin(radians) + dz * Math.cos(radians)], facing: middle };
+  };
+  return [swung(-turn / 2), swung(turn / 2)];
+}

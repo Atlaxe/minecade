@@ -31,6 +31,7 @@ import {
   type RegionTarget,
   type Rgb,
 } from "../../../editor/behavior_pack/scripts/regions.ts";
+import { golemMarkup } from "./board-points.ts";
 import { SPACES_LIST, spaceMarkup, type LinkMark } from "./spaces.ts";
 import type { BoxPlace } from "./boxes.ts";
 
@@ -39,8 +40,8 @@ export const KIND_COLORS = { spawns: 0xffaa1e, spectatorSpawn: 0xafb9cd, queueSp
 /** The facing line's color (editor_marker_facing.png). */
 export const FACING_COLOR = 0xff2828;
 
-/** How a point's marker is drawn: game Edit's mannequin or post, or one of the game's own models. */
-export type Shape = { kind: "player" } | { kind: "post" } | { kind: "model"; model: string };
+/** How a point's marker is drawn: game Edit's mannequin or post, one of the game's own models, or a small dot (a path's bend). */
+export type Shape = { kind: "player" } | { kind: "post" } | { kind: "model"; model: string } | { kind: "dot" };
 
 export interface PointMark {
   /** "<list key>#<index>", as game Edit keys its markers: "spawns#0", "points.hole.red#1". */
@@ -122,7 +123,7 @@ export interface Markup {
   points: PointMark[];
   boxes: BoxMark[];
   planes: PlaneMark[];
-  /** A board's links between spaces, drawn as arrows (spaces.ts). */
+  /** A board's links between spaces, drawn as arrows (spaces.ts), and its golems' walks (board-points.ts). */
   links: LinkMark[];
   sections: MarkupSection[];
   checklist: Checklist;
@@ -208,16 +209,19 @@ export function buildMarkup(config: MapConfig, rules: EditorRules): Markup {
   // A board's spaces (spaces.ts): their posts with the points, their list in a Board section, and the links' arrows.
   const spaces = spaceMarkup(config, rules.requires?.board, need(SPACES_LIST));
   points.push(...spaces.points);
+  // Its golems (board-points.ts): their spots and bends, their walks, and their list under Board.
+  const golems = golemMarkup(config, rules.requires?.board);
+  points.push(...golems.points);
 
   const spawnSection = lists.filter((list) => list.tool === "spawn").map(pointList);
   const markerSection = lists.filter((list) => list.tool === "marker").map(pointList);
   const sections: MarkupSection[] = [
     { title: "Spawns", lists: spawnSection },
     ...(markerSection.length > 0 ? [{ title: "Game markers", lists: markerSection }] : []),
-    ...(spaces.list ? [{ title: "Board", lists: [spaces.list] }] : []),
+    ...(spaces.list ? [{ title: "Board", lists: [spaces.list, ...(golems.list ? [golems.list] : [])] }] : []),
     { title: "Boundaries", lists: [...boxLists, ...heightLists] },
   ];
-  return { points, boxes, planes, links: spaces.links, sections, checklist };
+  return { points, boxes, planes, links: [...spaces.links, ...golems.walks], sections, checklist };
 }
 
 /** A point list's marker color: a team's (its tint), else its kind's. */

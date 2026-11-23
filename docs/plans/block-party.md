@@ -134,6 +134,50 @@ There's no lap reward: extra turns just mean extra laps.
   time-of-day modifier, roaming hazard (what the map marks for each: "Board maps").
 - Events never change the Star price or minigame payouts.
 
+### Golems (Golem Gardens' event)
+
+The user's design (2026-11-22) for Golem Gardens, a board of 4-5 loops: golems block some of the
+paths, a player pays to go by, and now and then they move, "a way to keep players in the loop". A
+path toggle with a toll. **Built 2026-11-22, not yet seen in game.**
+
+- **Four golems, two active.** Each has a **post** (where it stands while it's active, blocking the
+  path from one space to the next), a **rest spot** (where it stands while it isn't), and the bends
+  of its walk between the two. Golems 1 and 2 start on their posts, 3 and 4 at their rest spots. A
+  golem can block any path, not only a fork's way (the user): its settings name the space before it
+  and the space after it.
+- **The toll: a flat 5 coins** (the user). A walk that comes to an active golem's path stops at the
+  space before it, and the golem asks (the dialogue box: Pay 5 coins, or Not now; short of coins, it
+  says so). Paid, the coins fly to it (to the bank, spent of the player's own accord), it steps aside
+  along the first 3 blocks of its walk, the piece goes by, and it walks back to its post (my
+  proposal, which the user called perfect). Not paid: at a fork the player picks another way (the
+  last way left is taken without asking); anywhere else their walk ends at the space before it, and
+  they land there. A walk that ends where it started (they didn't pay before a step) doesn't land
+  again. A walk back (a Happening's Move back) goes past a golem for free: it steps aside and back.
+  A bot pays when it has the coins, at a fork only on the way to the Star.
+- **The swap, each Star bought** (the user picked this trigger from my list; not the 3-round
+  backup, not a Happening, not a rising toll): one active golem and one resting, each picked at
+  random, trade places, so two are always active (the user: "1 of the active, and one of the
+  inactive, to keep a balance"). A skippable cutscene after the Star's purchase (and its results):
+  the camera cuts to the golem leaving, which says it has to move (golem.swap, in the dialogue box);
+  then the camera pans over the whole board (Board's view of the spaces and the golems' spots, swung
+  50 degrees round its middle) while both walk to their new spots, and the cutscene ends once the
+  last is there (the user). Skipped, they're put there.
+- **Golems walk, never teleport** (the user). Each leg of a walk is planned over the ground as a
+  piece's is ("Moving over the board") and followed a tick at a time, as bots walk, at 0.12 blocks a
+  tick. A golem stuck on a leg for 2 seconds past its time is put at the leg's end (the one time it
+  isn't walked), so mark bends round anything in its way. The golem NPC (blockparty:iron_golem) is 1
+  block wide so it fits garden paths.
+- **Marked in the Panel only** (docs/viewer.md, "Golems"): map.json `golems`, four entries of
+  `post`, `rest` (each [x, y, z, yaw, pitch]), `before`, `after` (space ids) and `bends`. The board
+  check (and Publish) needs all four set once any is, each on a path from a space to one it leads to,
+  no two on one path. A draft with some golems unfinished plays the finished ones.
+- **Code:** minigame-core `board/board-golems.ts` (data, edits, checks); the Panel's
+  `board-points.ts`; the game's `golem-rules.ts` (pure: which golem blocks a path, the swap, a bot's
+  toll, the step aside) and `golems.ts` (the golems on stage, the toll, the swap's cutscene, their
+  walks); board-loop.ts move() stops at a golem. Lines: `golem.toll` (Pay/Not now: `golem.toll.pay`,
+  `golem.toll.no`), `golem.toll.paid`, `golem.toll.declined`, `golem.toll.short`, `golem.swap`
+  (character Iron Golem; my drafts in the workshop's Golems scenes, for the user to rewrite).
+
 ### Space types
 
 | Type | Effect | Share | On 40 spaces |
@@ -1228,6 +1272,16 @@ real player too (server-authoritative movement), so what's left for a look is ho
 client: the jumps' height, the stepped way down stairs (a player can't go down while any of them is
 over the step above), the climbs, and the pieces' speed (the walk's report says it: about 8 a
 second). Corner stairs' left and right as Java's aren't checked.
+
+**Bends (built 2026-11-22, not yet seen in game):** the user asked, for every board, for a way to
+make the path between two spaces several straight legs that follow a curving path instead of one.
+A link's bends are the blocks its path goes through, in order (map.json: a space's `bends`, by the
+id of the space the link leads to: `"bends": { "12": [[x, y, z], ...] }`), placed in the Panel only
+(the user's pick; docs/viewer.md, "Bends"): each click on a block adds one in the part of the path
+it's nearest. The walk (pieces.ts) goes through them as corners: each leg planned over the ground as
+any is, a turn at each bend as at a space (onto the bend's block middle, at the height the piece
+walked to, facing the next leg), with no step sound and no move counted. A walk back goes through
+them backward (board.ts `bendsBetween`). Removing a link or a space removes its bends.
 
 ### /boardcheck
 

@@ -2,7 +2,8 @@
 // once) and its host tool (which applies the same change and writes the file). Each edit returns a
 // new config and never changes the old one; undo keeps the old configs. New keys go where a person
 // would write them (spawns near the top, build last), and lists or names left empty are removed.
-import { addSpace, linkSpaces, moveSpace, removeSpace, retypeSpaces, setSpace, spacesOf, unlinkSpaces, type BoardSpace } from "./board/board-map.ts";
+import { addGolemBend, golemsOf, golemsWithoutSpace, moveGolemBend, removeGolemBend, setGolem, type BoardGolem, type GolemPart } from "./board/board-golems.ts";
+import { addBend, addSpace, clearBends, linkSpaces, moveBend, moveSpace, removeBend, removeSpace, retypeSpaces, setSpace, spacesOf, unlinkSpaces, type BoardSpace } from "./board/board-map.ts";
 import { colorsProblems, tidyColors, type MapColors } from "./map-colors.ts";
 import { QUEUE_COUNTDOWN, boundsBoxes, mapTimeTicks, queueSettings, spectatorBoundsBoxes, type Box, type BuildLimitSide, type MapCamera, type MapMannequin, type Facing, type MapConfig, type MapPosition, type MapTime, type QueueSettings, type Vec3 } from "./map-config.ts";
 
@@ -77,6 +78,23 @@ export type MapEdit =
   | { op: "unlinkSpace"; from: number; to: number }
   | { op: "setSpace"; id: number; type?: string; locked?: boolean; star?: boolean; opening?: boolean }
   | { op: "retypeSpaces"; types: Record<string, string> }
+  /**
+   * A link's bends (the Panel's Spaces tool): add one where it fits (in the leg it's nearest), move
+   * one, remove one, or make the link straight again.
+   */
+  | { op: "addBend"; from: number; to: number; at: Vec3 }
+  | { op: "moveBend"; from: number; to: number; index: number; at: Vec3 }
+  | { op: "removeBend"; from: number; to: number; index: number }
+  | { op: "clearBends"; from: number; to: number }
+  /**
+   * A board's golems (map.json "golems", the Panel's Golems): change golem `golem` (1 to 4): its post,
+   * rest spot, the spaces before and after it (what's left out stays; `clear` takes parts away); and
+   * the bends of its walk between post and rest.
+   */
+  | { op: "setGolem"; golem: number; post?: MapPosition; rest?: MapPosition; before?: number; after?: number; clear?: GolemPart[] }
+  | { op: "addGolemBend"; golem: number; at: Vec3 }
+  | { op: "moveGolemBend"; golem: number; index: number; at: Vec3 }
+  | { op: "removeGolemBend"; golem: number; index: number }
   /** Several edits as one change (one undo step). */
   | { op: "batch"; edits: MapEdit[] };
 
@@ -91,7 +109,7 @@ export function isMapKey(key: string): boolean {
 }
 
 /** Where new keys go, the order map.json files are written in. Unknown keys stay where they are. */
-const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "spaces", "requirements", "time", "colors", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
+const KEY_ORDER: readonly string[] = ["name", "draft", "spawns", "spectatorSpawn", "queueSpawn", "queue", "bounds", "spectatorBounds", "killY", "buildLimit", "teamSpawns", "points", "regions", "spaces", "golems", "requirements", "time", "colors", "stars", "cameras", "mannequins", "mannequinsInPreview", "gameThumbnail", "source", "build"];
 
 export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
   switch (edit.op) {
@@ -191,7 +209,19 @@ export function applyEdit(config: MapConfig, edit: MapEdit): MapConfig {
     case "unlinkSpace":
     case "setSpace":
     case "retypeSpaces":
-      return withSpaces(config, spaceEdit(spacesOf(config), edit));
+    case "addBend":
+    case "moveBend":
+    case "removeBend":
+    case "clearBends": {
+      const changed = withSpaces(config, spaceEdit(spacesOf(config), edit));
+      // A removed space's golems no longer name it.
+      return edit.op === "removeSpace" ? withGolems(changed, golemsWithoutSpace(golemsOf(config), edit.id)) : changed;
+    }
+    case "setGolem":
+    case "addGolemBend":
+    case "moveGolemBend":
+    case "removeGolemBend":
+      return withGolems(config, golemEdit(golemsOf(config), edit));
     case "requirement": {
       if (!REQUIREMENT_KEY.test(edit.key)) throw new MapEditError(`"${edit.key}" is not a checklist row`);
       if (edit.value !== undefined && edit.value !== false && !(Number.isInteger(edit.value) && edit.value >= 1)) throw new MapEditError("A requirement is off (false) or a count of at least 1");
@@ -289,6 +319,22 @@ export function describeEdit(edit: MapEdit): string {
       return `change space ${edit.id}`;
     case "retypeSpaces":
       return `deal ${Object.keys(edit.types).length} spaces again`;
+    case "addBend":
+      return `bend the path from space ${edit.from} to space ${edit.to}`;
+    case "moveBend":
+      return `move bend ${edit.index + 1} of the path from space ${edit.from} to space ${edit.to}`;
+    case "removeBend":
+      return `remove bend ${edit.index + 1} of the path from space ${edit.from} to space ${edit.to}`;
+    case "clearBends":
+      return `straighten the path from space ${edit.from} to space ${edit.to}`;
+    case "setGolem":
+      return `change golem ${edit.golem}`;
+    case "addGolemBend":
+      return `bend golem ${edit.golem}'s walk`;
+    case "moveGolemBend":
+      return `move bend ${edit.index + 1} of golem ${edit.golem}'s walk`;
+    case "removeGolemBend":
+      return `remove bend ${edit.index + 1} of golem ${edit.golem}'s walk`;
     case "requirement":
       return edit.value === undefined ? `${edit.key} as the game asks` : edit.value === false ? `turn ${edit.key} off` : `ask for ${edit.value} ${edit.key}`;
     case "time":
@@ -383,7 +429,7 @@ function withEntry<T>(record: Record<string, T[]> | undefined, name: string, lis
  * data, before the editor's), or removes it when `value` is undefined.
  */
 /** A spaces edit on the list (board-map.ts's errors as MapEditErrors). */
-function spaceEdit(spaces: BoardSpace[], edit: Extract<MapEdit, { op: "addSpace" | "moveSpace" | "removeSpace" | "linkSpace" | "unlinkSpace" | "setSpace" | "retypeSpaces" }>): BoardSpace[] {
+function spaceEdit(spaces: BoardSpace[], edit: Extract<MapEdit, { op: "addSpace" | "moveSpace" | "removeSpace" | "linkSpace" | "unlinkSpace" | "setSpace" | "retypeSpaces" | "addBend" | "moveBend" | "removeBend" | "clearBends" }>): BoardSpace[] {
   try {
     switch (edit.op) {
       case "addSpace":
@@ -400,6 +446,14 @@ function spaceEdit(spaces: BoardSpace[], edit: Extract<MapEdit, { op: "addSpace"
         return setSpace(spaces, edit.id, edit);
       case "retypeSpaces":
         return retypeSpaces(spaces, edit.types);
+      case "addBend":
+        return addBend(spaces, edit.from, edit.to, edit.at);
+      case "moveBend":
+        return moveBend(spaces, edit.from, edit.to, edit.index, edit.at);
+      case "removeBend":
+        return removeBend(spaces, edit.from, edit.to, edit.index);
+      case "clearBends":
+        return clearBends(spaces, edit.from, edit.to);
     }
   } catch (error) {
     throw new MapEditError(error instanceof Error ? error.message : String(error));
@@ -408,6 +462,29 @@ function spaceEdit(spaces: BoardSpace[], edit: Extract<MapEdit, { op: "addSpace"
 
 function withSpaces(config: MapConfig, spaces: BoardSpace[]): MapConfig {
   return withKey(config, "spaces", spaces.length > 0 ? spaces : undefined);
+}
+
+/** A golems edit on the list (board-golems.ts's errors as MapEditErrors). Golem numbers are 1 to 4. */
+function golemEdit(golems: BoardGolem[], edit: Extract<MapEdit, { op: "setGolem" | "addGolemBend" | "moveGolemBend" | "removeGolemBend" }>): BoardGolem[] {
+  try {
+    const index = edit.golem - 1;
+    switch (edit.op) {
+      case "setGolem":
+        return setGolem(golems, index, edit);
+      case "addGolemBend":
+        return addGolemBend(golems, index, edit.at);
+      case "moveGolemBend":
+        return moveGolemBend(golems, index, edit.index, edit.at);
+      case "removeGolemBend":
+        return removeGolemBend(golems, index, edit.index);
+    }
+  } catch (error) {
+    throw new MapEditError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+function withGolems(config: MapConfig, golems: BoardGolem[]): MapConfig {
+  return withKey(config, "golems", golems.length > 0 ? golems : undefined);
 }
 
 function withKey(config: MapConfig, key: string, value: unknown): MapConfig {

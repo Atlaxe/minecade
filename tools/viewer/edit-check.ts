@@ -5,6 +5,8 @@
 // boxes and heights, and sensible names. The Panel checks what its page sends, and the map editor what the Panel forwards
 // (control.ts POST /edit).
 import {
+  GOLEMS,
+  GOLEM_PARTS,
   MAP_TIMES,
   QUEUE_COUNTDOWN,
   bigEnough,
@@ -72,6 +74,15 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
     case "addSpace":
     case "setSpace":
       return edit.type === undefined ? (requires?.board ? undefined : "This game has no board.") : spaceTypeProblem(requires, edit.type);
+    case "addBend":
+    case "moveBend":
+    case "removeBend":
+    case "clearBends":
+    case "setGolem":
+    case "addGolemBend":
+    case "moveGolemBend":
+    case "removeGolemBend":
+      return requires?.board ? undefined : "This game has no board.";
     case "retypeSpaces":
       for (const type of Object.values(edit.types)) {
         const problem = spaceTypeProblem(requires, type);
@@ -126,6 +137,10 @@ const MAX_SPACES = 500;
 
 function spaceId(value: unknown): boolean {
   return Number.isInteger(value) && (value as number) >= 1;
+}
+
+function golemNumber(value: unknown): boolean {
+  return Number.isInteger(value) && (value as number) >= 1 && (value as number) <= GOLEMS;
 }
 const TEAM = /^[A-Za-z0-9_-]+$/;
 const MAX_BATCH = 64;
@@ -214,6 +229,30 @@ export function viewerEdit(value: unknown, depth = 0): MapEdit | string {
       if (!isRecord(types) || Object.keys(types).length === 0 || Object.keys(types).length > MAX_SPACES) return `dealing again gives 1 to ${MAX_SPACES} spaces their types`;
       return Object.entries(types).every(([id, type]) => spaceId(Number(id)) && typeof type === "string" && SPACE_TYPE.test(type)) ? (edit as MapEdit) : "dealing again maps space ids to type ids";
     }
+    case "addBend":
+    case "moveBend":
+      if (!spaceId(edit.from) || !spaceId(edit.to)) return "a link is from one space id to another";
+      if (edit.op === "moveBend" && index(edit.index)) return index(edit.index)!;
+      return numbers(edit.at, 3) ? (edit as MapEdit) : "a bend is x, y and z";
+    case "removeBend":
+    case "clearBends":
+      if (!spaceId(edit.from) || !spaceId(edit.to)) return "a link is from one space id to another";
+      return edit.op === "removeBend" && index(edit.index) ? index(edit.index)! : (edit as MapEdit);
+    case "setGolem": {
+      if (!golemNumber(edit.golem)) return `a golem is 1 to ${GOLEMS}`;
+      for (const spot of ["post", "rest"]) if (edit[spot] !== undefined && !position(edit[spot])) return `a golem's ${spot} is a position`;
+      for (const end of ["before", "after"]) if (edit[end] !== undefined && !spaceId(edit[end])) return "a space id is a whole number from 1";
+      if (edit.clear !== undefined && !(Array.isArray(edit.clear) && edit.clear.every((part) => (GOLEM_PARTS as readonly unknown[]).includes(part)))) return `a golem's parts are ${GOLEM_PARTS.join(", ")}`;
+      return edit as MapEdit;
+    }
+    case "addGolemBend":
+    case "moveGolemBend":
+      if (!golemNumber(edit.golem)) return `a golem is 1 to ${GOLEMS}`;
+      if (edit.op === "moveGolemBend" && index(edit.index)) return index(edit.index)!;
+      return numbers(edit.at, 3) ? (edit as MapEdit) : "a bend is x, y and z";
+    case "removeGolemBend":
+      if (!golemNumber(edit.golem)) return `a golem is 1 to ${GOLEMS}`;
+      return index(edit.index) ?? (edit as MapEdit);
     case "stars":
       return typeof edit.on === "boolean" ? (edit as MapEdit) : "stars is true or false";
     case "gameThumbnail":
