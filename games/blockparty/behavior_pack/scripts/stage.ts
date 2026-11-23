@@ -115,10 +115,13 @@ const FOLLOW_AWAY = 9;
 const FOLLOW_UP = 3;
 /**
  * Who comes and goes their own way (the user, 2026-11-18): the Witch in a puff of smoke, like a
- * magician (the pack's particle); the Enderman by teleporting (his blink's portal particles).
- * Everyone else an item or a space brings just appears. Then the ticks the effect hides them before they're there.
+ * magician (the pack's particle), wherever she stands (2026-11-23: her NPC spot too); the Enderman by
+ * teleporting (his blink's portal particles). Everyone else an item or a space brings just appears,
+ * except the Shop's Villager and a Versus Referee coming to a space without its NPC spot, who come in
+ * smoke too (visit's `entrance`, 2026-11-23). Then the ticks the effect hides them before they're there.
  */
-const ENTRANCES: Readonly<Record<string, "smoke" | "teleport">> = { witch: "smoke", enderman: "teleport" };
+type Entrance = "smoke" | "teleport";
+const ENTRANCES: Readonly<Record<string, Entrance>> = { witch: "smoke", enderman: "teleport" };
 const SMOKE_PARTICLE = "blockparty:smoke_puff";
 const ENTRANCE_HIDES = 3;
 /** The Trader's walk in: his speed (blocks a tick), the longest it may take, his llamas and the gap between each and the one ahead. */
@@ -155,6 +158,8 @@ const ORBIT_STEP_TICKS = 7;
 export class Stage {
   private readonly deps: StageDeps;
   private readonly cast = new Map<string, Entity>();
+  /** The way each part that came in a visit came (and goes), by key, when it isn't at once. */
+  private readonly ways = new Map<string, Entrance>();
   /** Each part's role, by key. */
   private readonly roles = new Map<string, string>();
   /** The part of each role last brought into a scene (put there, or turned to a seat), by role: it speaks that character's lines. */
@@ -328,6 +333,7 @@ export class Stage {
     const entity = this.cast.get(key);
     this.cast.delete(key);
     this.roles.delete(key);
+    this.ways.delete(key);
     try {
       if (entity?.isValid) entity.remove();
     } catch {
@@ -438,33 +444,26 @@ export class Stage {
   // ---- On the board -------------------------------------------------------------------------
 
   /**
-   * The NPCs who stand at their spaces all game (the user, 2026-11-18: those spots are always
-   * there): the Referee beside every Versus space and the Villager beside every Shop space, facing
-   * it, at the default spot beside it (per-marker spots come with the editor later). Any missing are
-   * put back.
+   * The NPCs who stand at their spaces all game: the Referee at a Versus space and the Villager at a
+   * Shop space whose NPC spot the map placed (the user, 2026-11-23; before, 2026-11-18, every one
+   * stood beside its space). A Shop or Versus space without a spot has nobody: its NPC comes in a
+   * puff of smoke when a player lands there, and goes the same way, as the Witch does. Any missing
+   * are put back.
    */
   residents(): void {
     for (const space of this.deps.spaces()) this.resident(space);
   }
 
-  /** The key of the NPC who stands at `space` all game, put there if it's missing; undefined for a space with none. */
+  /** The key of the NPC who stands at `space` all game, put there if it's missing; undefined for a space with none (no resident role, or no NPC spot placed). */
   resident(space: Space): string | undefined {
     const role = residentRole(space.type);
-    if (!role) return undefined;
+    if (!role || !space.npc) return undefined;
     const key = residentKey(space);
     if (!this.get(key)) {
       const at = this.besideSpace(space);
       const entity = this.put(key, role, at, restingYaw(space, at));
       // A Shop's Villager as the map dresses it (biome, profession, level).
-      if (entity && role === "villager" && space.villager) {
-        try {
-          entity.setProperty(VILLAGER_BIOME, space.villager.biome);
-          entity.setProperty(VILLAGER_PROFESSION, space.villager.profession);
-          entity.setProperty(VILLAGER_LEVEL, space.villager.level);
-        } catch (error) {
-          log.warn(`blockparty: dressing the Villager failed: ${describeError(error)}`);
-        }
-      }
+      if (entity && role === "villager") this.dress(entity, space);
     }
     return key;
   }
@@ -709,28 +708,28 @@ export class Stage {
     }
   }
 
-  /** The Referee comes to a duel: at a Versus space the one who stands there, else beside the lander's space; the two turned to each other and in shot (a cut by default). */
-  async referee(who: Who, space: Space | undefined): Promise<void> {
+  /**
+   * The Referee comes to a duel: at a Versus space the one who stands there (its NPC spot placed),
+   * else one comes to the lander's space, the two turned to each other and in shot (a cut by
+   * default). `smoke`: it comes in a puff of smoke (a Versus space without its spot, the user,
+   * 2026-11-23); the Dueling Glove's just appears (the user, 2026-11-18).
+   */
+  async referee(who: Who, space: Space | undefined, smoke = false): Promise<void> {
     if (!space || !who.body.isValid) return;
     const resident = await this.atResident(who, space, "versus.announce");
     if (resident) {
       this.refereeNow = resident;
       return;
     }
-    const at = this.besideSpace(space);
-    const them = arr(who.body.location);
-    this.put("referee", "referee", at, yawFrom(at, them));
+    await this.visit("referee", "referee", who, space, "versus.announce", "Cut", smoke ? "smoke" : undefined);
     this.refereeNow = "referee";
-    this.deps.face?.(who, at);
-    this.shot(twoShot(them, at, sideOf(who)), this.moveFor("versus.announce", "Cut"));
-    await this.deps.scope.wait(10);
   }
 
-  /** The duel's Referee is done: one who came goes, one who stands at the space turns back to it. */
+  /** The duel's Referee is done: one who came goes (the way it came), one who stands at the space turns back to it. */
   refereeGone(): void {
     const key = this.refereeNow;
     this.refereeNow = undefined;
-    if (key === "referee") this.remove("referee");
+    if (key === "referee") this.leave("referee");
     else if (key) this.backToSpace(key);
   }
 
@@ -738,39 +737,58 @@ export class Stage {
    * An NPC comes to a seat on its space (pass 7: the Witch at Chance Time, the Warden, the Enderman,
    * the Iron Golem, the Villager an item brings): `role`'s entity beside the space, the two turned
    * to each other, in shot (the moment `lineId`'s camera, else `fallback`). The Witch appears in a
-   * puff of smoke, the Enderman teleports in (ENTRANCES). Gone with leave(key) (or remove(key) for
-   * no exit at all).
+   * puff of smoke, the Enderman teleports in (ENTRANCES); `entrance` gives another its way in (the
+   * Shop's Villager and a Versus Referee coming to a space without its NPC spot: smoke). Gone with
+   * leave(key), the way it came (or remove(key) for no exit at all). A Villager wears the looks of
+   * the Shop it comes to.
    */
-  async visit(key: string, role: string, who: Who, space: Space | undefined, lineId: string, fallback: Move = "Cut"): Promise<Entity | undefined> {
+  async visit(key: string, role: string, who: Who, space: Space | undefined, lineId: string, fallback: Move = "Cut", entrance?: Entrance): Promise<Entity | undefined> {
     if (!space || !who.body.isValid) return undefined;
     const at = this.besideSpace(space);
     const them = arr(who.body.location);
-    const entrance = this.deps.dialogue.skipping ? undefined : ENTRANCES[role];
+    const way = entrance ?? ENTRANCES[role];
+    if (way) this.ways.set(key, way);
+    else this.ways.delete(key);
+    const shown = this.deps.dialogue.skipping ? undefined : way;
     this.shot(twoShot(them, at, sideOf(who)), this.moveFor(lineId, fallback));
-    if (entrance) {
+    if (shown) {
       // The shot first, then the smoke or the portal's sparks, and out of them the NPC.
       await this.deps.dialogue.wait(4);
-      this.effect(at, role, "appear");
+      this.effect(at, role, "appear", shown);
       await this.deps.dialogue.wait(ENTRANCE_HIDES);
     }
     const entity = this.put(key, role, at, yawFrom(at, them));
+    if (entity && role === "villager") this.dress(entity, space);
     this.deps.face?.(who, at);
-    await this.deps.dialogue.wait(entrance ? 16 : 10);
+    await this.deps.dialogue.wait(shown ? 16 : 10);
     return entity;
   }
 
-  /** A part leaves the stage its way: the Witch in a puff of smoke, the Enderman teleporting away, anyone else at once. */
+  /** A part leaves the stage the way it came: the Witch in a puff of smoke, the Enderman teleporting away, anyone else at once. */
   leave(key: string): void {
     const part = this.get(key);
     const role = this.roles.get(key);
-    if (part && role && ENTRANCES[role] && !this.deps.scope.disposed) this.effect(arr(part.location), role, "vanish");
+    const way = this.ways.get(key) ?? (role ? ENTRANCES[role] : undefined);
+    if (part && role && way && !this.deps.scope.disposed) this.effect(arr(part.location), role, "vanish", way);
     this.remove(key);
   }
 
-  /** A role's way in or out where it stands, with its sound (event npc.<role>.appear or .vanish): a puff of smoke, or a teleport's portal sparks. */
-  private effect(at: Vec3, role: string, how: "appear" | "vanish"): void {
+  /** A Villager in the looks of `space` (a Shop's biome, profession and level, when the map sets them). */
+  private dress(entity: Entity, space: Space): void {
+    if (!space.villager) return;
+    try {
+      entity.setProperty(VILLAGER_BIOME, space.villager.biome);
+      entity.setProperty(VILLAGER_PROFESSION, space.villager.profession);
+      entity.setProperty(VILLAGER_LEVEL, space.villager.level);
+    } catch (error) {
+      log.warn(`blockparty: dressing the Villager failed: ${describeError(error)}`);
+    }
+  }
+
+  /** A role's way in or out where it stands (`way`, else its own), with its sound (event npc.<role>.appear or .vanish): a puff of smoke, or a teleport's portal sparks. */
+  private effect(at: Vec3, role: string, how: "appear" | "vanish", way: Entrance | undefined = ENTRANCES[role]): void {
     playCue(eventCue(`npc.${role}.${how}`));
-    if (ENTRANCES[role] === "teleport") {
+    if (way === "teleport") {
       portalRing(this.deps.dimension, vec(at));
       return;
     }

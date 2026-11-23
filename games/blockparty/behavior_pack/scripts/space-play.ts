@@ -205,11 +205,12 @@ export class SpacePlay {
     if (!seat) return;
     if (this.stock.length === 0) this.stock = shopStock(this.host.random);
     const { stage } = this.host;
-    // The Villager who stands at the Shop; one comes if this isn't a Shop space (a test).
+    // The Villager who stands at the Shop (its NPC spot placed); else one comes in a puff of smoke
+    // (the user, 2026-11-23), and goes the same way.
     const space = this.loop.spaceOf(who);
     const resident = await stage.atResident(who, space, "shop.welcome");
     this.keeper = resident ?? VILLAGER;
-    if (!resident) await stage.visit(VILLAGER, "villager", who, space, "shop.welcome");
+    if (!resident) await stage.visit(VILLAGER, "villager", who, space, "shop.welcome", "Cut", "smoke");
     // One buy and one sell a visit (the user): each button goes once it's done, and with both done the visit is over.
     let bought = false;
     let sold = false;
@@ -234,7 +235,7 @@ export class SpacePlay {
       await this.host.say(bought || sold ? "shop.bye" : "shop.nothing", { player: who.name }, false, who);
     } finally {
       if (resident) stage.backToSpace(resident);
-      else stage.remove(VILLAGER);
+      else stage.leave(VILLAGER);
     }
   }
 

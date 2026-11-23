@@ -868,10 +868,13 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
   particle, grayish purple), and **the Enderman** (the Ender Pearl) teleports in and away in his
   blink's portal particles. Everyone else an item brings (the Iron Golem, the Villager, the Glove's
   Referee, the Zombie) just appears (the user).
-- **Residents:** the Referee beside every Versus space and the Villager beside every Shop space
-  stand there all game, at the default spot beside their space, facing it; a lander's scene turns
-  them to the lander and back after. Per-marker spots come with the editor later. The Dueling
-  Glove's Referee and the Villager item's Villager still come to the player.
+- **Residents:** the Referee at a Versus space and the Villager at a Shop space stand there all
+  game when the map placed the space's NPC spot ("NPC spots"), facing its way; a lander's scene turns
+  them to the lander and back after. Without a spot (the user, 2026-11-23; before, every one stood
+  at the default spot beside its space), nobody stands there: the NPC comes in a puff of smoke when
+  a player lands, as the Witch does, and goes the same way after. The Witch always comes and goes in
+  smoke, her spot placed or not. The Dueling Glove's Referee and the Villager item's Villager still
+  just appear at the player.
 - **Sounds:** new events `npc.chris.balloon`, `npc.chris.balloon_pop`, `npc.witch.appear`,
   `npc.witch.vanish`, `npc.enderman.appear` and `npc.enderman.vanish`, silent until the user maps
   them in the dialogue tool's Sounds view.
@@ -1060,7 +1063,9 @@ board there should be nothing: the game uses the empty space around it for the a
   candidate of any other type (core `spaceNpc`). Every NPC that comes to that space stands there
   (stage.ts besideSpace: the item NPCs too, as they always shared the space's spot), facing the way
   the spot faces while nobody talks to it; without a spot the game picks one beside the space as
-  before. A Shop space also sets its Villager's looks (the user): Biome, Profession and Level
+  before. Only a Shop or Versus space with its spot placed has its NPC there all game; without one
+  the NPC comes and goes in a puff of smoke ("Residents", the user, 2026-11-23). A Shop space also
+  sets its Villager's looks (the user), which a Villager coming in smoke wears too: Biome, Profession and Level
   (`villager`: { "biome", "profession", "level" }, lower case names; plain Plains, Unskilled, Stone
   when left out), the same lists as the Tests' NPC menu (core `VILLAGER_PARTS`). The Panel only, as
   with bends and golems (my call).

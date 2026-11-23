@@ -1350,8 +1350,8 @@ export class BoardLoop {
     const doubled = isDoubled(this.round, this.host.turns);
     const stake = VERSUS_STAKE * (doubled ? 2 : 1);
     const leader = others.reduce((best, other) => ((this.seats.get(other.key)?.coins ?? 0) > (this.seats.get(best.key)?.coins ?? 0) ? other : best), others[0]);
-    // The Referee comes to the lander, and they pick a rival from its buttons.
-    await this.host.stage.referee(who, this.spaceOf(who));
+    // The Referee comes to the lander (in a puff of smoke, at a Versus space without its NPC spot), and they pick a rival from its buttons.
+    await this.host.stage.referee(who, this.spaceOf(who), true);
     if (doubled) await this.host.say("versus.doubled", { coins: count(stake, "coin") }, false, who);
     const picked = await this.host.talk("versus.announce", { player: who.name }, {
       to: who,

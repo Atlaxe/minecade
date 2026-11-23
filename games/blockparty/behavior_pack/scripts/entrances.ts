@@ -5,8 +5,9 @@
 //   - The Wandering Trader walks in with his llamas from out of the shot, along the board's path
 //     (walkInPath), the llamas each keeping to his trail a few blocks behind (trailPoint).
 //   - The Witch appears and vanishes in a puff of smoke (stage.ts; nothing here).
-//   - The Referee at every Versus space and the Villager at every Shop space are there all game
-//     (residentRole): those spots are always there (the user).
+//   - The Referee at a Versus space and the Villager at a Shop space are there all game (residentRole)
+//     when the map placed the space's NPC spot; without it, they come and go in a puff of smoke like
+//     the Witch (stage.ts; the user, 2026-11-23).
 import { floorOf, type Space, type Vec3 } from "./board.ts";
 import { besideSpace } from "./stage-layout.ts";
 

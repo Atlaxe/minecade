@@ -249,7 +249,9 @@ a second.
   block; it faces the space), and once placed its position (picks it), **Place again**, and an X back
   to the spot the game picks. The spot is a mannequin in the space's color; Select drags it, its red
   knob turns it, and Delete takes it away. A **Shop** space's panel also has its Villager's
-  **Biome**, **Profession** and **Level** (Plains, Unskilled and Stone unless set).
+  **Biome**, **Profession** and **Level** (Plains, Unskilled and Stone unless set). A Shop's
+  Villager or a Versus Referee with its spot placed stands there all game; without one it comes in
+  a puff of smoke when a player lands, and goes the same way. The Witch always comes in smoke.
 - **Bends** (the Panel only, the user's pick, 2026-11-22): a path that curves between two spaces is
   walked in straight legs through its bends. A picked link's panel lists its **Bends** (each picks
   its dot, with an X that takes it away), **Add bends** (each click on a block adds a bend on that
