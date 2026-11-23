@@ -134,7 +134,29 @@ describe("the board's checks", () => {
     spaces = setSpace(setSpace(spaces, 13, { opening: true }), 20, { opening: true });
     const report = checkBoard(spaces, BOARD);
     expect(report.errors).toEqual([]);
-    expect(report.loop).toEqual({ spaces: Array.from({ length: 40 }, (_, i) => i + 1), closed: true });
+    expect(report.loop).toEqual({ spaces: Array.from({ length: 40 }, (_, i) => i + 1), closed: true, leadIn: [] });
+  });
+
+  it("lets Start lead into the loop without anything leading back to Start", () => {
+    // Space 40 goes on to space 5, not back to Start: Start and spaces 2 to 4 are walked once.
+    const spaces = linkSpaces(unlinkSpaces(ring(40), 40, 1), 40, 5);
+    const report = checkBoard(spaces, BOARD);
+    expect(report.loop).toEqual({ spaces: Array.from({ length: 36 }, (_, i) => i + 5), closed: true, leadIn: [1, 2, 3, 4] });
+    expect(report.errors.some((error) => error.text.startsWith("No way leads back"))).toBe(false);
+    expect(reportLines(report)).toContain("The loop: 36 spaces, from space 5, 4 spaces after Start.");
+    // A branch off the lead-in that joins the loop is fine too.
+    const branch = addSpace(spaces, [0, 64, 0], "blue", 2);
+    expect(checkBoard(linkSpaces(branch.spaces, branch.id, 20), BOARD).errors.some((error) => error.text.startsWith("No way leads back"))).toBe(false);
+  });
+
+  it("names spaces with no way back to the loop, wherever Start is", () => {
+    // From space 10, spaces 41 and 42 go round each other and never rejoin the loop.
+    for (const spaces of [ring(40), linkSpaces(unlinkSpaces(ring(40), 40, 1), 40, 5)]) {
+      const first = addSpace(spaces, [0, 64, 0], "blue", 10);
+      const second = addSpace(first.spaces, [0, 64, 6], "blue", first.id);
+      const report = checkBoard(linkSpaces(second.spaces, second.id, first.id), BOARD);
+      expect(report.errors.find((error) => error.text.startsWith("No way leads back"))).toEqual({ text: "No way leads back to the loop from 2 spaces.", spaces: [41, 42] });
+    }
   });
 
   it("names a missing Start, dead ends, spaces cut off, and too few Star candidates and opening spots", () => {

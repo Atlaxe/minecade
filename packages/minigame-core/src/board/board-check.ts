@@ -3,6 +3,9 @@
 // are the game's (BoardConfig.rules), the spaces the map's.
 //   - checkBoard: errors (Publish refuses them), warnings, and a report (counts by type against the
 //     targets, the loop's length, each shortcut).
+//   - boardLoop: the loop is where Start's first exits go round. Start can be on it or lead into it
+//     (the user, 2026-11-23: a board needn't lead back to Start), and every space must find its way
+//     back to the loop, not to Start.
 //   - dealType: the type a new space gets: the one furthest under its share that breaks no rule
 //     where it is. Spaces placed before it never change on their own.
 //   - dealAgain: every unlocked space dealt again, many tries, keeping the one with the fewest
@@ -20,8 +23,8 @@ export interface BoardReport {
   warnings: BoardFinding[];
   /** Each type (Start left out): how many the board has, and its target from the share. */
   counts: { type: string; name: string; have: number; target: number }[];
-  /** The loop from Start, following each space's first exit: its spaces, and whether it gets back to Start. */
-  loop: { spaces: number[]; closed: boolean };
+  /** The loop Start's first exits go round (see boardLoop). */
+  loop: BoardLoop;
   /** Each way off the loop at a branch: where it leaves and rejoins, its length, and what it saves. */
   shortcuts: { from: number; rejoins: number; length: number; saves: number }[];
 }
@@ -53,10 +56,11 @@ class Graph {
     return this.before.get(id) ?? [];
   }
 
-  /** Steps from `from` along the links, forward (or backward), to every space it reaches. */
-  steps(from: number, backward = false): Map<number, number> {
-    const seen = new Map<number, number>([[from, 0]]);
-    const queue = [from];
+  /** Steps from `from` (the nearest of them, given several) along the links, forward (or backward), to every space it reaches. */
+  steps(from: number | readonly number[], backward = false): Map<number, number> {
+    const starts = typeof from === "number" ? [from] : from;
+    const seen = new Map<number, number>(starts.map((id) => [id, 0]));
+    const queue = [...starts];
     while (queue.length > 0) {
       const id = queue.shift()!;
       for (const other of backward ? this.previous(id) : this.next(id)) {
@@ -89,18 +93,29 @@ function startOf(spaces: readonly BoardSpace[], board: BoardConfig): BoardSpace 
   return spaces.find((space) => space.type === start);
 }
 
-/** The loop from Start: each space's first exit, until it gets back to Start (closed) or can't go on. */
-export function boardLoop(spaces: readonly BoardSpace[], board: BoardConfig): { spaces: number[]; closed: boolean } {
+/**
+ * The loop: from Start, each space's first exit, until it comes round to a space it already passed.
+ * Back at Start, Start is on the loop. Back at a later space, the loop starts there and the spaces
+ * before it are the lead-in (Start first): they're walked once and never again on first exits.
+ * At a space with no exit the loop isn't closed, and `spaces` is the way so far.
+ */
+export interface BoardLoop {
+  spaces: number[];
+  closed: boolean;
+  leadIn: number[];
+}
+
+export function boardLoop(spaces: readonly BoardSpace[], board: BoardConfig): BoardLoop {
   const start = startOf(spaces, board);
-  if (!start) return { spaces: [], closed: false };
+  if (!start) return { spaces: [], closed: false, leadIn: [] };
   const graph = new Graph(spaces);
   const out = [start.id];
   let at = start.id;
   for (;;) {
     const next = graph.next(at)[0];
-    if (next === undefined) return { spaces: out, closed: false };
-    if (next === start.id) return { spaces: out, closed: true };
-    if (out.includes(next)) return { spaces: out, closed: false };
+    if (next === undefined) return { spaces: out, closed: false, leadIn: [] };
+    const again = out.indexOf(next);
+    if (again >= 0) return { spaces: out.slice(again), closed: true, leadIn: out.slice(0, again) };
     out.push(next);
     at = next;
   }
@@ -129,7 +144,8 @@ export function checkBoard(spaces: readonly BoardSpace[], board: BoardConfig): B
     const reached = graph.steps(first.id);
     const lost = spaces.filter((space) => !reached.has(space.id));
     if (lost.length > 0) errors.push({ text: `${plural(lost.length, "space")} can't be reached from ${name(start)}.`, spaces: ids(lost) });
-    const back = graph.steps(first.id, true);
+    // Back to the loop, wherever Start is: on it, or leading into it.
+    const back = graph.steps(loop.spaces, true);
     const stuck = spaces.filter((space) => graph.next(space.id).length > 0 && !back.has(space.id));
     if (stuck.length > 0) errors.push({ text: `No way leads back to the loop from ${plural(stuck.length, "space")}.`, spaces: ids(stuck) });
   }
@@ -297,7 +313,8 @@ export function typeForNewSpace(spaces: readonly BoardSpace[], at: BoardSpace["a
  */
 export function dealAgain(spaces: readonly BoardSpace[], board: BoardConfig, random: () => number = Math.random, tries = 40): Record<number, string> {
   const start = startType(board);
-  const loop = boardLoop(spaces, board).spaces;
+  const { leadIn, spaces: round } = boardLoop(spaces, board);
+  const loop = [...leadIn, ...round];
   const order = [...loop, ...spaces.map((space) => space.id).filter((id) => !loop.includes(id))];
   const free = new Set(spaces.filter((space) => !space.locked && space.type !== start).map((space) => space.id));
   let best: BoardSpace[] | undefined;
@@ -332,7 +349,10 @@ export function reportLines(report: BoardReport, where: (id: number) => string =
   for (const error of report.errors) lines.push(`Error: ${located(error)}`);
   for (const warning of report.warnings) lines.push(`Warning: ${located(warning)}`);
   lines.push(`Types: ${report.counts.map((count) => `${count.name} ${count.have}/${count.target}`).join(", ")}.`);
-  lines.push(report.loop.closed ? `The loop: ${plural(report.loop.spaces.length, "space")}.` : `The loop isn't closed yet (${plural(report.loop.spaces.length, "space")} from Start).`);
+  const { loop } = report;
+  if (!loop.closed) lines.push(`The loop isn't closed yet (${plural(loop.spaces.length, "space")} from Start).`);
+  else if (loop.leadIn.length === 0) lines.push(`The loop: ${plural(loop.spaces.length, "space")}.`);
+  else lines.push(`The loop: ${plural(loop.spaces.length, "space")}, from space ${loop.spaces[0]}, ${plural(loop.leadIn.length, "space")} after Start.`);
   for (const shortcut of report.shortcuts) lines.push(`Shortcut from space ${shortcut.from} to ${shortcut.rejoins}: ${plural(shortcut.length, "space")}, saves ${shortcut.saves}.`);
   return lines;
 }

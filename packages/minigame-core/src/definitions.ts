@@ -217,7 +217,7 @@ export {
   type GolemChange,
   type GolemPart,
 } from "./board/board-golems.ts";
-export { boardLoop, checkBoard, dealAgain, dealType, reportLines, typeForNewSpace, type BoardFinding, type BoardReport } from "./board/board-check.ts";
+export { boardLoop, checkBoard, dealAgain, dealType, reportLines, typeForNewSpace, type BoardFinding, type BoardLoop, type BoardReport } from "./board/board-check.ts";
 export { PROMPT_MAX_CHARS, cleanPrompt, dealPrompts, notTheirOwn, promptKey, promptReplyParts, type DealablePrompt, type MayHave, type PromptPiles } from "./prompts.ts";
 export {
   ConfigAssembler,

@@ -129,6 +129,9 @@ There's no lap reward: extra turns just mean extra laps.
 ## Boards
 
 - A loop with 2-3 shortcut branches, about 36-45 spaces. Longer boards are fine (a longer train).
+- Start can be on the loop or lead into it: a board needn't lead back to Start (the user,
+  2026-11-23). The loop is where Start's first exits go round; the spaces before it are the lead-in,
+  walked once.
 - Shortcuts save about 10% of the loop.
 - At most one special event per map, of one of four types written in code: path toggle, teleport,
   time-of-day modifier, roaming hazard (what the map marks for each: "Board maps").
@@ -1289,14 +1292,16 @@ The board's checks show in both editors' checklists, each flagged space clickabl
 there). `/boardcheck` in game Edit prints the report in chat. Errors block Publish like any
 checklist problem; warnings don't.
 
-- **Errors:** exactly one Start; every space reachable; every path returns to the loop; no dead
+- **Errors:** exactly one Start; every space reachable; every path returns to the loop (not to
+  Start, which can lead into it); no dead
   ends; branches have 2-3 exits; enough Star candidates; both opening spots present; every Star
   candidate still reachable when a path event closes a route.
 - **Warnings:** a type's share more than ~3% off target; adjacent reds; two spaces whose markers
   overlap (closer than 3 blocks both ways); Wardens or Versus spaces too close; a ~12-space stretch with no Item; shortcuts too strong or too weak (against ~10%); Star
   candidates bunched together, or one without others 10-25 spaces away; a missing camera anchor or
   stage; a Star candidate or Item space with no free block beside it.
-- **Report:** counts by type against the targets, route lengths (the loop and each shortcut), and
+- **Report:** counts by type against the targets, route lengths (the loop, how far after Start it
+  starts when Start leads into it, and each shortcut), and
   flagged spaces with their coordinates.
 
 ### Arena backgrounds
