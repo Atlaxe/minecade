@@ -4,7 +4,7 @@
 // model standing on the floor (space-markers.ts; the plan's "Space markers"), and a piece stands on
 // the marker's top, STAND over the floor. testSpaces is a flat ring of 12 the tests lay out boards
 // with. Pure, so the tests can check the layout and the paths.
-import { villagerIndexes, type BoardSpace, type SpaceCamera } from "@minecade/minigame-core/config";
+import { villagerIndexes, type BoardSpace, type SpaceCamera, type WayName } from "@minecade/minigame-core/config";
 import model from "../../space-model.json";
 
 export type Vec3 = [number, number, number];
@@ -30,6 +30,8 @@ export interface Space {
    * 2026-11-22; the Panel's Spaces tool places them).
    */
   bends?: Record<number, Vec3[]>;
+  /** At a fork, the map's name for a way's button (the user, 2026-11-24; fork.ts forkButtons), by the index of the space it leads to. */
+  ways?: Record<number, WayName>;
   /** Its id on the map (a map's spaces only). */
   id?: number;
   /** A spot the Star can be at, and one the first Star can be at. */
@@ -89,6 +91,7 @@ export function mapSpaces(list: readonly BoardSpace[]): Space[] {
     const bends = Object.entries(space.bends ?? {}).flatMap(([to, points]): [number, Vec3[]][] =>
       index.has(Number(to)) && points.length > 0 ? [[index.get(Number(to))!, points.map((point): Vec3 => [middle(point[0]), point[1], middle(point[2])])]] : [],
     );
+    const ways = Object.entries(space.ways ?? {}).flatMap(([to, name]): [number, WayName][] => (index.has(Number(to)) ? [[index.get(Number(to))!, name]] : []));
     return {
       index: i,
       id: space.id,
@@ -97,6 +100,7 @@ export function mapSpaces(list: readonly BoardSpace[]): Space[] {
       floor: space.at[1],
       next: (space.next ?? []).flatMap((id) => (index.has(id) ? [index.get(id)!] : [])),
       ...(bends.length > 0 ? { bends: Object.fromEntries(bends) } : {}),
+      ...(ways.length > 0 ? { ways: Object.fromEntries(ways) } : {}),
       ...(space.star ? { star: true } : {}),
       ...(space.opening ? { opening: true } : {}),
       ...(space.npc ? { npc: { at: [middle(space.npc[0]), space.npc[1], middle(space.npc[2])] as Vec3, ...(space.npc.length === 5 ? { yaw: space.npc[3] } : {}) } } : {}),

@@ -2,6 +2,9 @@
 // (dialogue.ts fork, the workshop's blockparty_fork component), its buttons side by side and named
 // for where each way goes as the piece arrives ("Left", "Right"), not by space and type. Picking a
 // button turns everyone's camera down that way. Pure, so the tests can check which way is which.
+// A map can name a fork's ways itself (the user, 2026-11-24, the Panel's Fork buttons: Left,
+// Straight, Right, Up, Down), since the camera doesn't always look the way the piece goes; the
+// buttons then stand left to right by their names (forkButtons).
 import { floorOf, type Space, type Vec3 } from "./board.ts";
 import { wayShot, type Shot, type ShotWay } from "./stage-layout.ts";
 
@@ -50,6 +53,26 @@ export function forkOrder(spaces: readonly Space[], fork: Space, heading: Flat):
 export function forkLabelIds(count: number): string[] {
   if (count <= 1) return ["branch.left"].slice(0, count);
   return ["branch.left", ...Array.from({ length: count - 2 }, () => "branch.middle"), "branch.right"];
+}
+
+/** Where a button stands among a fork's, left to right, by its line: Left first, Right last, the rest between. */
+const BUTTON_RANK: Record<string, number> = { "branch.left": 0, "branch.right": 2 };
+
+/**
+ * A fork's buttons, left to right: each way (an index into the fork's `next`) and its line id. A way
+ * the map names (the fork's `ways`) is branch.<name>; one it doesn't is named by where it goes as
+ * the piece arrives along `heading` (forkLabelIds). They stand left to right by their names, Left
+ * first and Right last, ways with the same place in the order they go left to right.
+ */
+export function forkButtons(spaces: readonly Space[], fork: Space, heading: Flat): { ways: number[]; ids: string[] } {
+  const order = forkOrder(spaces, fork, heading);
+  const auto = forkLabelIds(order.length);
+  const buttons = order.map((way, position) => {
+    const name = fork.ways?.[fork.next[way]];
+    return { way, position, id: name ? `branch.${name}` : auto[position] };
+  });
+  buttons.sort((a, b) => (BUTTON_RANK[a.id] ?? 1) - (BUTTON_RANK[b.id] ?? 1) || a.position - b.position);
+  return { ways: buttons.map((button) => button.way), ids: buttons.map((button) => button.id) };
 }
 
 /** A way ahead from its first space, `count` spaces long at most (the first way at every fork on it). */

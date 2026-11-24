@@ -400,6 +400,15 @@
     "branch.middle": [
       "Middle"
     ],
+    "branch.straight": [
+      "Straight"
+    ],
+    "branch.up": [
+      "Up"
+    ],
+    "branch.down": [
+      "Down"
+    ],
     "land.blue": [
       "§b{player}§r landed on Blue: +§6{coins}§r."
     ],
@@ -1643,6 +1652,18 @@
       "delivery": "Form button"
     },
     "branch.middle": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "branch.straight": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "branch.up": {
+      "character": "Game",
+      "delivery": "Form button"
+    },
+    "branch.down": {
       "character": "Game",
       "delivery": "Form button"
     },

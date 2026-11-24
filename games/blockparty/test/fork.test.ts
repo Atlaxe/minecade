@@ -1,8 +1,8 @@
 // A fork in the board's path (fork.ts): which way is Left and which Right as the piece arrives, the
 // buttons' lines, and the camera looking down a way.
 import { describe, expect, it } from "vitest";
-import type { Space, Vec3 } from "../behavior_pack/scripts/board.ts";
-import { forkLabelIds, forkOrder, forkShot, headingInto, leftTurn, wayAhead } from "../behavior_pack/scripts/fork.ts";
+import { mapSpaces, type Space, type Vec3 } from "../behavior_pack/scripts/board.ts";
+import { forkButtons, forkLabelIds, forkOrder, forkShot, headingInto, leftTurn, wayAhead } from "../behavior_pack/scripts/fork.ts";
 
 const space = (index: number, at: [number, number], next: number[]): Space => ({ index, type: "blue", at: [at[0], 64, at[1]] as Vec3, floor: 63.5, next });
 
@@ -51,6 +51,44 @@ describe("a fork in the path", () => {
     expect(forkLabelIds(2)).toEqual(["branch.left", "branch.right"]);
     expect(forkLabelIds(3)).toEqual(["branch.left", "branch.middle", "branch.right"]);
     expect(forkLabelIds(4)).toEqual(["branch.left", "branch.middle", "branch.middle", "branch.right"]);
+  });
+
+  it("names the buttons by where the ways go when the map doesn't name them", () => {
+    const spaces = northFork();
+    const fork = spaces[1];
+    // next is [3 (east), 2 (west)]: Left is west (index 1 in next), Right east (index 0).
+    expect(forkButtons(spaces, fork, headingInto(spaces, fork, 0))).toEqual({ ways: [1, 0], ids: ["branch.left", "branch.right"] });
+  });
+
+  it("names the buttons as the map names the ways (the user, 2026-11-24), Left first and Right last", () => {
+    const spaces = northFork();
+    const fork = spaces[1];
+    const heading = headingInto(spaces, fork, 0);
+    // The camera sees it the other way round: east is named Left, west Right.
+    fork.ways = { 3: "left", 2: "right" };
+    expect(forkButtons(spaces, fork, heading)).toEqual({ ways: [0, 1], ids: ["branch.left", "branch.right"] });
+    // One named Straight, the other left to the game: it stays Left (west), Straight to its right.
+    fork.ways = { 3: "straight" };
+    expect(forkButtons(spaces, fork, heading)).toEqual({ ways: [1, 0], ids: ["branch.left", "branch.straight"] });
+    // Straight and Right: Straight goes left of Right, whichever way they go.
+    fork.ways = { 2: "straight", 3: "right" };
+    expect(forkButtons(spaces, fork, heading)).toEqual({ ways: [1, 0], ids: ["branch.straight", "branch.right"] });
+    fork.ways = { 2: "right", 3: "straight" };
+    expect(forkButtons(spaces, fork, heading)).toEqual({ ways: [0, 1], ids: ["branch.straight", "branch.right"] });
+    // Two in the middle (Up and Down) keep the order they go, left to right.
+    fork.ways = { 2: "down", 3: "up" };
+    expect(forkButtons(spaces, fork, heading)).toEqual({ ways: [1, 0], ids: ["branch.down", "branch.up"] });
+  });
+
+  it("takes a map's way names to the spaces' indexes", () => {
+    const spaces = mapSpaces([
+      { id: 5, at: [0, 64, 0], type: "blue", next: [1, 9], ways: { "9": "straight", "1": "left" } },
+      { id: 1, at: [0, 64, -4], type: "start", next: [5] },
+      { id: 9, at: [4, 64, 0], type: "red", next: [5] },
+    ]);
+    // Start goes first, so space 5 is index 1, space 1 index 0 and space 9 index 2.
+    expect(spaces[1].ways).toEqual({ 0: "left", 2: "straight" });
+    expect(spaces[0]).not.toHaveProperty("ways");
   });
 
   it("follows a way a few spaces on, stopping where it comes round", () => {

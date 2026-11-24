@@ -80,6 +80,14 @@ describe("viewerEdit", () => {
     expect(viewerEdit({ op: "spaceCamera", id: 3, camera: { free: true, yaw: 4 } })).toMatch(/free/);
     expect(markupProblem({ name: "M", spawns: [] }, { op: "spaceCamera", id: 3 }, { requires: {} })).toMatch(/no board/);
   });
+
+  it("takes a fork's way name (the space panel's Fork buttons), or none for Auto", () => {
+    expect(viewerEdit({ op: "spaceWay", from: 3, to: 4, name: "straight" })).toEqual({ op: "spaceWay", from: 3, to: 4, name: "straight" });
+    expect(viewerEdit({ op: "spaceWay", from: 3, to: 4 })).toEqual({ op: "spaceWay", from: 3, to: 4 });
+    expect(viewerEdit({ op: "spaceWay", from: 3, to: 4, name: "back" })).toMatch(/left, straight, right, up, down/);
+    expect(viewerEdit({ op: "spaceWay", from: 0, to: 4, name: "left" })).toMatch(/space id/);
+    expect(markupProblem({ name: "M", spawns: [] }, { op: "spaceWay", from: 3, to: 4 }, { requires: {} })).toMatch(/no board/);
+  });
 });
 
 describe("markupProblem", () => {

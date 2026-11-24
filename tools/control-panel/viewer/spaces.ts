@@ -10,7 +10,9 @@
 //     (the user's idea): the spaces that lead into it, the space, and the spaces it leads to, each a
 //     tile that picks its space, each link with an X that takes it away, then Create path (the Spaces
 //     tool, the next space placed leading on from this one) and Lead to (then click the space it
-//     leads to, in the view or the list) as tiles of their own; then Delete.
+//     leads to, in the view or the list) as tiles of their own; at a fork, Fork buttons: each way's
+//     name on its button in the game's fork box (Auto, or Left, Straight, Right, Up, Down; a picked
+//     link's panel has its own); then Delete.
 // A Star candidate's name says so ("Space 3: Blue, Star"), in the list and over its post. A link's
 // bends (board-points.ts) are dots its arrow runs through; a picked link's panel adds and takes them.
 // A space an NPC comes to has its NPC's spot in its panel (board-points.ts npcSection), and a Shop
@@ -25,7 +27,9 @@ import {
   spaceLabel,
   spacesOf,
   typeForNewSpace,
+  wayNameLabel,
   worldPoint,
+  WAY_NAMES,
   type BoardConfig,
   type BoardSpace,
   type MapConfig,
@@ -166,6 +170,7 @@ export function spacePanel(space: BoardSpace, options: SpacePanelOptions): HTMLE
     npcSection(space, options),
     el("div", { className: "group-label" }, "Paths"),
     pathsFlow(space, options),
+    forkButtons(space, options),
     el("div", { className: "buttons" }, el("button", { className: "small danger", onclick: () => edit({ op: "removeSpace", id }) }, "Delete space")),
   );
 }
@@ -228,8 +233,38 @@ function pathsFlow(space: BoardSpace, options: SpacePanelOptions): HTMLElement {
   );
 }
 
-/** A picked link's panel: where it runs (each end picks its space), its bends, and Delete. */
+/**
+ * A fork's buttons in the fork box (the user, 2026-11-24): each way's name, Auto naming it by where it
+ * goes as the piece arrives (Left, Middle, Right).
+ */
+function forkButtons(space: BoardSpace, options: SpacePanelOptions): HTMLElement | null {
+  const outgoing = space.next ?? [];
+  if (outgoing.length < 2) return null;
+  return el(
+    "div",
+    {},
+    el("div", { className: "group-label" }, "Fork buttons"),
+    outgoing.map((to) => el("label", { className: "setting" }, el("span", { className: "group-label" }, `Space ${to}`), wayNameSelect(space, to, options))),
+  );
+}
+
+/** A way's name on its fork box button: Auto, or one of WAY_NAMES. */
+function wayNameSelect(space: BoardSpace, to: number, options: SpacePanelOptions): HTMLElement {
+  const name = space.ways?.[String(to)];
+  return el(
+    "select",
+    { onchange: (event: Event) => options.edit({ op: "spaceWay", from: space.id, to, ...wayEditName((event.target as HTMLSelectElement).value) }) },
+    el("option", { value: "", selected: name === undefined }, "Auto"),
+    WAY_NAMES.map((candidate) => el("option", { value: candidate, selected: candidate === name }, wayNameLabel(candidate))),
+  );
+}
+
+const wayEditName = (value: string) => (value ? { name: value } : {});
+
+/** A picked link's panel: where it runs (each end picks its space), its fork button at a fork, its bends, and Delete. */
 export function linkPanel(link: { from: number; to: number }, options: SpacePanelOptions): HTMLElement {
+  const from = spacesOf(options.config).find((space) => space.id === link.from);
+  const fork = from && (from.next ?? []).length >= 2 && from.next?.includes(link.to) ? from : undefined;
   return el(
     "section",
     {},
@@ -241,6 +276,7 @@ export function linkPanel(link: { from: number; to: number }, options: SpacePane
       el("span", { className: "sub" }, "leads to"),
       el("button", { className: "small", onclick: () => options.show(link.to) }, `Space ${link.to}`),
     ),
+    fork ? el("label", { className: "setting" }, el("span", { className: "group-label" }, "Fork button"), wayNameSelect(fork, link.to, options)) : null,
     bendsSection(link, options),
     el("div", { className: "buttons" }, el("button", { className: "small danger", onclick: () => options.edit({ op: "unlinkSpace", ...link }) }, "Delete link")),
   );

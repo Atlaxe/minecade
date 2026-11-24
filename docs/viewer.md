@@ -237,7 +237,13 @@ a second.
   spaces that lead into it on top, the space in the middle, the spaces it leads to below, each a
   tile in its type's color that picks its space, each link with an X that takes it away; the row
   below ends with **Create path** (the Spaces tool, the next space placed leading on from this one)
-  and **Lead to** (then click the space it leads to, in the view or the list). Then **Delete space**.
+  and **Lead to** (then click the space it leads to, in the view or the list). A fork (a space
+  leading to two or three) then has **Fork buttons** (the Panel only, 2026-11-24): each way's name
+  on its button in the game's fork box, **Auto** (the game names it Left, Middle or Right by where
+  it goes as the piece arrives) or **Left**, **Straight**, **Right**, **Up** or **Down**, since the
+  camera doesn't always look the way the piece goes. The buttons stand left to right by their
+  names: Left first, Right last, the others between. A picked link from a fork has its own **Fork
+  button**. Then **Delete space**.
   A Star candidate's name says so ("Space 3: Blue, Star"), in the list and over its post. Select
   moves a space with its gizmo (onto a block's middle) and deletes it with Delete; its links go too.
   Select also picks a link by its arrow (it turns yellow): its panel names both ends (each picks its

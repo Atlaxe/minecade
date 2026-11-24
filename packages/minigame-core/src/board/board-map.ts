@@ -15,7 +15,18 @@
 // look, how far down and how far back ("camera": { "yaw": 135, "pitch": 25, "distance": 8 }), or
 // { "free": true } to keep the game's own angles there while the board camera looks one way all game.
 // Block Party's /spacecam sets them in game, and a preview from the map editor saves them.
+// A fork's way names (the user, 2026-11-24): the word on each way's button in the fork box, by the id
+// of the space it leads to ("ways": { "12": "straight", "15": "left" }), since left and right as the
+// piece arrives aren't always what the camera shows. Without one the game names it by where it goes.
+// The Panel's space panel sets them.
 import type { MapPosition, Vec3 } from "../map-config.ts";
+
+/** The names a fork's way can have (Block Party's fork box buttons, each a line branch.<name>). */
+export const WAY_NAMES = ["left", "straight", "right", "up", "down"] as const;
+export type WayName = (typeof WAY_NAMES)[number];
+
+/** A way name as the Panel shows it: "Straight". */
+export const wayNameLabel = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
 
 /**
  * How the shots of a cutscene at a space look (Block Party, docs/plans/block-party-ui.md "Cameras").
@@ -102,6 +113,8 @@ export interface BoardSpace {
    * without bends is one straight leg.
    */
   bends?: Record<string, Vec3[]>;
+  /** At a fork, each way's name on its button (WAY_NAMES), by the id of the space it leads to; a way left out is named by where it goes. */
+  ways?: Record<string, WayName>;
   /** The space type's id (BoardConfig.types). */
   type?: string;
   /** Deal again leaves it alone. */
@@ -256,6 +269,16 @@ export function spaceProblems(value: unknown, board: BoardConfig | undefined): s
         }
       }
     }
+    if (s.ways !== undefined) {
+      const next = Array.isArray(s.next) ? s.next : [];
+      if (typeof s.ways !== "object" || s.ways === null || Array.isArray(s.ways)) problems.push(`${where}.ways must map the spaces it leads to to way names`);
+      else {
+        for (const [to, name] of Object.entries(s.ways as Record<string, unknown>)) {
+          if (!next.includes(Number(to))) problems.push(`${where}.ways.${to}: it doesn't lead to space ${to}`);
+          else if (!WAY_NAMES.includes(name as WayName)) problems.push(`${where}.ways.${to} must be one of ${WAY_NAMES.join(", ")}`);
+        }
+      }
+    }
     if (s.npc !== undefined && (!Array.isArray(s.npc) || ![3, 5].includes(s.npc.length) || !s.npc.every((n) => typeof n === "number" && Number.isFinite(n)))) problems.push(`${where}.npc must be [x, y, z] or [x, y, z, yaw, pitch]`);
     if (s.villager !== undefined) problems.push(...villagerProblems(s.villager, `${where}.villager`));
     if (s.camera !== undefined) problems.push(...spaceCameraProblems(s.camera, `${where}.camera`));
@@ -392,11 +415,24 @@ function update(spaces: readonly BoardSpace[], id: number, change: (space: Board
   return spaces.map((space) => (space.id === id ? change(space) : space));
 }
 
-/** A space with these links: the bends of a link that's gone go with it. */
+/** A space with these links: the bends and way name of a link that's gone go with it. */
 function withNext(space: BoardSpace, next: number[]): BoardSpace {
-  const { next: _old, bends, ...rest } = space;
+  const { next: _old, bends, ways, ...rest } = space;
   const kept = Object.entries(bends ?? {}).filter(([to]) => next.includes(Number(to)));
-  return { ...rest, ...(next.length > 0 ? { next } : {}), ...(kept.length > 0 ? { bends: Object.fromEntries(kept) } : {}) };
+  const named = Object.entries(ways ?? {}).filter(([to]) => next.includes(Number(to)));
+  return { ...rest, ...(next.length > 0 ? { next } : {}), ...(kept.length > 0 ? { bends: Object.fromEntries(kept) } : {}), ...(named.length > 0 ? { ways: Object.fromEntries(named) } : {}) };
+}
+
+/** Names the way from space `from` to space `to` on its fork box button (WAY_NAMES), or with none, by where it goes. */
+export function setWayName(spaces: readonly BoardSpace[], from: number, to: number, name: string | undefined): BoardSpace[] {
+  if (name !== undefined && !WAY_NAMES.includes(name as WayName)) throw new Error(`a way's name is one of ${WAY_NAMES.join(", ")}`);
+  return update(spaces, from, (space) => {
+    if (!(space.next ?? []).includes(to)) throw new Error(`space ${from} doesn't lead to space ${to}`);
+    const { ways, ...rest } = space;
+    const kept = Object.entries(ways ?? {}).filter(([id]) => Number(id) !== to);
+    if (name !== undefined) kept.push([String(to), name as WayName]);
+    return kept.length > 0 ? { ...rest, ways: Object.fromEntries(kept) } : rest;
+  });
 }
 
 // ---- Bends ----------------------------------------------------------------------------------

@@ -13,7 +13,7 @@
 //      board's opening spots) as a Chris drops in beside it. Then everyone is on Start.
 //   3. Each round, each in turn opens their dice, rolls by jumping, the faces they threw do what the
 //      dice file says (dice.ts: coins, an event, a line), and their piece walks the number:
-//      at a fork they pick Left or Right in the fork box (dialogue.ts fork, fork.ts; everyone's
+//      at a fork they pick a way in the fork box (dialogue.ts fork, fork.ts; everyone's
 //      camera looks down the way picked), and passing or landing on a Star, Chris (beside it) offers
 //      it for its price (15, 20 or 25 coins by the game's length) in the dialogue box, after which
 //      the Star over the space fades as the bought one flies to the buyer, it moves to a candidate
@@ -46,7 +46,7 @@ import { SpacePlay } from "./space-play.ts";
 import { mayUseItem, newSeat, turnDice, type Seat, type TurnState } from "./seats.ts";
 import { BETS, GLOVE_STAKE, betResult, trailOf, type Hands } from "./space-rules.ts";
 import type { ForkOptions, TalkOptions } from "./dialogue.ts";
-import { forkLabelIds, forkOrder, headingInto, wayAhead } from "./fork.ts";
+import { forkButtons, headingInto, wayAhead } from "./fork.ts";
 import type { Stage } from "./stage.ts";
 import { activeStars, addCoins, coinsFor, count, firstStars, nextStar, ranked, starDistance, starPrice, turnOrder } from "./board-rules.ts";
 import { bonusStarCount, drawBonusStars, finalPlaces, GameStats, RISKY_DICE, tiebreakFormat, tiebreakPlaces, tiebreakPool, withWinner, type BonusStar, type DrawSeat } from "./end-game.ts";
@@ -1222,22 +1222,22 @@ export class BoardLoop {
   }
 
   /**
-   * A fork (the user, 2026-11-18): the way Get star set, or the fork box, its ways Left and Right as
-   * the piece faces arriving (fork.ts), everyone's camera looking down the way picked now (the first
-   * when they leave); a bot heads for the Star.
+   * A fork (the user, 2026-11-18): the way Get star set, or the fork box, its ways named as the map
+   * names them, else Left and Right as the piece faces arriving (fork.ts forkButtons), everyone's
+   * camera looking down the way picked now (the first when they leave); a bot heads for the Star.
    */
   private async choosePath(who: Who, space: Space, from?: number): Promise<number> {
     const steered = this.steering.get(who.key)?.find((index) => space.next.includes(index));
     if (steered !== undefined) return steered;
     const spaces = this.host.spaces();
     const heading = headingInto(spaces, space, from);
-    // Each button's way (an index into space.next), left to right.
-    const ways = forkOrder(spaces, space, heading);
+    // Each button's way (an index into space.next) and its line, left to right.
+    const { ways, ids } = forkButtons(spaces, space, heading);
     const toStar = this.pathToStar(space.index);
     const botWay = toStar ? space.next.indexOf(toStar[0]) : Math.floor(this.host.random() * space.next.length);
     const picked = await this.host.fork({
       to: who,
-      labels: forkLabelIds(ways.length).map((id) => button(id)),
+      labels: ids.map((id) => button(id)),
       botPick: Math.max(0, ways.indexOf(botWay)),
       focus: (index) => this.host.stage.forkView(space, heading, wayAhead(spaces, space.next[ways[index]])),
     });

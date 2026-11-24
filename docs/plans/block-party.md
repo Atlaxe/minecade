@@ -886,7 +886,11 @@ The user's asks after a look at pass 7, all in `stage.ts`, `entrances.ts` and `f
 - **Forks** are the fork box (`dialogue.ts` fork, the workshop's `blockparty_fork` component, word
   `bpf`): the buttons alone, side by side across the box (two or three: title codes `§q§2`, `§q§3`),
   named Left, Middle and Right by where each way goes as the piece arrives (`fork.ts`; lines
-  `branch.left`, `branch.middle`, `branch.right`). The walker steers with A and D (the ends don't
+  `branch.left`, `branch.middle`, `branch.right`). A map can name a fork's ways itself (the user,
+  2026-11-24: the camera doesn't always look the way the piece goes, and a way can be Straight):
+  the space's `ways` in map.json, set in the Panel's **Fork buttons**, each Left, Straight, Right,
+  Up or Down (lines `branch.<name>`); a way left out keeps the name by where it goes, and the
+  buttons stand left to right by name, Left first and Right last (`fork.ts` forkButtons). The walker steers with A and D (the ends don't
   wrap) and jumps to pick; the box and the camera are everyone's: each focused way turns the camera
   (from 5 blocks behind the fork, 5 up) to look 2 spaces down it, its first space lit. A bot's focus
   moves to its pick. The old branch form's lines (`branch.title`, `branch.button`,

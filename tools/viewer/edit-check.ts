@@ -8,6 +8,7 @@ import {
   GOLEMS,
   GOLEM_PARTS,
   VILLAGER_PARTS,
+  WAY_NAMES,
   spaceCameraProblems,
   villagerProblems,
   MAP_TIMES,
@@ -88,6 +89,7 @@ export function markupProblem(config: MapConfig, edit: MapEdit, rules: EditRules
     case "spaceNpc":
     case "spaceVillager":
     case "spaceCamera":
+    case "spaceWay":
       return requires?.board ? undefined : "This game has no board.";
     case "retypeSpaces":
       for (const type of Object.values(edit.types)) {
@@ -270,6 +272,9 @@ export function viewerEdit(value: unknown, depth = 0): MapEdit | string {
       const problem = edit.camera === undefined ? undefined : spaceCameraProblems(edit.camera, "camera")[0];
       return problem ?? (edit as MapEdit);
     }
+    case "spaceWay":
+      if (!spaceId(edit.from) || !spaceId(edit.to)) return "a space id is a whole number from 1";
+      return edit.name === undefined || (WAY_NAMES as readonly unknown[]).includes(edit.name) ? (edit as MapEdit) : `a way's name is one of ${WAY_NAMES.join(", ")}`;
     case "stars":
       return typeof edit.on === "boolean" ? (edit as MapEdit) : "stars is true or false";
     case "gameThumbnail":
