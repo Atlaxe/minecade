@@ -429,8 +429,9 @@ Checked after the bonus Stars:
 
 1. Most Stars.
 2. Most coins.
-3. A sudden-death minigame among only the tied players, picked at random from a short pool (Quick
-   Draw, Hot Floor, Sumo Duel). FFA if 3 or more are tied.
+3. A sudden-death minigame among only the tied players, picked at random from a short pool (Hot
+   Floor, Sumo Duel and, proposed, Cactus Slap; Quick Draw was removed on 2026-11-26). FFA if 3 or
+   more are tied.
 4. If still tied, the Allay picks the winner at random.
 
 **Built in pass 8 (2026-11-18),** not yet seen in game: the pool is the plan's three as they're
@@ -1487,59 +1488,78 @@ arena that ends by falling into the void, or ask for 3 kill regions instead of 1
 
 ## Minigames
 
-From the first draft; each gets its own arena map. Its checklist is written when the minigame is
-designed (the first three: "Minigame arena maps"). Every one of them written out, with its arena
-map's marks, its Game settings, the pieces it needs and a build order: `block-party-minigames.md`
-(2026-11-26).
+From the first draft, revised by the user on 2026-11-26: each written out, with its arena map's
+marks, its Game settings, the formats it plays, the pieces it needs and a build order, in
+`block-party-minigames.md`. Each gets its own arena map (the first three: "Minigame arena maps").
+Every minigame has four checkboxes for the formats it plays, **1v1**, **FFA**, **2v2** and **1v3**,
+any number checked; the groups below go by its main one.
 
-**FFA: reflex and quick reaction (10-20 seconds)**
-- **Hot Floor:** a block color is announced, and everything else vanishes after a countdown.
-- **Mob Freeze** (Red Light, Green Light): move only while the mob is looking away.
-- **Item Scramble:** one item is called out ("Get a pickaxe!"), and the first to hold it wins.
-- **Do the Opposite:** prompts like "Jump!" or "Sneak!" show up, and you do the opposite.
-- **Don't Look:** a creeper-style sound plays, and you must not look at a certain spot.
-- **Bridge Dash:** a short bridge with gaps where you place blocks fast.
-- **Button Mash:** hit a button the most times before the timer ends.
-- **Mystery Kit Brawl:** everyone gets random gear from a loot table (a diamond sword, or a stick)
-  and fights in a tiny arena for 20 seconds. A reroll costs coins.
+Removed by the user (2026-11-26): Bridge Dash, Name That Mob or Item, Quick Draw, Trap Door Maze.
+Do the Opposite is merged into Simon Says; Don't Look became Enderman Roulette; Prop Hunt became
+Barnyard Bluff.
+
+**Quick reflexes**
+- **Hot Floor:** a block color is announced, and everything else vanishes after a countdown (1 x 1
+  tiles).
+- **Mob Freeze** (Red Light, Green Light): move only while the mob is looking away; caught moving
+  goes back to the start.
+- **Simon Says:** do and don't commands, colors to hit and actions (jump, spin, look up, keep moving,
+  freeze).
+- **Enderman Roulette:** stare at the Enderman and look away before it snaps; longer stares score
+  more.
+- **Button Mash:** hit a button the most times; then everyone blasts into the sky, last place first.
 - **Anvil Rain:** dodge falling anvils across a shrinking safe zone.
 - **TNT Run (mini):** the floor drops out as you run over it.
+- **Egg Drop:** catch slowly falling eggs before they land.
+- **Hot Potato:** pass the potato with a hit before it pops.
+- **Hole in the Wall:** walls with holes come at you; get in a hole or get pushed off.
+
+**Races and courses**
+- **Minecart Dodge:** cross a mineshaft's lanes of carts and floating logs to the other side.
 - **Rising Lava / Water:** climb platforms before the level catches up.
-- **King of the Hill:** hold a small platform and knock others off.
-- **Egg Drop:** catch falling eggs without breaking them.
+- **Leg Breaker:** drop down through layers of slime, cobweb, hay, concrete and magma to the bottom.
+- **Montecarlo:** pick the right door in each hallway; a wrong one sends you back.
+- **Climb the Ladder:** climb to the top and knock the others off.
+
+**Points and collecting**
+- **Item Scramble:** search your ring of chests for the called item.
 - **Snowball Sniper:** hit moving targets for points.
-- **Minecart Dodge:** survive a track with carts coming at you.
 - **Chicken Chase:** catch the most chickens in a pen.
 - **Mining Race:** break ores in a small cube, each ore worth its own points.
+- **Slither:** grow your color across the floor from its edge; nobody paints over anyone.
+- **Hook the Mob:** fish mobs into your pit, creepers into someone else's.
+- **Cook's Request:** make the villager's dish from your own farm.
 
-**FFA: brain and memory**
-- **Simon Says (Block Edition):** repeat a pattern of colored blocks in order.
-- **Quiz Floor:** answer true or false by stepping on one of two sides.
-- **Name That Mob / Item:** identify a silhouette or a texture crop.
-- **Count the Mobs:** mobs show up briefly, and you guess how many.
+**Brains**
+- **Quiz Floor:** 4 answers on 4 pads, quiz show style, faster right answers scoring more.
+- **Count the Mobs:** count the sheep of one color in a pen, from a fixed camera, with jump.
+
+**Fights and knock-offs**
+- **Kit Brawl:** everyone gets the same random kit and fights.
+- **King of the Hill:** hold a small platform and knock others off.
+- **Sumo Duel:** knock everyone off the platform.
+- **Cactus Slap:** huge knockback sticks in a ring of cactus; touch one and you're out.
+- **Towers of Fortune:** a pillar each and a random item every few seconds; last one standing.
+- **Mini Survival Games:** chests, a closing border, last one standing.
 
 **2v2**
 - **Tug of War:** teams push each other with knockback toward the other team's edge.
 - **Capture the Wool:** a mini version, one wool block per side.
-- **Spleef Duo:** the floor breaks, and the last team with a player standing wins.
+- **Spleef Duo:** the floor breaks, broken blocks give snowballs, and the last team standing wins.
 - **Paired Parkour:** teammates are tied by a short lead and cross a course together.
-- **Carry Race:** one player rides or carries the other through a maze.
+- **Carry Race:** the walker carries the rider through a maze, and the rider guides.
 - **Cannon Duel:** one loads and one aims at a target across the map.
 - **Co-op Painters:** each team colors a floor, and the most area wins.
 
 **1v3**
 - **Hunter vs. Runners:** one player hunts three who each have to reach a goal.
-- **Boss Fight:** one player is the Wither with big attacks, and three take it down.
-- **Prop Hunt (micro):** three hide as props and one seeks, in a small arena.
-- **Trap Master:** the solo player triggers traps while three cross a gauntlet.
+- **Trap Master:** the solo springs traps (drop, vanish, TNT, water) while three cross a gauntlet.
 - **Defend the Core:** three defenders against one raider with high health and strong gear.
-- **Bomb Disposal:** three players solve a puzzle while one attacker tries to stop them.
-- **Trap Door Maze:** the runners pick between doors; behind each is a shortcut or a dead-end trap
-  the solo player assigned in secret. The solo wins by trapping more runners than they let through.
-
-**1v1 and sudden death** (from the tiebreaker pool; duels also play the FFA minigames)
-- **Quick Draw**
-- **Sumo Duel**
+- **Barnyard Bluff:** three players disguised as farm animals among real ones; the farmer finds them.
+- **Labyrinth:** three run a maze to the exit from a hunter who sees over the walls.
+- **Boss Fight:** one player is the Wither, losing its powers as its health falls; three take it
+  down.
+- **Bomb Disposal:** the bomber plants, three find and defuse (a new design, keep or cut).
 
 ## Parked ideas
 
