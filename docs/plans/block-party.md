@@ -1488,7 +1488,9 @@ arena that ends by falling into the void, or ask for 3 kill regions instead of 1
 ## Minigames
 
 From the first draft; each gets its own arena map. Its checklist is written when the minigame is
-designed (the first three: "Minigame arena maps").
+designed (the first three: "Minigame arena maps"). Every one of them written out, with its arena
+map's marks, its Game settings, the pieces it needs and a build order: `block-party-minigames.md`
+(2026-11-26).
 
 **FFA: reflex and quick reaction (10-20 seconds)**
 - **Hot Floor:** a block color is announced, and everything else vanishes after a countdown.
@@ -1713,7 +1715,8 @@ reward was dropped.
    as built"), not yet seen in game: the record kept on every seat, the bonus Stars on the pre-game
    podium with the Allay, the results, the sudden death and the Allay's pick, the board's Final
    podium (new markers), the winner's orbit, and the fade to the lobby.
-9. **The rest of the minigames.**
+9. **The rest of the minigames:** `block-party-minigames.md` (each one's design, marks and
+   settings, the pieces they share, and the order to build them in).
 10. **Refinement: cameras and UI** (the user, 2026-11-17): everything that works made to work and
     look better: the cameras, the titles and the HUD, and showing coins as they're won and lost
     (the user couldn't tell when coins came in; more on this from them later). The user's spec,
