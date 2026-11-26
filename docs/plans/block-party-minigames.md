@@ -9,7 +9,8 @@ of the minigames") and the parts of pass 11 ("The minigame editor") the minigame
 
 44 minigames, 3 of them built (Hot Floor, Co-op Painters, Hunter). Everything else is proposed, for
 the user to change: the designs fill in what the user's one-liners leave open, and every number is a
-starting point to tune in play tests. The questions still open are at the end.
+starting point to tune in play tests. Every question is answered; the calls made without one are at
+the end.
 
 **For the session that builds one:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge"). Build a batch at a time
@@ -18,8 +19,8 @@ starting point to tune in play tests. The questions still open are at the end.
 - Org writing rules: no em dashes, no emojis, US spelling, in code, docs and commit messages.
 - The user builds and publishes every arena map. Never make a map thumbnail, a Minigame Thumbnail or
   a game picture, not even a placeholder.
-- Test arenas are for testing only: a plain platform with the marks the minigame reads, nothing
-  dressed up (piece 4).
+- Test arenas are for testing only, in dev mode: a plain platform with the marks the minigame
+  reads, nothing dressed up (piece 4).
 - Anything the game says goes through the dialogue tool (`block-party.md`, "Dialogue").
 - Item and model art is the user's: a new item or model gets a stand-in the user replaces.
 
@@ -43,8 +44,26 @@ starting point to tune in play tests. The questions still open are at the end.
   counted with jump), Spleef Duo (snowballs), Trap Master (more kinds of trap, water), Boss Fight
   (boss bar, powers lost as it weakens).
 - **Bomb Disposal:** revise or remove; a new design below for the user to judge.
-- **New:** Cook's Request, Slither, Mini Survival Games, Hot Potato, Leg Breaker, Montecarlo, Cactus
-  Slap, Climb the Ladder, Hole in the Wall, Labyrinth, Towers of Fortune, Hook the Mob.
+- **New:** Cook's Request, Slither, Mini Survival Games, Hot Potato (now Hot TNT), Leg Breaker,
+  Montecarlo, Cactus Slap, Climb the Ladder, Hole in the Wall, Labyrinth, Towers of Fortune, Hook the
+  Mob.
+
+The second round, the same day, answering this plan's questions:
+
+- **Test arenas:** a minigame with no published arena map isn't played in real games, only in dev
+  mode (piece 4).
+- **Hot Potato** is a lit TNT with a hidden fuse, now **Hot TNT**: the blast kills the holder and can
+  kill players near them; with 2 left, the one with more health wins, and equal health ties for
+  first.
+- **Bomb Disposal:** the new design stays.
+- **Cook's Request:** the dishes are the custom blocks pack's kitchen foods (Minecade: Kitchen) and
+  vanilla's cake and rabbit stew, and the kitchen's blocks (cooking pot, cutting board, skillet,
+  stove, sink, trash bin) work.
+- **Lists:** a JSON file of its own for each minigame (piece 12).
+- **Labyrinth:** all 3 runners must get out.
+- **Tug of War:** a real rope if it can be done (the knock-off if not), one camera for everyone,
+  jump pressed fast to tug, and tugs pressed together pulling harder.
+- **Room:** Boss Fight and Hunter fit 40 x 60; Leg Breaker gets a 96-tall Arena box.
 
 ## How a minigame is built
 
@@ -53,11 +72,13 @@ starting point to tune in play tests. The questions still open are at the end.
    tutorial, where each side starts (`spawns`), why a map can't be played (`problem`), and `play`,
    which returns the places or the side that won. Listed in `minigames/index.ts`.
 2. **Its arena:** an entry with the same id in `minigames/arenas.ts`: its name, most players, teams
-   (Red and Blue for 2v2), the Arena box (40 x 60 across at most, either way around, 48 tall),
+   (Red and Blue for 2v2), the Arena box (40 x 60 across at most, either way around, 48 tall;
+   Leg Breaker's 96),
    whether it's tiled (piece 9), and its checklist (`map`: spawns, points, regions, settings,
    adjustable rows). That entry is the map editor's and the Panel's "<Name> (Block Party)", kept in
    the map store as `blockparty-<id>`. An id is lower case letters and digits only.
-3. **Its test arena:** a plain platform laid in code with the marks its `play` reads (piece 4).
+3. **Its test arena:** a plain platform laid in code with the marks its `play` reads, played only in
+   dev mode (piece 4).
 4. **Its words:** the tutorial panel's objective and up to 3 controls for each side (`MAX_CONTROLS`).
    In code until pass 11 moves them to the dialogue tool.
 5. **Its bots:** how a bot plays it, with `bots.ts`'s helpers (`stepToward`, `thinkTicks`).
@@ -102,7 +123,7 @@ starting point to tune in play tests. The questions still open are at the end.
 
 | Mark | Map editor tool | What it's for |
 |---|---|---|
-| **Arena** box | Region tool (Arena) | What the game places: at most 40 x 60 across either way around, 48 tall. Everything below goes inside it |
+| **Arena** box | Region tool (Arena) | What the game places: at most 40 x 60 across either way around, 48 tall (Leg Breaker's 96). Everything below goes inside it |
 | **Spectator spawn** | Spawn tool | Where out players watch from |
 | **Minigame podium** | Game marker tool | 4 spots, 1st to 4th, where the results play |
 | **Podium camera** | Game marker tool | The camera on the podium; a map can turn it off (Checklist Features) |
@@ -141,14 +162,18 @@ Shared work the minigames lean on, built before the minigames that need them.
      then their second players; still level, a draw). 1v3: the solo wins by beating more of the
      others than beat them (1st or 2nd of 4; with 3 players 1st wins and 2nd is a draw).
    - **A team minigame plays FFA** only where its entry says how.
-4. **Test arenas only in tests** (the user, 2026-11-26). Each minigame keeps its test arena in code:
-   a plain platform (or a plain tile, piece 9) with the marks its `play` reads and only the shapes
-   its rules can't play without (a ladder wall, a water channel). Never dressed up; the user builds
-   the real arenas. A test arena never plays in a real game once the network is open: a **Test
-   arenas** switch on the Panel's Block Party settings, on while no arena map is published (today
-   every minigame plays its test arena), and off before players come. Off, the roulette leaves out
-   every minigame with no published arena map, and test arenas play only from Tests, `/minigame`
-   and Preview (question 1).
+4. **Test arenas only in dev mode** (the user, 2026-11-26). Each minigame keeps its test arena in
+   code: a plain platform (or a plain tile, piece 9) with the marks its `play` reads and only the
+   shapes its rules can't play without (a ladder wall, a water channel). Never dressed up; the user
+   builds the real arenas.
+   - **In a real game** a minigame with no published arena map is never picked: the roulette, every
+     format and the sudden death leave it out. A published map that can't be played is named in
+     chat, and the minigame is left out rather than its test arena standing in. A round whose
+     format has nothing left to play is played as FFA; with nothing at all, the round has no
+     minigame and the board goes on.
+   - **In dev mode,** a `DEV_TEST_ARENAS` switch in `.env` beside `DEV_TEST_GAMES` and
+     `DEV_MIN_PLAYERS`, a minigame with no arena map plays its test arena instead, as every
+     minigame does today (no arena map is published yet).
 5. **Pot point** (pass 11): where a Battle's pot lands, the arena's middle without one. Every arena
    that plays FFA; a map can turn it off.
 6. **Rules camera end** (pass 11): a second camera, and the rules camera pans slowly from the Start
@@ -176,20 +201,23 @@ Shared work the minigames lean on, built before the minigames that need them.
 11. **A look input on the tutorial panel.** Its inputs are move, jump, attack, use, sneak and sprint
     (`TUTORIAL_INPUTS`); Enderman Roulette, Simon Says, Hook the Mob and Cannon Duel need "look" too
     (the mouse, the right stick, a touch drag).
-12. **Banks the user writes:** Quiz Floor's questions, Kit Brawl's kits, Item Scramble's items, Cook's
-    Request's dishes, Towers of Fortune's item pool and Mini Survival Games' loot, each a file in
-    `games/blockparty/` like `items.json` and `dice.json` (question 5). Until the user fills one, a
-    short list in code stands in.
+12. **Each minigame's JSON file** (the user, 2026-11-26): a minigame's lists and fixed values in a
+    JSON file of its own, `games/blockparty/minigames/<id>.json`, like `items.json` and `dice.json`:
+    Quiz Floor's questions, Kit Brawl's kits, Item Scramble's items, Cook's Request's dishes and
+    recipes, Towers of Fortune's item pool, Mini Survival Games' loot, and the points tables (Mining
+    Race's ores, Hook the Mob's mobs, Egg Drop's eggs). The build checks each file against its
+    minigame's shape. The session that builds a minigame writes a short starting list for the user
+    to fill.
 13. **Hits: pushes and real damage.** Block Party's combat is `damage: "none"`, which cancels every
     hit and its knockback (core's `combat.ts`). A minigame says what a hit does to its players while
     it plays:
     - **Push:** a 0-damage hit, with vanilla's knockback and hit cooldown (Sumo's way). King of the
-      Hill, Sumo Duel, Cactus Slap, Climb the Ladder, Hot Potato, Tug of War, Capture the Wool, Spleef
-      Duo's snowballs.
+      Hill, Sumo Duel, Cactus Slap, Climb the Ladder, Hot TNT's passes, Capture the Wool, Spleef
+      Duo's snowballs, and Tug of War if it falls back to the knock-off.
     - **Real:** vanilla damage, weapons, armor, potions, falls and magma all counting, and vanilla's
       hearts on the HUD. Core already catches a lethal hit before it kills (no death screen) and
       calls `down`; the minigame takes that player out. Kit Brawl, Towers of Fortune, Mini Survival
-      Games, Leg Breaker, Defend the Core, Boss Fight.
+      Games, Leg Breaker, Defend the Core, Boss Fight, and Hot TNT's blasts.
     - Teammates never hit each other. Health is put back to full when the minigame ends.
 14. **Extra knockback:** a push on top of a hit by script (`applyKnockback`), Sumo's measured
     numbers (a 1.5x push on top of a 0-damage hit is twice vanilla's). Every minigame with a
@@ -202,7 +230,8 @@ Shared work the minigames lean on, built before the minigames that need them.
 16. **Moving entities of the game's own:** a model moved and turned by script, like the board's NPCs:
     Mob Freeze's mob, Enderman Roulette's Enderman, Button Mash's buttons, Egg Drop's eggs, Snowball
     Sniper's targets, Minecart Dodge's carts and logs, Count the Mobs' sheep, Hook the Mob's mobs,
-    Cannon Duel's cannons and balls, Trap Master's TNT, Bomb Disposal's bombs.
+    Cannon Duel's cannons and balls, Trap Master's TNT, Bomb Disposal's bombs, Hot TNT's lit TNT, Tug
+    of War's rope, and what's cooking in Cook's Request's pots and skillets.
 17. **Moving platforms that carry players:** Minecart Dodge's logs. A player doesn't move with an
     entity they stand on, so the game carries whoever stands on a log by the log's step each tick.
     Smooth carrying may jitter; the fallback moves logs a block at a time with their riders. Try
@@ -211,9 +240,9 @@ Shared work the minigames lean on, built before the minigames that need them.
     puts a player on another's head and they move together; `leashTo` ties a player to another, the
     lead pulling at 5 blocks. Carry Race, Paired Parkour.
 19. **Words for one player:** `play.tell(who, text)`, a notice in one player's dialogue box, and a
-    status line of their own. Carry Race's calls, Count the Mobs' count, Hot Potato's "you have
+    status line of their own. Carry Race's calls, Count the Mobs' count, Hot TNT's "you have
     it", Item Scramble's finds, Bomb Disposal's defusing.
-20. **Cameras in a minigame:** a fixed view everyone looks through (Count the Mobs' Pen camera), a
+20. **Cameras in a minigame:** a fixed view everyone looks through (Count the Mobs' Pen camera, Tug of War's side view), a
     camera preset that follows a player (Labyrinth's hunter, high over them, as the `follow_orbit`
     presets in Chameleon's private pack do), and short shots one after another (Button Mash's
     launches), with the runner's camera code (rules camera, podium camera).
@@ -243,7 +272,7 @@ Shared work the minigames lean on, built before the minigames that need them.
 | Anvil Rain | `anvilrain` | FFA, 1v1 | 60 s | Proposed | |
 | TNT Run | `tntrun` | FFA, 1v1 | 60 s | Proposed | 2 |
 | Egg Drop | `eggdrop` | FFA, 1v1 | 30 s | Proposed | 16 |
-| Hot Potato | `hotpotato` | FFA | 60 s | Proposed | 13, 19 |
+| Hot TNT | `hottnt` | FFA | 60 s | Proposed | 13, 16, 19 |
 | Hole in the Wall | `holeinwall` | FFA, 1v1 | 60 s | Proposed | 2 |
 | Minecart Dodge | `minecarts` | FFA, 1v1 | 60 s | Proposed, spike first | 16, 17, 21 |
 | Rising Lava | `risinglava` | FFA | 60 s | Proposed | 21 |
@@ -256,7 +285,7 @@ Shared work the minigames lean on, built before the minigames that need them.
 | Mining Race | `mining` | FFA, 1v1 | 30 s | Proposed | 15 |
 | Slither | `slither` | FFA, 1v1, 2v2 | 45 s | Proposed | |
 | Hook the Mob | `hookmob` | FFA, 1v1, 2v2 | 45 s | Proposed | 11, 16 |
-| Cook's Request | `cook` | FFA, 2v2 | 3 dishes | Proposed | 9, 12, 15 |
+| Cook's Request | `cook` | FFA, 2v2 | 3 dishes | Proposed | 9, 12, 15, 16 |
 | Quiz Floor | `quiz` | FFA, 1v1 | 8 questions | Proposed | 12 |
 | Count the Mobs | `countmobs` | FFA, 1v1 | 3 rounds | Proposed | 16, 19, 20 |
 | Kit Brawl | `kitbrawl` | FFA, 1v1, 2v2 | 30 s | Proposed | 2, 12, 13 |
@@ -266,7 +295,7 @@ Shared work the minigames lean on, built before the minigames that need them.
 | Towers of Fortune | `towers` | FFA, 1v1 | 120 s | Proposed | 2, 12, 13, 15 |
 | Mini Survival Games | `survival` | FFA, 2v2 | 120 s | Proposed | 12, 13 |
 | Co-op Painters | `painters` | 2v2 | 30 s | Built | |
-| Tug of War | `tugofwar` | 2v2 | 45 s | Proposed | 2, 13, 14 |
+| Tug of War | `tugofwar` | 2v2 | 30 s | Proposed | 16, 20 |
 | Capture the Wool | `wool` | 2v2 | 60 s | Proposed | 13 |
 | Spleef Duo | `spleef` | 2v2, FFA, 1v1 | 60 s | Proposed | 2, 13, 14, 15 |
 | Paired Parkour | `parkour` | 2v2 | 90 s | Proposed | 2, 9, 18, 21 |
@@ -278,7 +307,7 @@ Shared work the minigames lean on, built before the minigames that need them.
 | Barnyard Bluff | `barnyard` | 1v3 | 75 s | Proposed, spike first | 22 |
 | Labyrinth | `labyrinth` | 1v3 | 60 s | Proposed | 20, 21, 22 |
 | Boss Fight | `bossfight` | 1v3 | 90 s | Proposed, spike first | 2, 13, 14, 22, 23 |
-| Bomb Disposal | `bomb` | 1v3 | 75 s | New design, keep or cut | 16, 19 |
+| Bomb Disposal | `bomb` | 1v3 | 75 s | Proposed | 16, 19 |
 
 Each entry below lists the map's marks besides every map's own (above), its Game settings as
 `key`, **label**, default and range, and its Checklist Features beyond the Podium camera, Pot point
@@ -452,27 +481,30 @@ splat. Most points wins.
 - **Notes:** a catch is an egg within a player's box, then it's gone with a pop.
 - **Test arena:** a plain platform.
 
-### Hot Potato (new)
+### Hot TNT (new; the user's Hot Potato)
 
-One player holds a hot potato and passes it with a hit; no passing it straight back. Its fuse is
-hidden (15 to 30 seconds), but it shows how close it is: smoke over the holder, then flames, and a
-ticking that speeds up. The holder runs a little faster, to catch someone. When the fuse runs out it
-pops: the holder blasts up in a puff and is out, and after a moment a new potato goes to a random
-player still in. Last one in wins; the rest place by when they popped.
+One player holds a lit TNT, in hand and over their head, and passes it with a hit; no passing it
+straight back. Its fuse is hidden (15 to 30 seconds), but it shows how close it is: flashing faster,
+hissing louder, smoke. The holder runs a little faster, to catch someone. When the fuse runs out it
+blows (the user): the holder is out, anyone within 2 blocks is out too, and anyone further away but
+in the blast loses hearts, more the closer, and is thrown back. After a moment a new TNT goes to a
+random player still in.
 
-- **Mechanics (the user asked for help):** the hidden fuse above is proposed. Two others to pick
-  from (question 2): a **heat meter** each, filling only while you hold it, out when it's full (no
-  luck, and nobody waits out a fuse); or **lives**, each pop costing the holder one of 3, out at
-  none (longer, nobody out at the first pop).
+- **The end** (the user): when 2 are left, it's over: the one with more health wins, and equal health
+  ties for first. A blast that leaves one wins it for them; players out in the same blast tie. A game
+  that starts with 2 ends at the first blast. The rest place by when they went out.
 - **Marks:** 4 spawns, in a walled arena.
 - **Game settings:** `fuseMin` and `fuseMax`, **Fuse**, 15 to 30 s (5 to 90); `noPassBack`, **No
   passing back for**, 20 tenths of a second (0 to 50); `holderSpeed`, **Holder's speed**, 1 (0 to
-  3), a Speed level.
-- **Gives:** the potato, locked in the holder's hand.
-- **Controls:** attack, "Pass the potato with a hit"; move; sprint.
+  3), a Speed level; `killRadius`, **Out within**, 2 blocks (0 to 4); `blastRadius`, **Hurt
+  within**, 5 blocks (2 to 10); `blastHearts`, **Most hearts lost**, 6 (1 to 10), just past the Out
+  distance, fewer further away.
+- **Gives:** the TNT, locked in the holder's hand, and a lit TNT model over their head (piece 16).
+- **Controls:** attack, "Pass the TNT with a hit"; move; sprint.
 - **Bots:** the holder chases the nearest player; the others keep away from the holder.
-- **Notes:** a pass is a push-only hit (piece 13), so the one passed to is knocked back too. "You
-  have it" shows to the holder alone (piece 19).
+- **Notes:** a pass is a push-only hit; the blast's harm is real damage the game deals (piece 13), so
+  vanilla's hearts show it. The blast has vanilla TNT's look and sound and breaks no blocks. "You
+  have it" shows to the holder alone (piece 19). Everyone is healed when it ends.
 - **Test arena:** a plain walled platform.
 
 ### Hole in the Wall (new)
@@ -570,8 +602,8 @@ left goes back to the top, healed. At time, the rest place by how deep they got.
   are (the user: built or random).
 - **Controls:** move, "Find the holes"; jump; sneak, "Stand on magma without burning" (vanilla's).
 - **Bots:** walk to the nearest hole over the next layer's softest block and drop.
-- **Notes:** 48 blocks is a short fall for this; a taller Arena box for Leg Breaker alone (96
-  proposed) if the slot's sky has the room (question 8).
+- **Arena box:** 96 tall, for Leg Breaker alone (the user, 2026-11-26): its arena entry sets its
+  own height in place of every other arena's 48.
 - **Test arena:** a plain shaft, the game's random layers in it.
 
 ### Montecarlo (new, tiled)
@@ -629,7 +661,7 @@ chests refilled. Most points after the rounds wins.
   27).
 - **Spawns:** 8 chests around each spawn, facing it. Every player's chests hold the same items,
   shuffled among the chests and slots; the called item is in exactly one of them.
-- **Bank:** the items it calls and the ones that fill the chests (piece 12).
+- **Its file** (`scramble.json`, piece 12): the items it calls and the ones that fill the chests.
 - **Controls:** use, "Open a chest"; move.
 - **Bots:** open a chest every 2 to 3 seconds, finding the item when they open its chest.
 - **Notes:** players are kept within their own ring (put back as Build Swap does past its padding).
@@ -726,28 +758,68 @@ player loses 3. Aim one at someone else's pit. Most points wins.
 
 ### Cook's Request (new, tiled)
 
-A farm. A villager asks for a dish, and everyone races to make it: harvest the crops, collect eggs,
-milk the cow, fetch what's in the pantry chests, craft and cook (crafting table, furnace, smoker),
-then hand the dish to the villager. The dishes take several steps: cake, pumpkin pie, rabbit stew,
-cookies, golden carrots, and the custom foods the user adds to the main resource pack (sushi and the
-rest; none in the repo yet, question 4). Each request scores by order of delivery (3, 2, 1), then the
-farm resets for the next. Most points after the requests wins.
+A farm with a kitchen. A villager asks for a dish, and everyone races to make it: harvest the crops,
+milk the cow, collect eggs, take what's in the pantry chests, prepare and cook it with the kitchen's
+blocks, then hand the dish to the villager. Each request scores by order of delivery (3, 2, 1), then
+the farm resets for the next. Most points after the requests wins.
 
 - **Tiled** (piece 9): each player (each team in 2v2) has a farm of their own, so nobody takes
   anyone's wheat; in a 2v2 the two cook together.
+- **The dishes** (the user): the custom blocks pack's kitchen foods (`packs/blocks`, Minecade:
+  Kitchen): Apple Pie, Chocolate Pie, Gleaming Salad, Honey Glazed Ham, Pumpkin Pie, Rice Roll
+  Medley, Roast Chicken, Shepherd's Pie, Stuffed Pumpkin and Sweet Berry Cheesecake
+  (`minecade:apple_pie`, `minecade:honey_glazed_ham_block` and the rest), and vanilla's cake and
+  rabbit stew. A dish is handed over as its item, with a use on the villager.
+- **The kitchen** (the user: it works), the pack's blocks run by the game's script:
+  - **Stove:** the heat; a cooking pot or skillet cooks only on top of one.
+  - **Cooking pot:** a use with an ingredient puts it in (up to 6, shown floating over the pot). When
+    they make a dish and the pot is on a stove, it bubbles for a few seconds, and a use takes the
+    dish out (with a bowl, for the stews). A mix that makes nothing is tipped out with a hit.
+  - **Skillet:** a use with something raw puts it in; on a stove it's cooked in 3 seconds (meat and
+    fish, potato to baked potato, kelp to dried kelp), and a use takes it out.
+  - **Cutting board:** a use puts an item on it, and three hits chop it: a carrot, apple, pumpkin or
+    melon comes back chopped (the same item renamed "Chopped ...", which a recipe can ask for).
+  - **Sink:** a use with an empty bucket or bottle fills it with water.
+  - **Trash bin:** a use throws away what's in your hand.
+  - Crafting tables and furnaces are vanilla's (cake and rabbit stew are crafted).
 - **Marks** (one farm): 1 spawn; **Villager** (point): where the customer stands; **Pantry**
-  (point, 1 to 6): chests the game fills each request; **Cow** and **Chickens** (point, 0 to 4
-  each): where the game puts them. Crops, crafting tables and furnaces are the map's own blocks.
-- **Game settings:** `requests`, **Requests**, 3 (1 to 5); `requestTime`, **Time per request**, 60
-  s (30 to 180).
-- **Bank:** the dishes, each with its ingredients and where they come from (piece 12).
-- **Gives:** a hoe and shears that break only the farm's crops and leaves (piece 15), a bucket and
-  bowls as the dish needs.
-- **Controls:** use, "Harvest, craft, cook and hand it over"; attack, "Break crops"; move.
+  (point, 1 to 6): chests the game fills each request with what the farm doesn't grow (raw meat and
+  fish, honey bottles, mushrooms, cocoa beans, kelp, bowls, buckets, glistering melon slices) and a
+  few decoys; **Cow** and **Chickens** (point, 0 to 4 each): where the game puts them. The crops and
+  the kitchen are the map's own blocks: at least a stove with a cooking pot and a skillet on it, a
+  cutting board, a sink, a trash bin and a crafting table (`problem` names a map missing one).
+- **Game settings:** `requests`, **Requests**, 3 (1 to 5); `requestTime`, **Time per request**, 90 s
+  (30 to 240); `cookTime`, **The pot cooks for**, 5 s (1 to 20).
+- **Its file** (`cook.json`, piece 12): the dishes, their recipes, what the skillet cooks and the
+  cutting board chops, and what the pantry holds.
+- **Gives:** a hoe and shears that break only the farm's crops (piece 15), a bucket and bowls.
+- **Controls:** use, "Harvest, cook and hand it over"; attack, "Break crops, chop on the board";
+  move.
 - **Bots:** deliver after a time drawn around a good player's, now and then late.
 - **Notes:** the farm resets by placing its copy again. The villager is the board's Villager NPC
-  model. Eggs come from the chickens' spot as items, quicker than vanilla laying.
-- **Test arena:** a plain tile with a few crops, a crafting table, a furnace and a chest.
+  model. Chickens drop an egg every few seconds, quicker than vanilla's laying. If a use on a custom
+  block doesn't reach the script in Adventure, Cook's Request plays in Survival like Towers of
+  Fortune (piece 15).
+- **Test arena:** a plain tile with a few of each crop, a cow, the kitchen's blocks, a crafting table
+  and a chest.
+
+The starting recipes (proposed, the user's to change in `cook.json`). Milk is a milk bucket, whose
+bucket comes back; sugar is crafted from the farm's sugar cane, bread from its wheat.
+
+| Dish | Made in | From |
+|---|---|---|
+| Cake | Crafting table (vanilla's) | 3 milk, 2 sugar, an egg, 3 wheat |
+| Rabbit Stew | Crafting table (vanilla's) | cooked rabbit, a carrot, a baked potato, a mushroom, a bowl |
+| Pumpkin Pie | Cooking pot | chopped pumpkin, sugar, an egg, wheat |
+| Apple Pie | Cooking pot | 2 chopped apples, sugar, wheat, milk |
+| Chocolate Pie | Cooking pot | 2 cocoa beans, sugar, wheat, milk |
+| Sweet Berry Cheesecake | Cooking pot | 3 sweet berries, sugar, wheat, milk |
+| Gleaming Salad | Cooking pot | a glistering melon slice, chopped melon, a chopped carrot, a bowl |
+| Honey Glazed Ham | Cooking pot | 2 cooked porkchops, a honey bottle, sweet berries |
+| Roast Chicken | Cooking pot | cooked chicken, a chopped carrot, a baked potato, bread |
+| Shepherd's Pie | Cooking pot | cooked mutton, a baked potato, a chopped carrot, a water bucket |
+| Stuffed Pumpkin | Cooking pot | a pumpkin, a mushroom, a baked potato, sweet berries, a chopped carrot |
+| Rice Roll Medley | Cooking pot | cooked salmon, 2 dried kelp, a chopped carrot, a water bottle |
 
 ## Brains
 
@@ -762,7 +834,7 @@ no speed points. The right pad lights up. Most points after the questions wins.
   blue, yellow, green) with its answer floating over it.
 - **Game settings:** `answerTime`, **Answer time**, 10 s (5 to 30); `questions`, **Questions**, 8 (3
   to 20).
-- **Bank:** the user's questions, each with 4 answers and the right one (piece 12).
+- **Its file** (`quiz.json`, piece 12): the user's questions, each with 4 answers and the right one.
 - **Controls:** move, "Stand on your answer"; jump, "Lock it in".
 - **Bots:** right about 60% of the time, locking in after 2 to 6 seconds.
 - **Notes:** the answers also show in the dialogue box beside their colors.
@@ -801,7 +873,7 @@ place by hearts left, then by when they went out.
 - **Game settings:** `playTime`, **Time**, 30 s (10 to 90).
 - **Checklist Features:** Kill Y can be off (an arena walled in).
 - **Gives:** the kit.
-- **Bank:** `games/blockparty/kits.json`, the user's: each kit's items and armor, and its weight.
+- **Its file** (`kitbrawl.json`, piece 12): each kit's items and armor, and its weight.
 - **Plays as 2v2:** teammates can't hurt each other; team colors on the name and the leather armor,
   when the kit has none of its own.
 - **Controls:** attack, "Hit"; move; use, when the kit has a bow or food.
@@ -864,7 +936,7 @@ rest place by hearts left.
 - **Marks:** 4 spawns, each on top of its pillar (the map's pillars); Kill Y.
 - **Game settings:** `playTime`, **Time limit**, 120 s (60 to 300); `itemEvery`, **An item every**,
   5 s (2 to 20).
-- **Bank:** the item pool, each with its weight (piece 12).
+- **Its file** (`towers.json`, piece 12): the item pool, each with its weight.
 - **Controls:** use, "Place, eat, throw"; attack, "Fight, break"; move.
 - **Bots:** bridge toward the nearest player with the blocks they get and hit in reach; weak here.
 - **Notes:** plays in Survival (piece 15), so everything places and breaks and spawn eggs work; mobs
@@ -883,7 +955,7 @@ at time, the rest place by hearts left.
 - **Game settings:** `playTime`, **Time limit**, 120 s (60 to 300); `grace`, **No fighting for**, 10
   s (0 to 30); `borderStart`, **Border closes after**, 60 s (0 to 240); `borderEnd`, **Border ends
   at**, 8 blocks across (4 to 30).
-- **Bank:** the Middle and Outer loot (piece 12).
+- **Its file** (`survival.json`, piece 12): the Middle and Outer loot.
 - **Plays as 2v2:** teammates can't hurt each other.
 - **Controls:** use, "Open chests"; attack, "Fight"; move.
 - **Bots:** go to the nearest chest, take what's best, then fight the nearest player.
@@ -902,19 +974,33 @@ time wins.
 - **Marks:** **Floor** (region): its lowest layer is what gets painted, flat, in any one block.
 - **Game settings:** `playTime`, **Time**, 30 s (15 to 120), the number in `painters.ts` today.
 
-### Tug of War
+### Tug of War (changed: a real tug)
 
-The teams start at either end of a long platform over a drop. Hits push hard: knock the other team
-off. A fall is out. The last team with someone standing wins; at time, the team with more standing
-wins, and equal is a draw.
+Both teams hold one rope stretched over a pool of water, Red at one end and Blue at the other, and
+everyone watches through one camera from the side (the user). Press jump as fast as you can: every
+press is a tug toward your end. Tugs pressed together pull harder: when both teammates press within a
+moment of each other, both tugs count extra (the user). The flag in the rope's middle moves toward the
+team pulling harder; pull it far enough your way and the other team is dragged into the water. At
+time, the team the flag is nearer wins; dead center is a draw.
 
-- **Marks:** Kill Y.
-- **Game settings:** `playTime`, **Time**, 45 s (20 to 120); `knockback`, **Knockback**, 20 tenths
-  of vanilla's (10 to 40).
-- **Controls:** move; attack, "Push"; jump.
-- **Bots:** walk at the nearest rival and hit.
-- **Notes:** the draft's knockback version; question 7 has a rope instead.
-- **Test arena:** a plain long platform over the void.
+- **Marks:** Red and Blue team spawns (2 each; the game lines them up on the rope); **Rope** (region,
+  1): the rope lies along its long way, the flag at its middle, and the end nearer Red's spawns is
+  Red's; **Tug camera** (point, 1): the camera everyone watches through, placed with Take my facing.
+  The water under the middle is the map's.
+- **Game settings:** `playTime`, **Time**, 30 s (15 to 90); `pullToWin`, **Pull to win**, 5 blocks
+  (2 to 15); `tugPull`, **A tug pulls**, 10 hundredths of a block (2 to 50); `together`, **Together
+  within**, 2 tenths of a second (1 to 5); `togetherBoost`, **Together pulls**, 150% (100 to 300).
+- **Checklist Features:** Tug camera can be off: the game frames the rope from its side.
+- **Spawns:** the rope, a model of the game's own with a flag at its middle, moved by script (piece
+  16); the players are held on it and moved with it.
+- **Controls:** jump, "Tug: press as fast as you can, together with your teammate".
+- **Bots:** press 6 to 9 times a second, in time with their teammate about half the time.
+- **Notes:** a tug is a jump press (`playerButtonInput`, Jump, Pressed); the jump itself is turned
+  off while they hold the rope (the board's `hold`), so nobody hops. Each tug plays a pull animation.
+  The flag moves by both teams' pulls each tick, smoothed so it slides. If the rope can't be made to
+  work, the draft's knock-off stands in: the teams knock each other off a long platform (push hits,
+  piece 13, with a Knockback setting, piece 14).
+- **Test arena:** a plain platform with a pool of water in the middle.
 
 ### Capture the Wool
 
@@ -1091,13 +1177,13 @@ is still hidden at time, or when the farmer runs out of wrong guesses.
 
 A maze with walls 2 blocks tall. The trio start at one side and must reach the Exit; the hunter
 chases them with a camera high over their own head that sees over every wall (the user's custom
-view), and catches a runner with a hit (out). The trio win if enough of them get out before time;
-otherwise the hunter wins.
+view), and catches a runner with a hit (out). The trio win only if all of them get out before time
+(the user), so a single catch wins it for the hunter.
 
 - **Marks:** **Hunter spawn** (point); **Runner spawns** (point, 3); **Exit** (region, 1); **Maze**
   (region, 1): the game builds a random maze with 2-tall walls inside it each time.
 - **Game settings:** `playTime`, **Time**, 60 s (30 to 120); `headStart`, **Hunter waits**, 3 s (0
-  to 10); `needed`, **Runners who must get out**, 2 (1 to 3; 1v2 at most 2); `cameraHeight`,
+  to 10); `needed`, **Runners who must get out**, 3 (1 to 3; 1v2: both); `cameraHeight`,
   **Hunter's camera height**, 8 blocks (4 to 20).
 - **Checklist Features:** Maze can be off: the map's own maze stays as it is.
 - **Needs:** the hunter's camera (piece 20), a `follow_orbit` preset raised over them; the hunter
@@ -1106,8 +1192,6 @@ otherwise the hunter wins.
   "Find the exit"; sprint.
 - **Bots:** the hunter takes the maze's shortest way to the nearest runner; runners head for the
   exit by the maze's way, with a wrong turn now and then.
-- **Notes:** the user wrote that the 3 runners have to reach the end; Hunter's "at least half" is
-  proposed as the default, and `needed` 3 makes it all three (question 6).
 - **Test arena:** a plain floor, the game's random maze on it.
 
 ### Boss Fight (changed: boss bar, powers lost)
@@ -1130,13 +1214,13 @@ nothing; the Wither wins when the trio are all out or time runs out.
 - **Controls:** Wither: use, "Fire a skull"; jump, "Rise"; attack, "Hit". Trio: attack, "Hit"; use,
   "Shoot"; move.
 - **Bots:** the Wither hovers and fires at the nearest player; the trio shoot from range.
-- **Notes:** the riskiest one: try the Wither form, its hover and the boss bar in a spike first. The
-  plan wanted up to 128 blocks for this one (question 8).
+- **Notes:** the riskiest one: try the Wither form, its hover and the boss bar in a spike first. It
+  fits 40 x 60 (the user, 2026-11-26).
 - **Test arena:** a plain walled platform.
 
-### Bomb Disposal (new design, keep or cut)
+### Bomb Disposal (new design, kept)
 
-The user wants better mechanics or none (question 3). Proposed:
+The user asked for better mechanics and kept this design (2026-11-26):
 
 1. **Plant** (15 s): the trio wait shut in a room while the Bomber walks the arena and plants 3
    bombs, each at any of the map's Bomb sites (use on a site).
@@ -1170,37 +1254,31 @@ both.
 1. **Plain FFA, nothing new:** Mob Freeze, Simon Says, Enderman Roulette, TNT Run, Anvil Rain,
    Chicken Chase, Slither (a 2v2 too).
 2. **Push hits, and a second team game of each kind:** King of the Hill, Sumo Duel, Cactus Slap (then
-   into the sudden death's pool), Climb the Ladder, Hot Potato, Tug of War (2v2), Capture the Wool
-   (2v2), Trap Master (1v3, with lists in pairs and its four traps).
-3. **Real damage:** Kit Brawl (a 2v2 too), Defend the Core (1v3), Leg Breaker.
+   into the sudden death's pool), Climb the Ladder, Capture the Wool (2v2), Trap Master (1v3, with
+   lists in pairs and its four traps).
+3. **Real damage:** Kit Brawl (a 2v2 too), Defend the Core (1v3), Leg Breaker (its 96-tall box), Hot
+   TNT.
 4. **Place and break, Survival:** Mining Race, Spleef Duo (2v2), Towers of Fortune, Mini Survival
    Games.
-5. **Banks, words for one player, cameras:** Quiz Floor, Item Scramble, Count the Mobs, Button Mash
-   with its launches.
-6. **Tiled arenas:** Montecarlo, Cook's Request (a 2v2 too).
+5. **JSON files, words for one player, cameras:** Quiz Floor, Item Scramble, Count the Mobs, Button
+   Mash with its launches, Tug of War (2v2, the rope), Bomb Disposal (1v3).
+6. **Tiled arenas:** Montecarlo, Cook's Request (a 2v2 too) with its working kitchen.
 7. **Moving entities:** Egg Drop, Snowball Sniper, Hole in the Wall, Hook the Mob (a 2v2 too), Cannon
    Duel (2v2).
 8. **Riding, leads and bots on a course:** Paired Parkour (2v2), Carry Race (2v2), Rising Lava,
    Labyrinth (1v3).
 9. **Moving platforms:** Minecart Dodge, after its spike (piece 17).
 10. **Playing as a mob:** Barnyard Bluff (1v3) and Boss Fight (1v3), after their spike.
-11. **Bomb Disposal,** if the user keeps it.
 
-## Questions for the user
+## Calls made without a question
 
-1. **Test arenas in real games:** a Test arenas switch on the Panel, on while no arena map is
-   published and off before the network opens (proposed), or never at all (a minigame with no
-   published arena map left out of every real game, which today is all of them)?
-2. **Hot Potato:** how a player loses: the hidden fuse (proposed), a heat meter, or lives?
-3. **Bomb Disposal:** keep the new design (the Bomber plants, the squad finds and defuses), or cut
-   it?
-4. **Cook's Request:** which pack has the custom foods (sushi)? None are in network or the workshop
-   yet. And a farm for each player (proposed) or one shared farm where players can take each
-   other's crops?
-5. **The banks** (quiz questions, kits, Item Scramble's items, Cook's dishes, Towers of Fortune's
-   items, Mini Survival Games' loot): files of your own (proposed), or texts in the dialogue tool?
-6. **Labyrinth:** how many runners must get out to win: 2 of 3 (proposed, a Game setting), or all 3?
-7. **Tug of War:** the draft's knock-off (proposed), or a real tug: each team hits its end of a
-   rope, the rope moves toward the team hitting more, and the losers are pulled into the water?
-8. **Room:** do Boss Fight and Hunter fit 40 x 60 (proposed: yes), and should Leg Breaker get a
-   taller Arena box (96 proposed) for a longer fall?
+Every question is answered (2026-11-26). These were taken without one; the user can change any of
+them:
+
+- Hot TNT's name, and its blast: out within 2 blocks of the holder, hurt out to 5.
+- Cook's Request: a farm for each player (each team in 2v2), and the starting recipes in its entry.
+- Barnyard Bluff: the farmer's 3 wrong guesses.
+- Enderman Roulette: scoring by the order players look away.
+- Mob Freeze's mob: an Iron Golem.
+- Dev mode as a `DEV_TEST_ARENAS` switch in `.env`.
+- Every Plays as default, every Game setting's default and range, and the test arenas' shapes.

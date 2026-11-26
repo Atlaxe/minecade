@@ -1399,7 +1399,7 @@ it has none. The checklists so far, each with the Arena box, a spectator spawn a
 - **One box, the Arena, made to fit the arena background's slot:** 40 x 60 blocks across at most
   (see "Arena backgrounds"), one structure copy. Before the user's arena background idea this was
   64 x 64, with the few that need room (Boss Fight, Hunter vs. Runners, Minecart Dodge) up to about
-  128; those three are the open point above.
+  128; the user settled it on 2026-11-26: all three fit 40 x 60.
 - **Self-contained:** any backdrop goes inside the box. Outside it is the board's arena background,
   wherever it's played.
 - **Spawns by format:** FFA 4 (every FFA arena also works with 2 or 3 players); 2v2 Red and Blue
@@ -1511,7 +1511,7 @@ Barnyard Bluff.
 - **Anvil Rain:** dodge falling anvils across a shrinking safe zone.
 - **TNT Run (mini):** the floor drops out as you run over it.
 - **Egg Drop:** catch slowly falling eggs before they land.
-- **Hot Potato:** pass the potato with a hit before it pops.
+- **Hot TNT:** pass the lit TNT with a hit before it blows; the blast can take out players nearby.
 - **Hole in the Wall:** walls with holes come at you; get in a hole or get pushed off.
 
 **Races and courses**
@@ -1528,7 +1528,7 @@ Barnyard Bluff.
 - **Mining Race:** break ores in a small cube, each ore worth its own points.
 - **Slither:** grow your color across the floor from its edge; nobody paints over anyone.
 - **Hook the Mob:** fish mobs into your pit, creepers into someone else's.
-- **Cook's Request:** make the villager's dish from your own farm.
+- **Cook's Request:** make the villager's dish from your own farm, in a working kitchen.
 
 **Brains**
 - **Quiz Floor:** 4 answers on 4 pads, quiz show style, faster right answers scoring more.
@@ -1543,7 +1543,7 @@ Barnyard Bluff.
 - **Mini Survival Games:** chests, a closing border, last one standing.
 
 **2v2**
-- **Tug of War:** teams push each other with knockback toward the other team's edge.
+- **Tug of War:** both teams on one rope, pressing jump to tug; tugs pressed together pull harder.
 - **Capture the Wool:** a mini version, one wool block per side.
 - **Spleef Duo:** the floor breaks, broken blocks give snowballs, and the last team standing wins.
 - **Paired Parkour:** teammates are tied by a short lead and cross a course together.
@@ -1556,10 +1556,11 @@ Barnyard Bluff.
 - **Trap Master:** the solo springs traps (drop, vanish, TNT, water) while three cross a gauntlet.
 - **Defend the Core:** three defenders against one raider with high health and strong gear.
 - **Barnyard Bluff:** three players disguised as farm animals among real ones; the farmer finds them.
-- **Labyrinth:** three run a maze to the exit from a hunter who sees over the walls.
+- **Labyrinth:** three run a maze to the exit from a hunter who sees over the walls; all three
+  must get out.
 - **Boss Fight:** one player is the Wither, losing its powers as its health falls; three take it
   down.
-- **Bomb Disposal:** the bomber plants, three find and defuse (a new design, keep or cut).
+- **Bomb Disposal:** the bomber plants, and three find the bombs by their ticking and defuse them.
 
 ## Parked ideas
 
