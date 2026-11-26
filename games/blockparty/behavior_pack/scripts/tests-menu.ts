@@ -23,6 +23,7 @@ export const TEST_WORDS = [
   "transfers",
   "npcs",
   "arenas",
+  "testarenas",
   "ride",
   "end",
 ] as const;

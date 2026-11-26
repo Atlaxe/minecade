@@ -28,7 +28,9 @@
 //     time, behind the minigame announcement's star field (stars.ts) fading in over the view and out
 //     again on the new place;
 //   - a player riding a player and on a lead (two players; both need private_packs/players/,
-//     vanilla's player.json made rideable and leashable).
+//     vanilla's player.json made rideable and leashable);
+//   - every minigame's test arena (minigames/test-arenas.ts, or a built one's own), laid where arenas
+//     go with its marks shown, to look at (testing only).
 // What a test tells a player in chat also goes to the server's log ("blockparty test:" lines).
 import {
   ButtonState,
@@ -92,7 +94,10 @@ import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
 import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
 import { fits, type Format } from "./minigame-rules.ts";
 import { MinigameRunner, type ArenaPlace, type TutorialView } from "./minigame-runner.ts";
+import { ARENAS, MARKUP, PAINTER_TEAMS } from "./minigames/arenas.ts";
 import { MINIGAMES } from "./minigames/index.ts";
+import { fill, type Field, type Spot } from "./minigames/kit.ts";
+import { TEST_ARENAS, layTestArena, testArenaCopies, testArenaField } from "./minigames/test-arenas.ts";
 import { Npcs } from "./npcs.ts";
 import { DEFAULT_SETTINGS, Pieces, WALK_CAMERAS, hold, lock, resendLocks, unlock, type PieceSettings } from "./pieces.ts";
 import { SHOTS, Shots, type ShotId } from "./shots.ts";
@@ -211,6 +216,21 @@ const JUMP_MODES: readonly { id: JumpMode; label: string }[] = [
 /** Where arenas are placed: far east of the board, their middle at x and z, their floor from y. */
 const ARENA_AT: Vec3 = [2000, 0, 0];
 const ARENA_AREA = "minecade:blockparty_arena";
+/** How long a test arena's marks show, in ticks (a minute). */
+const MARKS_SHOWN = 1200;
+
+/** A checklist's points or regions (arenas.ts) as map keys and labels: one per team or type, the podium left out (a test arena's results use the game's stand-in). */
+function markKeys(record: unknown, teams: readonly string[]): [string, string][] {
+  const needs = (record ?? {}) as Record<string, { label?: string; perTeam?: boolean; types?: { id: string; name: string }[] }>;
+  return Object.entries(needs)
+    .filter(([key]) => key !== MARKUP.podium && key !== MARKUP.podiumCamera)
+    .flatMap(([key, need]): [string, string][] => {
+      const label = need.label ?? key;
+      if (need.perTeam) return teams.map((team): [string, string] => [`${key}.${team}`, `${label} (${team})`]);
+      if (need.types) return need.types.map((type): [string, string] => [`${key}.${type.id}`, `${label} (${type.name})`]);
+      return [[key, label]];
+    });
+}
 const BOARD_AREA = "minecade:blockparty_board";
 /** Ticks between the star field's strengths as it fades in or out (STAR_LEVELS of them), as the old loading screen's. */
 const STAR_STEP = 1;
@@ -265,6 +285,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private shots!: Shots;
   private readonly tests = new Map<string, PlayerTests>();
   private arena: { id: string; min: Vector3; size: Vector3 } | undefined;
+  /** The test arena laid to look at (Test arenas), its box, and what stops its marks showing. */
+  private testArena: { min: Vector3; max: Vector3; stop: () => void } | undefined;
   /** Whether the test board's blocks are down: nobody is put on it before. */
   private boardReady = false;
   private slowLoads = false;
@@ -1632,6 +1654,7 @@ export class BlockPartySpike extends Minigame<Config> {
       transfers: ["Transfer animations", () => this.transfersForm(player)],
       npcs: [this.npcs.spawned ? "Take the NPCs away" : "Put the NPCs out", () => this.toggleNpcs()],
       arenas: ["Arenas from other maps", () => this.arenaMenu(player)],
+      testarenas: ["Test arenas", () => this.testArenaMenu(player)],
       ride: ["Ride and lead (two players)", () => this.rideMenu(player)],
       end: ["End the test game", () => this.finish(draw("ended from the Tests menu"))],
     };
@@ -2177,6 +2200,133 @@ export class BlockPartySpike extends Minigame<Config> {
       if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
     });
     this.everyone("Back on the board.");
+  }
+
+  // ---- Test arenas ------------------------------------------------------------------------
+
+  /**
+   * Every minigame's test arena (the user asked, 2026-11-26): the built ones' own, the rest from
+   * test-arenas.ts, a tiled one as many copies side by side as fit. Laid where arenas go behind the
+   * star field, everyone moved onto it, its marks shown for a minute. Testing only.
+   */
+  private async testArenaMenu(player: Player): Promise<void> {
+    if (this.runner.active) return this.tell(player, "Test arenas wait until the minigame on now is over.");
+    const form = new ActionFormData().title("Test arenas");
+    const actions: (() => Promise<void>)[] = [];
+    for (const arena of ARENAS) {
+      const built = MINIGAMES.some((def) => def.id === arena.id);
+      if (!built && !TEST_ARENAS[arena.id]) continue;
+      form.button(built ? arena.name : `${arena.name} (not built)`);
+      actions.push(() => this.layTestArenaFor(arena.id, arena.name));
+    }
+    if (this.testArena) {
+      form.button("Back to the board");
+      actions.push(() => this.leaveTestArena());
+    }
+    const response = await showForm(this.scope, player, form);
+    if (response?.selection === undefined) return;
+    await actions[response.selection]?.();
+  }
+
+  private async layTestArenaFor(id: string, name: string): Promise<void> {
+    const def = MINIGAMES.find((candidate) => candidate.id === id);
+    const plan = TEST_ARENAS[id];
+    if (!def && !plan) return;
+    const size = def ? def.size : plan.size;
+    const copies = def ? 1 : testArenaCopies(id);
+    const { middle } = this.arenaPlace();
+    const min = { x: Math.floor(middle.x - (size[0] * copies) / 2), y: Math.floor(middle.y), z: Math.floor(middle.z - size[2] / 2) };
+    const max = { x: min.x + size[0] * copies - 1, y: min.y + size[1] - 1, z: min.z + size[2] - 1 };
+    const dimension = world.getDimension("overworld");
+    const before = this.testArena;
+    this.testArena = undefined;
+    let field: Field | undefined;
+    let failed: string[] = [];
+    await this.behindStars(async () => {
+      before?.stop();
+      const manager = world.tickingAreaManager;
+      if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
+      const from = before ? { x: Math.min(min.x, before.min.x), y: Math.min(min.y, before.min.y), z: Math.min(min.z, before.min.z) } : min;
+      const to = before ? { x: Math.max(max.x, before.max.x), y: Math.max(max.y, before.max.y), z: Math.max(max.z, before.max.z) } : max;
+      await manager.createTickingArea(ARENA_AREA, { dimension, from, to });
+      if (before) fill(dimension, before.min, before.max, "minecraft:air");
+      fill(dimension, min, max, "minecraft:air");
+      if (def) def.build(dimension, min, Math.random);
+      else failed = layTestArena(dimension, plan, min, copies);
+      field = def ? def.testField(min) : testArenaField(plan, min);
+      const start = field.spawns[0] ?? field.teamSpawns(PAINTER_TEAMS[0].id)[0] ?? this.standingSpot(min, { x: size[0], y: size[1], z: size[2] });
+      for (const each of world.getAllPlayers()) {
+        this.pieces.release(each);
+        each.teleport(start);
+      }
+    });
+    if (!field) return;
+    const shown = this.showMarks(id, field);
+    this.testArena = { min, max, stop: shown.stop };
+    const killY = def ? undefined : plan.killY;
+    const copiesText = copies > 1 ? `, ${copies} copies side by side` : "";
+    const killText = killY !== undefined ? `; Kill Y ${min.y + killY}` : "";
+    const failedText = failed.length > 0 ? ` Not placed (not on this server): ${failed.join(", ")}.` : "";
+    this.everyone(`${name}'s test arena (testing only), ${size[0]} x ${size[1]} x ${size[2]}${copiesText}. Its marks, shown for a minute (green spawns, blue points, flames at each box's corners): ${shown.summary}${killText}.${failedText}`);
+  }
+
+  /** Every mark a test arena's checklist names (arenas.ts, the podium aside), shown with particles for a minute; and a line saying what they are. */
+  private showMarks(id: string, field: Field): { summary: string; stop: () => void } {
+    const arena = ARENAS.find((candidate) => candidate.id === id);
+    const teams = arena?.teams ? PAINTER_TEAMS.map((team) => team.id) : [];
+    const spots: Spot[] = [...field.spawns, ...teams.flatMap((team) => field.teamSpawns(team))];
+    const parts: string[] = [];
+    if (field.spawns.length > 0) parts.push(`${field.spawns.length} spawns`);
+    for (const team of teams) parts.push(`${field.teamSpawns(team).length} ${team} spawns`);
+    const points: Spot[] = [];
+    const corners: Vector3[] = [];
+    for (const [key, label] of markKeys(arena?.map?.points, teams)) {
+      const found = field.points(key);
+      points.push(...found);
+      parts.push(`${label} ${found.length}`);
+    }
+    for (const [key, label] of markKeys(arena?.map?.regions, teams)) {
+      const found = field.regions(key);
+      for (const box of found) {
+        for (const x of [box.min.x, box.max.x + 1]) for (const y of [box.min.y, box.max.y + 1]) for (const z of [box.min.z, box.max.z + 1]) corners.push({ x, y, z });
+      }
+      parts.push(`${label} (box) ${found.length}`);
+    }
+    const dimension = world.getDimension("overworld");
+    const spawn = (particle: string, at: Vector3) => {
+      try {
+        dimension.spawnParticle(particle, at);
+      } catch {
+        // not loaded
+      }
+    };
+    const timer = this.scope.interval(() => {
+      for (const spot of spots) spawn("minecraft:villager_happy", { x: spot.x, y: spot.y + 0.5, z: spot.z });
+      for (const spot of points) spawn("minecraft:blue_flame_particle", { x: spot.x, y: spot.y + 0.5, z: spot.z });
+      for (const corner of corners) spawn("minecraft:basic_flame_particle", corner);
+    }, 10);
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      system.clearRun(timer);
+    };
+    this.scope.timeout(stop, MARKS_SHOWN);
+    return { summary: parts.length > 0 ? parts.join(", ") : "none", stop };
+  }
+
+  private async leaveTestArena(): Promise<void> {
+    const laid = this.testArena;
+    if (!laid) return;
+    this.testArena = undefined;
+    await this.behindStars(() => {
+      laid.stop();
+      for (const player of world.getAllPlayers()) this.pieces.place(player);
+      fill(world.getDimension("overworld"), laid.min, laid.max, "minecraft:air");
+      const manager = world.tickingAreaManager;
+      if (manager.hasTickingArea(ARENA_AREA)) manager.removeTickingArea(ARENA_AREA);
+    });
+    this.everyone("Back on the board; the test arena is cleared.");
   }
 
   // ---- Riding and leads -------------------------------------------------------------------

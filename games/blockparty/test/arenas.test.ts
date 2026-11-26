@@ -1,23 +1,71 @@
-// Block Party's minigame arenas (minigames/arenas.ts): every minigame has its editor entry, each
-// plays on its test arena while it has no map, and on an arena map it reads its markup where the
-// map's Arena box was placed, turned or not.
+// Block Party's minigame arenas (minigames/arenas.ts): every minigame of the plan has its editor
+// entry, built or not; each has a test arena (a built one's own, the rest test-arenas.ts's) that its
+// checklist passes; and on an arena map a minigame reads its markup where the map's Arena box was
+// placed, turned or not.
 import { describe, expect, it } from "vitest";
 import { mapChecklist, placeArena, STRUCTURE_REGION, arenaRequirements, type MapConfig } from "@minecade/minigame-core/config";
-import { ARENAS, MARKUP } from "../behavior_pack/scripts/minigames/arenas.ts";
+import { ARENAS, ARENA_HEIGHT, LEG_BREAKER_HEIGHT, MARKUP, PAINTER_TEAMS, TILED } from "../behavior_pack/scripts/minigames/arenas.ts";
 import { HOT_FLOOR } from "../behavior_pack/scripts/minigames/hot-floor.ts";
 import { HUNTER } from "../behavior_pack/scripts/minigames/hunter.ts";
 import { MINIGAMES } from "../behavior_pack/scripts/minigames/index.ts";
 import { mapField } from "../behavior_pack/scripts/minigames/kit.ts";
 import { PAINTERS } from "../behavior_pack/scripts/minigames/painters.ts";
+import { TEST_ARENAS, testArenaCopies, testArenaField, testArenaMap } from "../behavior_pack/scripts/minigames/test-arenas.ts";
 import config from "../game.config.ts";
 
 const ORIGIN = { x: 1000, y: 64, z: 0 };
 
 describe("Block Party's arenas", () => {
-  it("are the game's minigames, each an editor entry of its own", () => {
+  it("are every minigame of the plan, built or not, each an editor entry of its own", () => {
     expect(config.arenas).toBe(ARENAS);
-    expect(ARENAS.map((arena) => [arena.id, arena.name])).toEqual(MINIGAMES.map((def) => [def.id, def.name]));
-    for (const arena of ARENAS) expect(arena.box).toEqual({ footprint: [40, 60], height: 48 });
+    expect(ARENAS).toHaveLength(44);
+    const byId = new Map(ARENAS.map((arena) => [arena.id, arena.name]));
+    expect(byId.size).toBe(ARENAS.length);
+    for (const def of MINIGAMES) expect(byId.get(def.id)).toBe(def.name);
+    for (const arena of ARENAS) expect(arena.box).toEqual({ footprint: [40, 60], height: arena.id === "legbreaker" ? LEG_BREAKER_HEIGHT : ARENA_HEIGHT });
+  });
+
+  it("give every minigame not built yet a test arena its checklist passes, its marks inside it", () => {
+    const built = new Set(MINIGAMES.map((def) => def.id));
+    for (const arena of ARENAS) {
+      const plan = TEST_ARENAS[arena.id];
+      if (built.has(arena.id)) {
+        expect(plan, arena.id).toBeUndefined();
+        continue;
+      }
+      expect(plan, arena.id).toBeDefined();
+      const [w, h, d] = plan.size;
+      expect(w * testArenaCopies(arena.id), arena.id).toBeLessThanOrEqual(40);
+      expect(d, arena.id).toBeLessThanOrEqual(60);
+      expect(h, arena.id).toBeLessThanOrEqual(arena.box.height ?? ARENA_HEIGHT);
+      const inBox = ([x, y, z]: readonly number[]) => x >= 0 && x < w && y >= 0 && y < h && z >= 0 && z < d;
+      for (const each of plan.fills) expect(inBox(each.from) && inBox(each.to), `${arena.id} fill`).toBe(true);
+      // As an arena map, with the podium every map adds: ready.
+      const map: MapConfig = {
+        ...testArenaMap(plan, arena.name),
+        points: {
+          ...testArenaMap(plan, arena.name).points,
+          [MARKUP.podium]: [0, 1, 2, 3].map((i): [number, number, number] => [i, 1, 0]),
+          [MARKUP.podiumCamera]: [[0, 2, 0, 0, 0]],
+        },
+      };
+      // As the map editor checks it (targets.ts): teams only for an arena that has them.
+      const teams = arena.teams ? { teams: PAINTER_TEAMS.map(({ id, name }) => ({ id, name })) } : {};
+      const checklist = mapChecklist(map, { kind: "game", maxPlayers: arena.maxPlayers, ...teams, requires: arenaRequirements(arena) });
+      expect(checklist.problems, arena.id).toEqual([]);
+      // The minigame reads the same marks where it's laid.
+      const field = testArenaField(plan, ORIGIN);
+      for (const [key, spots] of Object.entries(plan.points ?? {})) expect(field.points(key), `${arena.id} ${key}`).toHaveLength(spots.length);
+      for (const [key, boxes] of Object.entries(plan.regions ?? {})) expect(field.regions(key), `${arena.id} ${key}`).toHaveLength(boxes.length);
+    }
+  });
+
+  it("tile the arenas played as a copy each: one player's or one team's place", () => {
+    expect(Object.keys(TILED).sort()).toEqual(["carryrace", "cook", "montecarlo", "parkour"]);
+    expect(testArenaCopies("montecarlo")).toBe(4);
+    expect(testArenaCopies("cook")).toBe(4);
+    expect(testArenaCopies("parkour")).toBe(2);
+    expect(testArenaCopies("hottnt")).toBe(1);
   });
 
   it("each have a test arena with the markup its minigame reads, enough for every seat", () => {

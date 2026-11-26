@@ -1367,8 +1367,8 @@ board it's played from, and the same arena map works on every board.
   the background's own), the rules camera's backdrop, and lights and decoration. Nothing in it may
   reach into the slot.
 - **Time of day:** the arena's own time still applies while it's played (see below).
-- **Still to decide when it's built:** whether Boss Fight, Hunter vs. Runners and Minecart Dodge
-  (which wanted up to 128) are designed to fit 40 x 60, or a background can have a bigger slot.
+- **Decided (the user, 2026-11-26):** Boss Fight, Hunter vs. Runners and Minecart Dodge (which
+  wanted up to 128) fit 40 x 60.
 
 ### Minigame arena maps
 
@@ -1385,6 +1385,11 @@ it has none. The checklists so far, each with the Arena box, a spectator spawn a
 | Hot Floor | 4 spawns on the floor (a duel uses the first 2); **Floor (tiles)**, a box whose lowest layer the game lays its 3 x 3 tiles in, as many as fit each way from its lowest corner (at least 2 x 2) |
 | Co-op Painters | Red and Blue team spawns, 2 each; **Floor**, a box whose lowest layer is what gets painted |
 | Hunter | **Hunter spawn** and 3 **Runner spawns** (1v2 uses the first 2), and the **Goal** box: a runner over it is home |
+
+**Every other minigame's entry (2026-11-26):** all 44 minigames of `block-party-minigames.md` have
+their entry, checklist and Game settings in `minigames/arenas.ts`, built or not, so their maps can be
+made ahead of their code; the 41 not built have plain test arenas in `minigames/test-arenas.ts`, and
+the Tests menu's Test arenas lays any of them.
 
 - **The rules camera** is the arena map's Start view camera (the Camera tool's), else one over the
   arena. The slow pan between two cameras is for pass 10.

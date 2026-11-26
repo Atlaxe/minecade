@@ -48,6 +48,18 @@ describe("validateGameConfig", () => {
     ]);
   });
 
+  it("checks an arena's Game settings as a game's own", () => {
+    const arena = { id: "hotfloor", name: "Hot Floor", maxPlayers: 4, box: { footprint: [40, 60] as [number, number] } };
+    const settings = { rounds: { label: "Most rounds", default: 12, min: 3, max: 30 } };
+    expect(validateGameConfig({ ...game, arenas: [{ ...arena, map: { settings } }] }, "sumo")).toEqual([]);
+    const bad = { colors: { label: "Colors", default: 6, min: 2, max: 6 }, rounds: { label: "", default: 40, min: 3, max: 30 } };
+    expect(validateGameConfig({ ...game, arenas: [{ ...arena, map: { settings: bad } }] }, "sumo")).toEqual([
+      'arenas "hotfloor": map.settings.colors: the key must be letters, digits and _, starting with a letter, and not one map.json has',
+      'arenas "hotfloor": map.settings.rounds needs a label',
+      'arenas "hotfloor": map.settings.rounds: the default must be from 3 to 30',
+    ]);
+  });
+
   it("takes item ids for the mannequins to hold, named or not", () => {
     expect(validateGameConfig({ ...game, mannequinItems: ["minecraft:bow", { item: "minecade:{color}_paintball_rifle", name: "Rifle" }] }, "sumo")).toEqual([]);
     expect(validateGameConfig({ ...game, mannequinItems: ["bow", { name: "Rifle" } as unknown as { item: string }] }, "sumo")).toEqual([

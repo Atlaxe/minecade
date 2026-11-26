@@ -7,8 +7,10 @@ formats it plays (Plays as), what its arena map marks in the map editor, the num
 hands out, the tutorial's controls, how bots play it and its test arena. It covers pass 9 ("The rest
 of the minigames") and the parts of pass 11 ("The minigame editor") the minigames need.
 
-44 minigames, 3 of them built (Hot Floor, Co-op Painters, Hunter). Everything else is proposed, for
-the user to change: the designs fill in what the user's one-liners leave open, and every number is a
+44 minigames, 3 of them built (Hot Floor, Co-op Painters, Hunter). **Every one has its map editor
+entry** (its checklist and Game settings, `minigames/arenas.ts`), and every one not built has its
+**test arena** (`minigames/test-arenas.ts`; the Tests menu's Test arenas lays any of them with its
+marks shown), since 2026-11-26. Everything else is proposed, for the user to change: the designs fill in what the user's one-liners leave open, and every number is a
 starting point to tune in play tests. Every question is answered; the calls made without one are at
 the end.
 
@@ -65,6 +67,14 @@ The second round, the same day, answering this plan's questions:
   jump pressed fast to tug, and tugs pressed together pulling harder.
 - **Room:** Boss Fight and Hunter fit 40 x 60; Leg Breaker gets a 96-tall Arena box.
 
+The third round, the same day, with the entries and test arenas:
+
+- **Cook's Request:** no farm; a few interactables give the ingredients. A crop that's broken isn't
+  destroyed: it drops its crop, goes back to its first stage and grows back quickly. The same for
+  animals that are killed: they come back soon.
+- **Barnyard Bluff:** the farmer has 4 guesses, so one can miss.
+- **Mob Freeze:** the mob is a Warden.
+
 ## How a minigame is built
 
 1. **Its code:** `games/blockparty/behavior_pack/scripts/minigames/<id>.ts`, a `MinigameDef`
@@ -78,7 +88,8 @@ The second round, the same day, answering this plan's questions:
    adjustable rows). That entry is the map editor's and the Panel's "<Name> (Block Party)", kept in
    the map store as `blockparty-<id>`. An id is lower case letters and digits only.
 3. **Its test arena:** a plain platform laid in code with the marks its `play` reads, played only in
-   dev mode (piece 4).
+   dev mode (piece 4). Every minigame not built has one in `minigames/test-arenas.ts`; its MinigameDef
+   uses it (`TEST_ARENAS`, `layTestArena`, `testArenaField`) once it's built.
 4. **Its words:** the tutorial panel's objective and up to 3 controls for each side (`MAX_CONTROLS`).
    In code until pass 11 moves them to the dialogue tool.
 5. **Its bots:** how a bot plays it, with `bots.ts`'s helpers (`stepToward`, `thinkTicks`).
@@ -171,6 +182,11 @@ Shared work the minigames lean on, built before the minigames that need them.
      chat, and the minigame is left out rather than its test arena standing in. A round whose
      format has nothing left to play is played as FFA; with nothing at all, the round has no
      minigame and the board goes on.
+   - **Built (2026-11-26):** every minigame's entry with its checklist and Game settings
+     (`minigames/arenas.ts`), and the test arenas of those not built (`minigames/test-arenas.ts`),
+     each checked against its own checklist (`test/arenas.test.ts`). The Tests menu's **Test
+     arenas** lays any minigame's test arena where arenas go (a tiled one as many copies as fit),
+     moves everyone onto it and shows its marks for a minute; Back to the board clears it.
    - **In dev mode,** a `DEV_TEST_ARENAS` switch in `.env` beside `DEV_TEST_GAMES` and
      `DEV_MIN_PLAYERS`, a minigame with no arena map plays its test arena instead, as every
      minigame does today (no arena map is published yet).
@@ -331,7 +347,7 @@ one standing wins; the rest place by when they fell (falling together is a tie).
 - **Game settings** (the numbers in `hot-floor.ts` today): `firstCount`, **First countdown**, 40
   tenths of a second (15 to 100); `lastCount`, **Shortest countdown**, 15 tenths (5 to 50);
   `countStep`, **Shorter each round by**, 3 tenths (0 to 20); `rounds`, **Most rounds**, 12 (3 to
-  30); `colors`, **Colors**, 6 (2 to 6).
+  30); `colorCount`, **Colors**, 6 (2 to 6) (`colors` is map.json's own key).
 - **Checklist Features:** Kill Y can be off.
 - **Test arena:** today's, with 1 x 1 tiles.
 
@@ -342,14 +358,14 @@ players creep toward it; it turns around after a warning sound, and anyone movin
 goes back to the start line and starts again (the user). First over the Finish wins; when time runs
 out, the rest place by how close they got.
 
-- **Marks:** 4 spawns on the start line, facing the mob; **Mob** (point, 1): where it stands,
-  facing the players; **Finish** (region, 1): a player over it has made it.
+- **Marks:** 4 spawns on the start line, facing the mob; **Warden** (point, 1, key `mob`): where it
+  stands, facing the players; **Finish** (region, 1): a player over it has made it.
 - **Game settings:** `playTime`, **Time limit**, 30 s (15 to 90); `awayMin` and `awayMax`, **Looks
   away for**, 10 to 40 tenths of a second (5 to 100); `watch`, **Watches for**, 25 tenths (10 to
   60); `warning`, **Warning before it turns**, 5 tenths (0 to 20); `grace`, **Reaction time**, 3
   tenths (0 to 10): moving this soon after it turns doesn't count.
-- **Spawns:** the mob, an entity of the game's own on a vanilla mob's model like the board's NPCs
-  (an Iron Golem proposed), turned by script.
+- **Spawns:** the Warden (the user), an entity of the game's own on vanilla's Warden model like the
+  board's NPCs (the board has a hidden Warden already), turned by script.
 - **Controls:** move, "Creep toward the mob while it looks away"; sprint, "Go faster".
 - **Bots:** walk while it looks away, stop at the warning, now and then a moment late.
 - **Notes:** moving is the movement input or a jump, read each tick while it watches, so pushing
@@ -519,8 +535,7 @@ faster. Last one in wins; the rest place by when they went out.
   across the platform's width at one end; the wall moves from there across the Platform to its far
   side; Kill Y.
 - **Game settings:** `walls`, **Walls**, 10 (3 to 30); `firstSpeed`, **First wall speed**, 2 blocks
-  a second (1 to 8); `lastSpeed`, **Last wall speed**, 5 (1 to 12); `holes`, **Holes**, 0 (0 to 6): 0
-  means one fewer than the players still in.
+  a second (1 to 8); `lastSpeed`, **Last wall speed**, 5 (1 to 12); `holes`, **Holes**, 3 (1 to 6).
 - **Spawns:** each wall as blocks, moved a layer at a time (the new layer placed, the old cleared),
   its holes cut at random: 1 wide and 2 tall at the floor, some raised a block to jump into.
 - **Controls:** move, "Get in a hole"; jump, "Jump into the high ones".
@@ -573,7 +588,7 @@ in when it reaches the top ties first.
 
 - **Marks:** 4 spawns low down; **Rise** (region, 1): the liquid fills it from bottom to top, and
   the climb goes inside it.
-- **Game settings:** `liquid`, **Liquid**, 0 lava or 1 water (0 to 1); `startDelay`, **First rise
+- **Game settings:** `water`, **Water instead of lava**, 0 (0 to 1); `startDelay`, **First rise
   after**, 5 s (0 to 30); `riseEvery`, **A layer every**, 20 tenths of a second at first (5 to 100);
   `riseEnd`, **A layer every, at the end**, 8 tenths (3 to 100).
 - **Controls:** move; jump, "Climb"; sprint.
@@ -758,13 +773,23 @@ player loses 3. Aim one at someone else's pit. Most points wins.
 
 ### Cook's Request (new, tiled)
 
-A farm with a kitchen. A villager asks for a dish, and everyone races to make it: harvest the crops,
-milk the cow, collect eggs, take what's in the pantry chests, prepare and cook it with the kitchen's
-blocks, then hand the dish to the villager. Each request scores by order of delivery (3, 2, 1), then
-the farm resets for the next. Most points after the requests wins.
+A kitchen with a few interactables that give the ingredients (the user: no farm). A villager asks
+for a dish, and everyone races to make it: take what the crops, animals and pantry chests give,
+prepare and cook it with the kitchen's blocks, then hand the dish to the villager. Each request
+scores by order of delivery (3, 2, 1), then the kitchen resets for the next. Most points after the
+requests wins.
 
-- **Tiled** (piece 9): each player (each team in 2v2) has a farm of their own, so nobody takes
+- **Tiled** (piece 9): each player (each team in 2v2) has a kitchen of their own, so nobody takes
   anyone's wheat; in a 2v2 the two cook together.
+- **The interactables** (the user):
+  - **Crops** (the map's own, any of them in the tile): breaking one gives its crop, and the crop
+    isn't destroyed: it goes back to its first stage (seeds) and grows back in a few seconds. The
+    break itself is cancelled (`playerBreakBlock`'s before event) and the stage set by script.
+  - **Animals** at the Animal spots: hitting one "kills" it, giving its meat (raw beef, porkchop,
+    chicken, mutton, rabbit); a use with a bucket milks a cow, and a chicken gives an egg on a use.
+    A killed animal comes back at its spot a few seconds later. They're the game's own (Block
+    Party's hits hurt no mob), on vanilla's models.
+  - **Pantry** chests for the rest.
 - **The dishes** (the user): the custom blocks pack's kitchen foods (`packs/blocks`, Minecade:
   Kitchen): Apple Pie, Chocolate Pie, Gleaming Salad, Honey Glazed Ham, Pumpkin Pie, Rice Roll
   Medley, Roast Chicken, Shepherd's Pie, Stuffed Pumpkin and Sweet Berry Cheesecake
@@ -782,29 +807,32 @@ the farm resets for the next. Most points after the requests wins.
   - **Sink:** a use with an empty bucket or bottle fills it with water.
   - **Trash bin:** a use throws away what's in your hand.
   - Crafting tables and furnaces are vanilla's (cake and rabbit stew are crafted).
-- **Marks** (one farm): 1 spawn; **Villager** (point): where the customer stands; **Pantry**
-  (point, 1 to 6): chests the game fills each request with what the farm doesn't grow (raw meat and
-  fish, honey bottles, mushrooms, cocoa beans, kelp, bowls, buckets, glistering melon slices) and a
-  few decoys; **Cow** and **Chickens** (point, 0 to 4 each): where the game puts them. The crops and
-  the kitchen are the map's own blocks: at least a stove with a cooking pot and a skillet on it, a
-  cutting board, a sink, a trash bin and a crafting table (`problem` names a map missing one).
+- **Marks** (one kitchen): 2 spawns (a 2v2 team's two; FFA uses the first); **Villager** (point):
+  where the customer stands; **Pantry** (point, 2, 1 to 6): the game places a chest at each and fills
+  it each request with what the crops and animals don't give (fish, honey bottles, mushrooms, cocoa
+  beans, kelp, sugar, bowls, buckets, glistering melon slices) and a few decoys; **Animal spots**
+  (point, 2, 0 to 6): where the game keeps the animals the dish needs. The crops and the kitchen are
+  the map's own blocks: at least a stove with a cooking pot and a skillet on it, a cutting board, a
+  sink, a trash bin and a crafting table (`problem` names a map missing one).
 - **Game settings:** `requests`, **Requests**, 3 (1 to 5); `requestTime`, **Time per request**, 90 s
-  (30 to 240); `cookTime`, **The pot cooks for**, 5 s (1 to 20).
+  (30 to 240); `cookTime`, **The pot cooks for**, 5 s (1 to 20); `regrow`, **Crops and animals back
+  after**, 5 s (1 to 30).
 - **Its file** (`cook.json`, piece 12): the dishes, their recipes, what the skillet cooks and the
   cutting board chops, and what the pantry holds.
-- **Gives:** a hoe and shears that break only the farm's crops (piece 15), a bucket and bowls.
+- **Gives:** a hoe that can break only the crops (piece 15; the break is cancelled as above), a
+  bucket and bowls.
 - **Controls:** use, "Harvest, cook and hand it over"; attack, "Break crops, chop on the board";
   move.
 - **Bots:** deliver after a time drawn around a good player's, now and then late.
-- **Notes:** the farm resets by placing its copy again. The villager is the board's Villager NPC
-  model. Chickens drop an egg every few seconds, quicker than vanilla's laying. If a use on a custom
+- **Notes:** the kitchen resets by placing its copy again. The villager is the board's Villager NPC
+  model. If a use on a custom
   block doesn't reach the script in Adventure, Cook's Request plays in Survival like Towers of
   Fortune (piece 15).
-- **Test arena:** a plain tile with a few of each crop, a cow, the kitchen's blocks, a crafting table
-  and a chest.
+- **Test arena:** a plain tile with a row each of wheat, carrots, potatoes and beetroot (watered
+  farmland), two animal spots, the kitchen's blocks and a crafting table; 4 copies side by side.
 
 The starting recipes (proposed, the user's to change in `cook.json`). Milk is a milk bucket, whose
-bucket comes back; sugar is crafted from the farm's sugar cane, bread from its wheat.
+bucket comes back; sugar comes from the pantry, bread is crafted from the crops' wheat.
 
 | Dish | Made in | From |
 |---|---|---|
@@ -950,8 +978,8 @@ On Go, grab gear and fight; real damage (piece 13). Nobody can hurt anyone for t
 After a while the border closes in toward the middle, and outside it hurts. Last one standing wins;
 at time, the rest place by hearts left.
 
-- **Marks:** 4 spawns, the pedestals, facing the middle; **Chests** (point, 4 to 20, typed Middle
-  and Outer): the game places a chest at each and fills it, the Middle ones with better loot.
+- **Marks:** 4 spawns, the pedestals, facing the middle; **Chests** (point, typed Middle, 2, and
+  Outer, 4): the game places a chest at each and fills it, the Middle ones with better loot.
 - **Game settings:** `playTime`, **Time limit**, 120 s (60 to 300); `grace`, **No fighting for**, 10
   s (0 to 30); `borderStart`, **Border closes after**, 60 s (0 to 240); `borderEnd`, **Border ends
   at**, 8 blocks across (4 to 30).
@@ -1116,13 +1144,15 @@ A runner who falls or is touched by water (the trap's or any in the gauntlet) di
 the start. The runners win if at least half get through before time; otherwise the master wins.
 
 - **Marks:** **Master spawn** (point): in the booth, facing the course; **Runner spawns** (point, 3);
-  **Traps** (region, 6, in order); **Levers** (point, as many as Traps, in the same order, typed
-  Drop, Vanish, TNT or Water: the nth lever works the nth trap, its type the trap's kind; piece 10);
-  **Finish** (region, 1); Kill Y.
+  a region and a point list for each kind, **Drop traps** and **Drop levers**, **Vanish traps** and
+  **Vanish levers**, **TNT traps** and **TNT levers**, **Water traps** and **Water levers** (1 each;
+  the nth lever of a kind works the nth trap of that kind; piece 10); **Finish** (region, 1); Kill
+  Y.
 - **Game settings:** `playTime`, **Time**, 60 s (30 to 120); `open`, **Trap lasts**, 20 tenths of a
   second (5 to 60); `cooldown`, **Lever waits**, 5 s (1 to 20); `tntRadius`, **TNT blast**, 3 blocks
   (1 to 6).
-- **Checklist Features:** Traps' count, 2 to 10 (Levers follow it).
+- **Checklist Features:** each kind's traps and levers can be off, or 1 to 3 (its levers the same
+  count as its traps).
 - **Spawns:** a lever model at each Lever point; the TNT.
 - **Controls:** master: attack, "Hit a lever to spring its trap". Runners: move; jump; sprint.
 - **Bots:** the master springs the trap a runner is on after a reaction delay; runners walk the
@@ -1154,15 +1184,15 @@ until time.
 
 A farm full of vanilla farm animals, and three of them are players in disguise (the user). The farmer
 has to find them. The hiders each look like a cow, a pig, a sheep or a chicken and must act like one:
-wander, stop, wander. The farmer hits an animal to guess: a hider is found and out; a real animal
-costs one of the farmer's wrong guesses. The farmer wins by finding all three; the hiders win if any
-is still hidden at time, or when the farmer runs out of wrong guesses.
+wander, stop, wander. The farmer has 4 guesses (the user): each hit on an animal uses one, and a
+hider hit is found and out, so with 3 hiders one guess can miss. The farmer wins by finding all
+three; the hiders win if any is still hidden at time, or when the guesses run out.
 
 - **Marks:** **Farmer spawn** (point): in the barn; **Hider spawns** (point, 3); **Herd** (region,
   1): the game spawns the animals inside it, and the map's fences keep them there.
 - **Game settings:** `hideTime`, **Time to blend in**, 10 s (5 to 30): the farmer waits shut in the
   barn; `playTime`, **Time to find them**, 60 s (30 to 120); `animals`, **Animals**, 20 (8 to 40);
-  `wrongGuesses`, **Wrong guesses**, 3 (1 to 10).
+  `guesses`, **Guesses**, 4 (3 to 10).
 - **Spawns:** vanilla cows, pigs, sheep and chickens, wandering as vanilla's do.
 - **Needs:** playing as a mob (piece 22): each hider's model is a farm animal's, picked at random
   and named in their tutorial, name tag hidden.
@@ -1248,8 +1278,8 @@ A batch at a time, each a pass of its own with the user's look after it. A 20-tu
 3 rounds each of 2v2 and 1v3, and only one of each is built, so the early batches bring more of
 both.
 
-0. **The pieces for every minigame** (1 to 8), Plays as with the defaults above, and the look input
-   (11). The three built minigames get their Game settings; Hot Floor gets 1 x 1 tiles; Quick Draw
+0. **The pieces for every minigame** (1 to 8; the entries and test arenas of piece 4 are built),
+   Plays as with the defaults above, and the look input (11). The three built minigames get their Game settings; Hot Floor gets 1 x 1 tiles; Quick Draw
    leaves the sudden death's pool (`end-game.ts`, `TIEBREAK_IDS`).
 1. **Plain FFA, nothing new:** Mob Freeze, Simon Says, Enderman Roulette, TNT Run, Anvil Rain,
    Chicken Chase, Slither (a 2v2 too).
@@ -1276,9 +1306,8 @@ Every question is answered (2026-11-26). These were taken without one; the user 
 them:
 
 - Hot TNT's name, and its blast: out within 2 blocks of the holder, hurt out to 5.
-- Cook's Request: a farm for each player (each team in 2v2), and the starting recipes in its entry.
-- Barnyard Bluff: the farmer's 3 wrong guesses.
+- Cook's Request: a kitchen for each player (each team in 2v2), and the starting recipes in its entry.
 - Enderman Roulette: scoring by the order players look away.
-- Mob Freeze's mob: an Iron Golem.
 - Dev mode as a `DEV_TEST_ARENAS` switch in `.env`.
 - Every Plays as default, every Game setting's default and range, and the test arenas' shapes.
+- The mark names in `minigames/arenas.ts` (`MARKUP`) and each checklist's counts.

@@ -13,6 +13,7 @@ import {
   possibleTeams,
   settingFits,
   type GameConfig,
+  type MapRequirementsConfig,
 } from "@minecade/minigame-core/config";
 
 export { mapWarnings, validateMapConfig, type MapRules } from "@minecade/minigame-core/config";
@@ -68,7 +69,7 @@ export function validateGameConfig(config: GameConfig, folder: string): string[]
   if (config.respawn?.mode === "lives" && !(Number.isInteger(config.respawn.lives) && config.respawn.lives! >= 1)) {
     problems.push('respawn.lives must be at least 1 when respawn.mode is "lives"');
   }
-  problems.push(...validateMapSettings(config));
+  problems.push(...validateMapSettings(config.map));
   // Requirement options: what each map may change of its checklist (map.adjustable).
   problems.push(...adjustableProblems(config.map, { kind: "game", maxPlayers: config.maxPlayers, teams: config.teams ? possibleTeams(config.teams) : [] }));
   problems.push(...validateBorrow(config));
@@ -100,6 +101,7 @@ export function validateArenas(config: GameConfig): string[] {
     if (own && (Array.isArray(own) ? own.includes(STRUCTURE_REGION) : Object.hasOwn(own, STRUCTURE_REGION))) problems.push(`${where}: map.regions can't name "${STRUCTURE_REGION}", the Arena box every arena map has`);
     if (arena.map?.borrow || arena.map?.board) problems.push(`${where}: an arena's map block can't borrow maps or have a board`);
     problems.push(...adjustableProblems(arenaRequirements(arena), { kind: "game", maxPlayers: arena.maxPlayers, teams: arena.teams ? possibleTeams(arena.teams) : [] }).map((problem) => `${where}: ${problem}`));
+    problems.push(...validateMapSettings(arena.map).map((problem) => `${where}: ${problem}`));
   }
   return problems;
 }
@@ -109,10 +111,10 @@ const REGION_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 /** An item id: "minecraft:bow", "minecade:{color}_paintball_rifle". */
 const ITEM_ID = /^[a-z0-9_.-]+:[a-z0-9_.{}/-]+$/;
 
-/** Per-map settings: a key of the game's own in map.json, whole numbers, and a default in range. */
-function validateMapSettings(config: GameConfig): string[] {
+/** Per-map settings (a game's, or one of its arenas'): a key of the game's own in map.json, whole numbers, and a default in range. */
+function validateMapSettings(map: MapRequirementsConfig | undefined): string[] {
   const problems: string[] = [];
-  for (const setting of mapSettings(config.map)) {
+  for (const setting of mapSettings(map)) {
     const where = `map.settings.${setting.key}`;
     if (!REGION_NAME.test(setting.key) || isMapKey(setting.key)) problems.push(`${where}: the key must be letters, digits and _, starting with a letter, and not one map.json has`);
     if (!setting.label) problems.push(`${where} needs a label`);
