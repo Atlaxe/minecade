@@ -17,7 +17,7 @@ import { EntityComponentTypes, ItemStack, system, world, type Entity, type Playe
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/cook.json";
 import { MARKUP } from "./arenas.ts";
-import { blockAt, blockId, botWait, clock, everyTick, inside, item, onPlan, pick, placesBy, removeEntity, setBlock, sideMap, spawnIn, tilesOf, winnerBy } from "./common.ts";
+import { blockAt, blockId, botArm, botHold, botLook, botStep, botWait, clock, everyTick, flat, inside, item, onPlan, pick, placesBy, removeEntity, setBlock, sideMap, spawnIn, tilesOf, winnerBy } from "./common.ts";
 import { type Field, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 interface Ingredient {
@@ -361,7 +361,43 @@ export const COOK: MinigameDef = {
       play.notice(`Request ${request}: ${dish.name}!\nMade ${how}`, 120);
       // An all-bot side's delivery time: a Medium bot's (botWait), so a slower level can miss a request.
       const botAt = new Map(sides.map((side, s) => [s, side.every((who) => !who.player) ? botWait(play, Math.floor(requestTime * (0.35 + play.random() * 0.45))) : -1]));
+      // Meanwhile its bots work the kitchen, as players would: to a pantry chest, an animal or the
+      // villager, a look and a use there (a chest's sound at a chest), a moment, then the next.
+      const jobs = new Map<string, { to: Vector3; chest: boolean; until?: number }>();
+      for (const who of sides.flat()) if (!who.player) botHold(play, who, undefined);
+      const nextJob = (s: number): { to: Vector3; chest: boolean } => {
+        const tile = kitchens[s];
+        const places = [...tile.points(MARKUP.pantry).map((at) => ({ to: at, chest: true })), ...tile.points(MARKUP.animals).map((at) => ({ to: at, chest: false })), ...tile.points(MARKUP.villager).map((at) => ({ to: at, chest: false }))];
+        return pick(places, play.random) ?? { to: tile.points(MARKUP.villager)[0], chest: false };
+      };
+      const work = (tick: number) => {
+        sides.forEach((side, s) => {
+          if ((botAt.get(s) ?? -1) < 0 || delivered.includes(s)) return;
+          for (const who of side) {
+            const body = play.bodyOf(who);
+            if (!body) continue;
+            let job = jobs.get(who.key);
+            if (!job || (job.until !== undefined && tick >= job.until)) {
+              job = nextJob(s);
+              jobs.set(who.key, job);
+            }
+            if (job.until !== undefined) continue;
+            if (!botStep(play, who, { x: job.to.x, y: body.location.y, z: job.to.z }, undefined, 1.4) && flat(body.location, job.to) > 1.5) continue;
+            job.until = tick + botWait(play, 20 + Math.floor(play.random() * 25));
+            botLook(play, who, job.to);
+            botArm(play, who);
+            if (job.chest) {
+              try {
+                dimension.playSound("random.chestopen", job.to, { volume: 0.6 });
+              } catch {
+                // unloaded
+              }
+            }
+          }
+        });
+      };
       await everyTick(play, requestTime, (tick) => {
+        work(tick);
         const now = system.currentTick;
         for (const pot of pots.values()) {
           if (pot.cookingUntil !== undefined && now >= pot.cookingUntil) {
@@ -387,6 +423,13 @@ export const COOK: MinigameDef = {
         // All-bot sides deliver at their time.
         for (const [side, at] of botAt) {
           if (at >= 0 && tick >= at && !delivered.includes(side)) {
+            // The dish held up to the villager.
+            const villager = kitchens[side].points(MARKUP.villager)[0];
+            for (const who of sides[side]) {
+              botHold(play, who, dish.id);
+              if (villager) botLook(play, who, villager);
+              botArm(play, who);
+            }
             delivered.push(side);
             scores[side] += DELIVERY[delivered.length - 1] ?? 0;
             play.say(`${sides[side].map((one) => one.name).join(" and ")} served ${dish.name}${delivered.length === 1 ? " first" : ""}.`);

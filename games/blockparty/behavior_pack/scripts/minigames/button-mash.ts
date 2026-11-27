@@ -8,7 +8,7 @@
 import { world, type Entity } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botFace, botWait, clock, everyTick, isPlayer, moveTo, onPlan, placesBy, spawnIn } from "./common.ts";
+import { botArm, botFace, botWait, clock, everyTick, isPlayer, moveTo, onPlan, placesBy, spawnIn } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** Each launch's ticks, and how hard the highest launch goes up (applyKnockback's vertical). */
@@ -67,6 +67,7 @@ export const BUTTON_MASH: MinigameDef = {
         if (!body || !button?.isValid) continue;
         if (tick === 0) botFace(body, button.location);
         if (tick >= (nextBotHit.get(who.key) ?? 0)) {
+          botArm(play, who);
           hit(who);
           nextBotHit.set(who.key, tick + soonest + Math.floor(play.random() * (latest - soonest + 1)));
         }

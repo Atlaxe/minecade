@@ -6,7 +6,7 @@
 // it. Bots: the loader walks between pile and cannon; the aimer fires with some error.
 import { EntityComponentTypes, world, type Vector3 } from "@minecraft/server";
 import { MARKUP, PAINTER_TEAMS } from "./arenas.ts";
-import { BOT_WALK, botAim, botStep, clock, everyTick, flat, inside, isPlayer, item, now, onPlan, throwFrom, winnerBy } from "./common.ts";
+import { BOT_WALK, botAim, botArm, botHold, botLook, botStep, clock, everyTick, flat, inside, isPlayer, item, now, onPlan, throwFrom, winnerBy } from "./common.ts";
 import { middleOf, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** How close counts as at the pile or the cannon. */
@@ -105,9 +105,20 @@ export const CANNONS: MinigameDef = {
         if (!carrying.has(loader.key) && !loaded[s] && flat(body.location, ammo[s]) < NEAR) {
           carrying.add(loader.key);
           if (loader.player) play.give(loader, item("minecraft:fire_charge", { name: "Cannonball" }), 1);
+          else {
+            // A bot picks a cannonball up off the pile and carries it in hand.
+            botLook(play, loader, ammo[s]);
+            botArm(play, loader);
+            botHold(play, loader, "minecraft:fire_charge");
+          }
         } else if (carrying.has(loader.key) && flat(body.location, cannons[s]) < NEAR + 0.5) {
           carrying.delete(loader.key);
           loaded[s] = true;
+          if (!loader.player) {
+            botLook(play, loader, cannons[s]);
+            botArm(play, loader);
+            botHold(play, loader, undefined);
+          }
           loader.player?.getComponent(EntityComponentTypes.Inventory)?.container?.setItem(1, undefined);
           play.tell(aimers[s], "Loaded!", 30);
         }

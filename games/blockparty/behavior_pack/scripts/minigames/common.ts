@@ -5,8 +5,12 @@
 // game's bots play (play.skill; bot-skill.ts): botStep, botRun, botWalkTo and botBrawl step at its
 // pace, botBrawl and Hearts.botSwing wait its time between hits, and botWait, botAim, botOdds and
 // botSlip give a minigame's own bot numbers for its level (each written as a Medium bot's).
+// Bots act like players (bots.ts): every hit of botBrawl and Hearts.botSwing and every throw of
+// throwFrom swings the bot's arm, a bot holds what a minigame gives it and wears what wear() puts on,
+// and botArm (a chest opened, a button pressed, a block placed or broken), botCrouch, botLook,
+// botHold and botShoot (a bow drawn, then let go) show the rest.
 import { BlockPermutation, EntityComponentTypes, EntityDamageCause, EquipmentSlot, ItemLockMode, ItemStack, system, world, type Block, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
-import { BOT_RUN, BOT_WALK, hop, isPlayer, moveBot, stepBot, stepToward, type Who } from "../bots.ts";
+import { BOT_ENTITY, BOT_RUN, BOT_WALK, heldBy, holdItem, hop, isPlayer, lookAt, moveBot, poseOf, setPose, stepBot, stepToward, swingArm, wearArmor, type Who } from "../bots.ts";
 import { aim, odds, pace, slip, wait } from "../bot-skill.ts";
 import { TEST_ARENAS, layTestArena, testArenaCopies, testArenaField } from "./test-arenas.ts";
 import { middleOf, secondsText, type Field, type MinigameDef, type Play, type Spot, type WorldBox } from "./kit.ts";
@@ -122,6 +126,81 @@ export function botSlip(play: Play, chance: number): number {
   return slip(play.skill, chance);
 }
 
+/** A bot's body now, or nothing for a player or someone gone. */
+function botBody(play: Play, who: Who): Entity | undefined {
+  const body = play.bodyOf(who);
+  return body && !isPlayer(body) && body.isValid ? body : undefined;
+}
+
+/** A bot swings its arm, as a player does to open a chest, press a button, place or break a block. */
+export function botArm(play: Play, who: Who): void {
+  const body = botBody(play, who);
+  if (body) swingArm(body);
+}
+
+/** A bot crouches (sneaks), or stands up again, as a player does to defuse, bridge or count down. */
+export function botCrouch(play: Play, who: Who, on: boolean): void {
+  const body = botBody(play, who);
+  if (body && (poseOf(body) === "crouch") !== on) setPose(body, on ? "crouch" : "stand");
+}
+
+/** A bot looks at a spot (its body round, its head up or down); at a face with `eyes` (a body's location). */
+export function botLook(play: Play, who: Who, at: Vector3, eyes = false): void {
+  const body = botBody(play, who);
+  if (body) lookAt(body, at, eyes);
+}
+
+/** A bot holds an item (its id) in its hand, or nothing. */
+export function botHold(play: Play, who: Who, itemId: string | undefined): void {
+  const body = botBody(play, who);
+  if (body && heldBy(body) !== itemId) holdItem(body, itemId);
+}
+
+/** Ticks a bot draws its bow before it lets go (a Medium bot's: botWait); a player's full draw is a second. */
+const BOW_DRAW = 16;
+/** Bots drawing a bow now, by key. */
+const drawing = new Set<string>();
+
+/** Whether a bot is drawing its bow now (botShoot): it stands while it draws. */
+export function botDrawing(who: Who): boolean {
+  return drawing.has(who.key);
+}
+
+/**
+ * A bot shoots a bow at a spot like a player: it takes the bow in hand, draws it looking at where
+ * `at` says, lets an arrow go (throwFrom) at the end of the draw, at where `at` says then, and puts
+ * the bow down for what it held. False when it's drawing already (or isn't a bot).
+ */
+export function botShoot(play: Play, who: Who, at: () => Vector3 | undefined, options: { speed?: number; error?: number } = {}): boolean {
+  const body = botBody(play, who);
+  if (!body || drawing.has(who.key)) return false;
+  const before = heldBy(body);
+  const target = at();
+  if (!target) return false;
+  drawing.add(who.key);
+  holdItem(body, "minecraft:bow");
+  setPose(body, "bow");
+  lookAt(body, target);
+  const draw = botWait(play, BOW_DRAW);
+  // It keeps its aim on the target as it draws.
+  for (let tick = 2; tick < draw; tick += 2) {
+    play.scope.timeout(() => {
+      const now = at();
+      if (now && body.isValid) lookAt(body, now);
+    }, tick);
+  }
+  play.scope.timeout(() => {
+    drawing.delete(who.key);
+    if (!body.isValid) return;
+    const now = at();
+    if (now) throwFrom(play, body, now, { type: "minecraft:arrow", speed: options.speed ?? 2.5, error: options.error ?? 0 });
+    setPose(body, "stand");
+    holdItem(body, before);
+  }, draw);
+  play.scope.add(() => drawing.delete(who.key));
+  return true;
+}
+
 /** Who's a bot among those still in. */
 export function botsIn(play: Play): Who[] {
   return play.inPlay().filter((who) => !who.player);
@@ -172,8 +251,17 @@ export function wholeFloor(field: Field): WorldBox {
 export function botStep(play: Play, who: Who, target: Vector3, speed = BOT_WALK, near = 0.3): boolean {
   const body = play.bodyOf(who);
   if (!body || isPlayer(body) || play.pushed(who)) return false;
-  return stepToward(body, target, botPace(play, speed), near);
+  const pace = botPace(play, speed);
+  const there = stepToward(body, target, pace, near);
+  // Sprinting a long way, it jumps now and then, as players do.
+  if (!there && pace >= SPRINT_JUMP_PACE && flat(body.location, target) > SPRINT_JUMP_FROM && play.random() < SPRINT_JUMP_ODDS && grounded(body)) hop(body);
+  return there;
 }
+
+/** A bot sprint jumps at this pace or faster (blocks a tick: about a sprint's), on a run longer than SPRINT_JUMP_FROM blocks, at these odds a tick. */
+const SPRINT_JUMP_PACE = 0.25;
+const SPRINT_JUMP_FROM = 5;
+const SPRINT_JUMP_ODDS = 0.08;
 
 /** A bot stands still (keeping its fall), unless a push is carrying it. */
 export function botStop(play: Play, who: Who): void {
@@ -387,6 +475,7 @@ export function botBrawl(play: Play, who: Who, foes: readonly Who[], strength: n
     botStop(play, who);
     if (system.currentTick - (lastHit.get(who.key) ?? -999) >= botWait(play, BOT_HIT_EVERY)) {
       lastHit.set(who.key, system.currentTick);
+      swingArm(body);
       play.push(foe.who, body.location, strength);
       return foe.who;
     }
@@ -549,6 +638,7 @@ export class Hearts {
     if (system.currentTick - (this.lastHit.get(who.key) ?? -999) < botWait(this.play, every)) return false;
     this.lastHit.set(who.key, system.currentTick);
     botFace(body, foe.body.location);
+    swingArm(body);
     this.hurt(foe.who, amount, body, "entityAttack", down);
     this.play.push(foe.who, body.location, 0.6);
     return true;
@@ -563,8 +653,12 @@ export interface Armor {
   feet?: string;
 }
 
-/** A player puts on `armor` (taken back when the minigame ends); a bot wears nothing. */
+/** Someone puts on `armor`: a player's is taken back when the minigame ends, and a bot's body is made again on the board after it. */
 export function wear(who: Who, armor: Armor): void {
+  if (!who.player) {
+    if (who.body.isValid && !isPlayer(who.body)) wearArmor(who.body, armor);
+    return;
+  }
   try {
     const equipment = who.player?.getComponent(EntityComponentTypes.Equippable);
     if (!equipment) return;
@@ -596,9 +690,15 @@ export function byWeight<T extends { weight?: number }>(list: readonly T[], rand
 
 /**
  * Throws a projectile (a snowball by default) from `from` toward `to` at `speed` blocks a tick, its
- * owner `from` (so a hit counts as theirs), `error` blocks off at random. Gone with the minigame.
+ * owner `from` (so a hit counts as theirs), `error` blocks off at random. Gone with the minigame. A
+ * bot throwing looks where it throws and swings its arm, as a player does (an arrow comes from
+ * botShoot's draw instead).
  */
 export function throwFrom(play: Play, from: Entity, to: Vector3, options: { type?: string; speed?: number; error?: number; lift?: number } = {}): Entity | undefined {
+  if (from.typeId === BOT_ENTITY && options.type !== "minecraft:arrow") {
+    lookAt(from, to);
+    swingArm(from);
+  }
   const eye = { x: from.location.x, y: from.location.y + 1.5, z: from.location.z };
   const ball = spawnIn(play, options.type ?? "minecraft:snowball", eye);
   if (!ball) return undefined;

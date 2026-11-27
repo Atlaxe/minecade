@@ -10,7 +10,7 @@
 import { ButtonState, InputButton, world } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botAim, botStep, botWait, clock, everyTick, fellOut, flat, floorOf, grounded, Hearts, isPlayer, item, moveTo, nearestOf, now, onPlan, throwFrom, wear } from "./common.ts";
+import { botAim, botArm, botDrawing, botLook, botShoot, botStep, botWait, clock, everyTick, fellOut, flat, floorOf, grounded, Hearts, isPlayer, item, moveTo, nearestOf, now, onPlan, throwFrom, wear } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** Ticks between the Wither's skulls (a player's and a bot's), and a bot trio's arrows (the bots' a Medium bot's: botWait). */
@@ -174,6 +174,9 @@ export const BOSS_FIGHT: MinigameDef = {
           if (tick - lastBotSkull >= botWait(play, BOT_SKULL_EVERY)) {
             lastBotSkull = tick;
             lastSkull = 0;
+            // Aimed and fired with a swing of the Skull stick, as a player does.
+            botLook(play, boss, prey.body.location, true);
+            botArm(play, boss);
             fireSkull({ x: prey.body.location.x, y: prey.body.location.y + 1, z: prey.body.location.z });
           }
           if (!flying() || prey.gap < 2.4) hearts.botSwing(boss, [prey.who], 6, trioDown);
@@ -187,13 +190,18 @@ export const BOSS_FIGHT: MinigameDef = {
           continue;
         }
         if (isPlayer(body) || !bossBody) continue;
-        // A bot: arrows from range, a hit up close.
+        // A bot: arrows from range (its bow drawn, then let go: botShoot), a hit up close.
         const gap = flat(body.location, bossBody.location);
+        if (botDrawing(who)) continue;
         if (gap < 2.6 && grounded(bossBody)) {
           if (hearts.botSwing(who, [boss], 0, trioDown)) hurtBoss(5);
         } else if (tick - (lastArrow.get(who.key) ?? -99) >= botWait(play, BOT_ARROW_EVERY)) {
           lastArrow.set(who.key, tick);
-          throwFrom(play, body, { x: bossBody.location.x, y: bossBody.location.y + 1.2, z: bossBody.location.z }, { type: "minecraft:arrow", speed: 2, error: botAim(play, 1) });
+          const at = () => {
+            const now = play.bodyOf(boss);
+            return now ? { x: now.location.x, y: now.location.y + 1.2, z: now.location.z } : undefined;
+          };
+          if (botShoot(play, who, at, { speed: 2, error: botAim(play, 1) })) continue;
         }
         botStep(play, who, bossBody.location, 0.2, gap < 8 ? 7 : 2);
       }

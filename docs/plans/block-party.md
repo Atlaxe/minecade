@@ -1632,6 +1632,21 @@ reward was dropped.
      The shared helpers (`botStep`, `botRun`, `botWalkTo`, `botBrawl`, `Hearts.botSwing`) apply it,
      and each minigame wraps its own bot waits, aim and odds in `botWait`, `botAim`, `botOdds` and
      `botSlip`. The board itself (rolls, branches, Stars, items) plays the same at every level.
+     Later on 2026-11-27 (the user): bots act like players in the minigames. The bot's client entity
+     plays the player's own animations (vanilla's arm swing, sneak, bow draw and holding) from two
+     properties, `blockparty:swing` (a counter: each change is a swing) and `blockparty:pose`
+     (standing, crouching, drawing a bow), and shows held items and armor (`enable_attachables`; set
+     by `replaceitem`, as the map editor's mannequins are). A bot holds what a minigame gives it
+     (its first item, or its first slot's) and wears what `wear()` puts on; every hit of
+     `botBrawl` and `Hearts.botSwing` and every `throwFrom` throw swings its arm and aims its look;
+     `botShoot` draws a bow before the arrow goes (Boss Fight's trio, Kit Brawl's Archer kit).
+     Each minigame shows the rest: chests opened with their sounds (Item Scramble, Cook's kitchens,
+     where all-bot sides now work the pantry, animals and villager), blocks dug and placed (Mining,
+     Spleef, Towers' crouched bridging), crouching to defuse (Bomb Disposal), counting by jumps and
+     crouches (Count the Mobs), Simon's commands acted out, tags, catches, levers, doors and passes
+     with a swing. Walking bots turn at most 40 degrees a tick, sprint jump on long runs, and, standing
+     still, glance at whoever is near or bob down and up (`bot-life.ts`; off in Enderman Roulette and
+     Simon Says, `botsIdle: false`).
    - **Test help** (the user asked): the One Die (always 1) in place of the Slow Die, Get star in
      Tests (on your roll, the roll is the number of spaces to the nearest Star and the branches go
      that way), and 30 starting coins while Block Party is a test game or `DEV_MIN_PLAYERS` is 1.

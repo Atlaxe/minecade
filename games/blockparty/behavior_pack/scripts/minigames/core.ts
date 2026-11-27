@@ -6,7 +6,7 @@
 import { world } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botFace, botStep, botWait, clock, everyTick, flat, Hearts, isPlayer, item, moveTo, now, onPlan, setBlock, wear } from "./common.ts";
+import { botArm, botFace, botStep, botWait, clock, everyTick, flat, Hearts, isPlayer, item, moveTo, now, onPlan, setBlock, wear } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const CORE_BLOCK = "minecraft:beacon";
@@ -110,6 +110,7 @@ export const CORE: MinigameDef = {
         else if (now() - coreSwing >= botWait(play, BOT_CORE_EVERY)) {
           coreSwing = now();
           botFace(raiderBody, coreAt);
+          botArm(play, raider);
           hitCore();
         }
       }

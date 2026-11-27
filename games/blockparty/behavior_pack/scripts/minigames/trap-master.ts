@@ -10,7 +10,7 @@
 import { world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, blocksOf, botOdds, botRun, botWait, clock, everyTick, fellOut, inside, isPlayer, moveTo, now, onPlan, setBlock, spawnIn, removeEntity } from "./common.ts";
+import { BOT_WALK, blockId, blocksOf, botArm, botLook, botOdds, botRun, botWait, clock, everyTick, fellOut, inside, isPlayer, moveTo, now, onPlan, setBlock, spawnIn, removeEntity } from "./common.ts";
 import { middleOf, over, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 const KINDS = ["drop", "vanish", "tnt", "water"] as const;
@@ -159,7 +159,12 @@ export const TRAP_MASTER: MinigameDef = {
             const body = play.bodyOf(who);
             return body && !safe.has(who.key) && inside(trap.box, body.location, trap.kind === "tnt" ? 1 : 0.5);
           });
-          if (caught && play.random() < botOdds(play, 0.6)) spring(trap);
+          if (caught && play.random() < botOdds(play, 0.6)) {
+            // Its lever pulled, as a player hits it.
+            botLook(play, master, trap.lever);
+            botArm(play, master);
+            spring(trap);
+          }
         }
       }
       if (tick % 5 === 0) play.status(`Through ${safe.size} of ${needed}  ${clock(total - tick)}`);

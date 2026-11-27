@@ -3,7 +3,11 @@
 // watched to work out how it flows. A bot is an entity of the game's own (blockparty:bot, on the
 // player's model; vanilla's zombie model maps a 64 x 32 skin and stretched Steve's) wearing one of
 // Minecraft's skins (bot-skins.ts: a different one for each bot, at random, kept every time it's made
-// again), named "Bot 1" and on (its name shows when you look at it). It sits in a seat like a player: its piece walks the board, it rolls
+// again), named "Bot 1" and on (its name shows when you look at it). It moves and acts like a player
+// (the user, 2026-11-27): it turns as it walks rather than snapping round, looks at what it's after,
+// swings its arm to hit, open, use, throw or place, crouches, draws a bow, and holds and wears what a
+// minigame hands out. Its client entity plays the player's own animations for those (vanilla's arm
+// swing, sneak, bow draw and holding) from its blockparty:swing and blockparty:pose properties. It sits in a seat like a player: its piece walks the board, it rolls
 // (the die over its head, a short think, a hop), picks a way at a branch, buys a Star when it has the
 // coins, and plays the minigames, each step after a delay so you can see it happen. Bots move by a set
 // speed each tick (clearVelocity, then applyImpulse), keeping their fall.
@@ -19,6 +23,20 @@ import { BOT_SKINS, pickSkin, type BotSkin } from "./bot-skins.ts";
 export const BOT_ENTITY = "blockparty:bot";
 /** The bot's skin: its index in BOT_SKINS (bot-skins.ts). */
 const SKIN_PROPERTY = "blockparty:skin";
+/** A counter that goes up by one for each arm swing: the client plays the player's swing when it changes. */
+const SWING_PROPERTY = "blockparty:swing";
+const SWING_COUNT = 64;
+/** The bot's stance: POSE_CODES's. */
+const POSE_PROPERTY = "blockparty:pose";
+
+/** A bot's stance, as a player's: standing, crouching (sneaking) or drawing a bow. */
+export type BotPose = "stand" | "crouch" | "bow";
+export const POSE_CODES: Readonly<Record<BotPose, number>> = { stand: 0, crouch: 1, bow: 2 };
+
+/** Most degrees a walking bot turns in a tick (a player turns fast, but not in no time at all). */
+const TURN_STEP = 40;
+/** How high a bot's eyes are over its feet (a player's). */
+const EYE_HEIGHT = 1.62;
 
 /** Someone in the game: a player, or a bot. */
 export interface Who {
@@ -66,7 +84,7 @@ export function stepBot(body: Entity, x: number, z: number, climb = 0): void {
     const fall = body.getVelocity().y;
     body.clearVelocity();
     body.applyImpulse({ x, y: climb > 0 && fall <= 0.01 ? hopUp(climb) : fall, z });
-    if (Math.hypot(x, z) > 0.01) body.setRotation({ x: 0, y: (Math.atan2(-x, z) * 180) / Math.PI });
+    if (Math.hypot(x, z) > 0.01) turnToward(body, (Math.atan2(-x, z) * 180) / Math.PI);
   } catch {
     // gone
   }
@@ -81,9 +99,127 @@ export function moveBot(body: Entity, x: number, y: number, z: number): void {
   try {
     body.clearVelocity();
     body.applyImpulse({ x, y, z });
-    if (Math.hypot(x, z) > 0.01) body.setRotation({ x: 0, y: (Math.atan2(-x, z) * 180) / Math.PI });
+    if (Math.hypot(x, z) > 0.01) turnToward(body, (Math.atan2(-x, z) * 180) / Math.PI);
   } catch {
     // gone
+  }
+}
+
+/** The shortest turn from one yaw to another, in degrees (-180 to 180). */
+export function yawGap(from: number, to: number): number {
+  return ((((to - from) % 360) + 540) % 360) - 180;
+}
+
+/** Turns a walking bot toward `yaw` by at most TURN_STEP this tick, its look easing back to level. */
+function turnToward(body: Entity, yaw: number): void {
+  const { x, y } = body.getRotation();
+  const gap = yawGap(y, yaw);
+  body.setRotation({ x: x * 0.7, y: y + Math.max(-TURN_STEP, Math.min(TURN_STEP, gap)) });
+}
+
+/** Turns a bot to look at a spot (at its eye height, when `eyes`, as at a player's or bot's face): its body round and its head up or down. */
+export function lookAt(body: Entity, at: Vector3, eyes = false): void {
+  try {
+    const from = body.location;
+    const dx = at.x - from.x;
+    const dz = at.z - from.z;
+    const dy = at.y + (eyes ? EYE_HEIGHT : 0) - (from.y + EYE_HEIGHT);
+    const yaw = (Math.atan2(-dx, dz) * 180) / Math.PI;
+    const pitch = (-Math.atan2(dy, Math.hypot(dx, dz)) * 180) / Math.PI;
+    body.setRotation({ x: Math.max(-89, Math.min(89, pitch)), y: yaw });
+  } catch {
+    // gone
+  }
+}
+
+/** A bot swings its arm, as a player does to hit, open, use, throw or place something. */
+export function swingArm(body: Entity): void {
+  try {
+    const count = body.getProperty(SWING_PROPERTY);
+    body.setProperty(SWING_PROPERTY, ((typeof count === "number" ? count : 0) + 1) % SWING_COUNT);
+  } catch {
+    // gone
+  }
+}
+
+/** A bot's stance now. */
+export function poseOf(body: Entity): BotPose {
+  try {
+    const code = body.getProperty(POSE_PROPERTY);
+    return (Object.keys(POSE_CODES) as BotPose[]).find((pose) => POSE_CODES[pose] === code) ?? "stand";
+  } catch {
+    return "stand";
+  }
+}
+
+function showPose(body: Entity, pose: BotPose): void {
+  try {
+    if (body.getProperty(POSE_PROPERTY) !== POSE_CODES[pose]) body.setProperty(POSE_PROPERTY, POSE_CODES[pose]);
+  } catch {
+    // gone
+  }
+}
+
+/** Bodies in a crouch tap of their own (tapCrouch), by entity id: setPose ends it. */
+const tapping = new Set<string>();
+
+/** Puts a bot in a stance (crouching while it defuses, drawing a bow), which stays until another. */
+export function setPose(body: Entity, pose: BotPose): void {
+  tapping.delete(body.id);
+  showPose(body, pose);
+}
+
+/**
+ * Half of a crouch tap, the way players bob down and up while they wait: down only from standing,
+ * and up only from its own tap's crouch (a stance set meanwhile stays).
+ */
+export function tapCrouch(body: Entity, down: boolean): void {
+  if (down) {
+    if (poseOf(body) !== "stand") return;
+    tapping.add(body.id);
+    showPose(body, "crouch");
+  } else if (tapping.delete(body.id)) showPose(body, "stand");
+}
+
+/** What each bot body holds, by entity id (holdItem). */
+const held = new Map<string, string>();
+
+/** A bot holds an item in its hand (as a player holds their selected slot's), or nothing. */
+export function holdItem(body: Entity, itemId: string | undefined): void {
+  if (itemId) held.set(body.id, itemId);
+  else held.delete(body.id);
+  try {
+    body.runCommand(`replaceitem entity @s slot.weapon.mainhand 0 ${itemId ?? "air"}`);
+  } catch {
+    // gone, or not an item this server knows
+  }
+}
+
+/** What a bot holds (holdItem), if anything. */
+export function heldBy(body: Entity): string | undefined {
+  return held.get(body.id);
+}
+
+/** Forgets a body that's gone: what it held, and any crouch tap of its own. */
+function forget(id: string): void {
+  held.delete(id);
+  tapping.delete(id);
+}
+
+/** A bot puts on armor, by slot (anything left out stays as it is). */
+export function wearArmor(body: Entity, armor: { head?: string; chest?: string; legs?: string; feet?: string }): void {
+  for (const [slot, id] of [
+    ["head", armor.head],
+    ["chest", armor.chest],
+    ["legs", armor.legs],
+    ["feet", armor.feet],
+  ] as const) {
+    if (!id) continue;
+    try {
+      body.runCommand(`replaceitem entity @s slot.armor.${slot} 0 ${id}`);
+    } catch {
+      // gone, or not an item this server knows
+    }
   }
 }
 
@@ -183,6 +319,7 @@ export class Bots {
   respawn(who: Who, at: Vector3, yaw = 180): void {
     const entry = this.bodies.get(who.key);
     if (!entry) return;
+    if (entry.body) forget(entry.body.id);
     try {
       if (entry.body?.isValid) entry.body.remove();
     } catch {
@@ -216,6 +353,7 @@ export class Bots {
 
   private removeAll(): void {
     for (const entry of this.bodies.values()) {
+      if (entry.body) forget(entry.body.id);
       try {
         if (entry.body?.isValid) entry.body.remove();
       } catch {

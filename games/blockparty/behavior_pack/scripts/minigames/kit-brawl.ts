@@ -2,10 +2,11 @@
 // kit, picked at random by weight from the kit file (games/blockparty/minigames/kitbrawl.json) each
 // time, and fights. Real damage: out at no hearts, or a fall (Kill Y). Last one in wins; at time the
 // rest place by hearts left, then by when they went out. Bots walk at the nearest player and hit
-// about twice a second, as hard as the kit's first item.
+// about twice a second, as hard as the kit's first item; with a bow in the kit they shoot it from
+// range too (drawn, then let go: botShoot), as many arrows as the kit gives.
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/kitbrawl.json";
-import { botStep, byWeight, clock, everyTick, fellOut, floorOf, Hearts, item, nearestOf, onPlan, placesByOut, sideMap, wear, type Armor } from "./common.ts";
+import { botAim, botDrawing, botShoot, botStep, botWait, byWeight, clock, everyTick, fellOut, floorOf, Hearts, item, nearestOf, onPlan, placesByOut, sideMap, wear, type Armor } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 export interface Kit {
@@ -16,6 +17,13 @@ export interface Kit {
 }
 
 export const KITS: readonly Kit[] = file.kits;
+
+/** How far off a bot shoots its bow (blocks), and ticks between its shots (each a Medium bot's: botAim, botWait). */
+const BOT_BOW_ERROR = 1;
+const BOT_BOW_EVERY = 40;
+/** How far a foe is for a bot to shoot rather than close in (blocks): nearer than this it fights hand to hand. */
+const BOW_FROM = 5;
+const BOW_TO = 18;
 
 /** A bot's hit with a kit's first item, in half hearts. */
 function botDamage(kit: Kit): number {
@@ -68,6 +76,10 @@ export const KIT_BRAWL: MinigameDef = {
     }
     play.notice(`Kit: ${kit.name}`);
     const foesOf = (who: Who) => play.inPlay().filter((one) => sideOf.get(one.key) !== sideOf.get(who.key));
+    // A bow in the kit: each bot's arrows, and when it last shot.
+    const bow = kit.items.some((each) => each.id === "minecraft:bow");
+    const arrows = new Map(everyone.map((who) => [who.key, bow ? kit.items.filter((each) => each.id === "minecraft:arrow").reduce((sum, each) => sum + (each.amount ?? 1), 0) : 0]));
+    const lastShot = new Map<string, number>();
     const sidesLeft = () => new Set(play.inPlay().map((who) => sideOf.get(who.key))).size;
     await everyTick(play, total, (t) => {
       tick = t;
@@ -78,10 +90,23 @@ export const KIT_BRAWL: MinigameDef = {
           out(who, "fell");
           continue;
         }
-        if (who.player) continue;
+        if (who.player || botDrawing(who)) continue;
         if (!hearts.botSwing(who, foesOf(who), botDamage(kit), (one) => out(one, "is out"))) {
           const foe = nearestOf(play, body.location, foesOf(who));
-          if (foe) botStep(play, who, foe.body.location, 0.22, 1.8);
+          if (!foe) continue;
+          const left = arrows.get(who.key) ?? 0;
+          if (left > 0 && foe.gap > BOW_FROM && foe.gap < BOW_TO && t - (lastShot.get(who.key) ?? -999) >= botWait(play, BOT_BOW_EVERY)) {
+            const at = () => {
+              const now = play.bodyOf(foe.who);
+              return now && !play.isOut(foe.who) ? { x: now.location.x, y: now.location.y + 1.2, z: now.location.z } : undefined;
+            };
+            if (botShoot(play, who, at, { error: botAim(play, BOT_BOW_ERROR) })) {
+              lastShot.set(who.key, t);
+              arrows.set(who.key, left - 1);
+              continue;
+            }
+          }
+          botStep(play, who, foe.body.location, 0.22, 1.8);
         }
       }
       if (t % 5 === 0) play.status(`${play.inPlay().length} left  ${clock(total - t)}`);

@@ -7,7 +7,7 @@
 import { world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_RUN, BOT_WALK, botWalkTo, clock, everyTick, flat, isPlayer, onPlan, setBlock, shuffled } from "./common.ts";
+import { BOT_RUN, BOT_WALK, botArm, botLook, botWalkTo, clock, everyTick, flat, isPlayer, onPlan, setBlock, shuffled } from "./common.ts";
 import { middleOf, over, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 const WALL = "minecraft:stone_bricks";
@@ -160,7 +160,11 @@ export const LABYRINTH: MinigameDef = {
       if (hunterBody && !isPlayer(hunterBody) && tick >= headStart) {
         const prey = runners.filter((who) => !out.has(who.key) && !free.has(who.key)).map((who) => ({ who, body: play.bodyOf(who) })).filter((one) => one.body).sort((a, b) => flat(a.body!.location, hunterBody.location) - flat(b.body!.location, hunterBody.location))[0];
         if (prey?.body) {
-          if (flat(prey.body.location, hunterBody.location) < CATCH) catchRunner(prey.who);
+          if (flat(prey.body.location, hunterBody.location) < CATCH) {
+            botLook(play, hunter, prey.body.location, true);
+            botArm(play, hunter);
+            catchRunner(prey.who);
+          }
           else botWalkTo(play, hunter, area, standY, prey.body.location, paths, BOT_RUN * 0.9);
         }
       }

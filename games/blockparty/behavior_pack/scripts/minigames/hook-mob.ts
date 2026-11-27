@@ -9,7 +9,7 @@
 import { world, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botOdds, botWait, clock, everyTick, flat, inside, item, onPlan, pick, placesBy, removeEntity, sideMap, spawnIn, spotIn, winnerBy } from "./common.ts";
+import { botArm, botLook, botOdds, botWait, clock, everyTick, flat, inside, item, onPlan, pick, placesBy, removeEntity, sideMap, spawnIn, spotIn, winnerBy } from "./common.ts";
 import { inOrder, middleOf, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const MOBS = [
@@ -166,13 +166,24 @@ export const HOOK_MOB: MinigameDef = {
         const creeper = mobs.find((one) => one.type === CREEPER && !one.flying);
         const leaderSide = scores.indexOf(Math.max(...scores));
         const leader = everyone.find((one) => sideOf.get(one.key) === leaderSide && one.key !== who.key);
+        // Each throw: the mob looked at and reeled in with a swing of the rod, as a player's.
+        const reel = (mob: { entity: { location: Vector3 } }) => {
+          botLook(play, who, mob.entity.location);
+          botArm(play, who);
+        };
         if (creeper && leader && play.random() < 0.25) {
           const theirs = pits[pitOf.get(leader.key) ?? 0];
-          if (theirs) throwMob(creeper, who, middleOf(theirs));
+          if (theirs) {
+            reel(creeper);
+            throwMob(creeper, who, middleOf(theirs));
+          }
           continue;
         }
         const good = mobs.filter((one) => one.type !== CREEPER && !one.flying).sort((a, b) => flat(a.entity.location, body.location) - flat(b.entity.location, body.location))[0];
-        if (good && own) throwMob(good, who, play.random() < botOdds(play, 0.7) ? middleOf(own) : spotIn(pool, play.random));
+        if (good && own) {
+          reel(good);
+          throwMob(good, who, play.random() < botOdds(play, 0.7) ? middleOf(own) : spotIn(pool, play.random));
+        }
       }
       if (tick % 5 === 0) play.status(`${sides.map((side, s) => `${side.map((one) => one.name).join("+")} ${scores[s]}`).join("  ")}  ${clock(total - tick)}`);
     });

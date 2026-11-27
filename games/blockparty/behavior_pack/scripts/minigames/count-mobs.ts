@@ -8,7 +8,7 @@
 // The players' bodies wait at their spawns, held.
 import { ButtonState, EntityComponentTypes, InputButton, world, type Entity, type Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { botAim, clock, everyTick, inside, onPlan, pick, placesBy, removeEntity, spawnIn, spotIn, yawToward } from "./common.ts";
+import { botAim, botCrouch, botJump, botLook, botWait, clock, everyTick, inside, onPlan, pick, placesBy, removeEntity, spawnIn, spotIn, yawToward } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** Vanilla's sheep colors by its color index: white 0, light gray 8, gray 7, black 15. */
@@ -94,6 +94,26 @@ export const COUNT_MOBS: MinigameDef = {
       counting = true;
       play.notice(`Round ${round}: count ${label}!`, 60);
       const waveEvery = Math.max(20, Math.floor(roundTime / 6));
+      // Bots count the way players do, for show (their count is worked out at the end): a jump for each
+      // sheep that comes in and a quick crouch for each that leaves, a moment after, eyes on the pen.
+      const bots = everyone.filter((who) => !who.player);
+      const penMiddle = { x: (pen.min.x + pen.max.x + 1) / 2, y: pen.min.y + 1, z: (pen.min.z + pen.max.z + 1) / 2 };
+      for (const who of bots) botLook(play, who, penMiddle);
+      const countUp = () => {
+        for (const who of bots) {
+          scope.timeout(() => {
+            const body = play.bodyOf(who);
+            if (body) botJump(body);
+          }, botWait(play, 6 + Math.floor(play.random() * 14)));
+        }
+      };
+      const countDown = () => {
+        for (const who of bots) {
+          const at = botWait(play, 6 + Math.floor(play.random() * 14));
+          scope.timeout(() => botCrouch(play, who, true), at);
+          scope.timeout(() => botCrouch(play, who, false), at + 5);
+        }
+      };
       await everyTick(play, roundTime, (tick) => {
         // A group comes in now and then; some leave again after grazing.
         if (tick % waveEvery === 0 && tick < roundTime - 40) {
@@ -111,6 +131,7 @@ export const COUNT_MOBS: MinigameDef = {
               // a sheep that keeps its own color
             }
             sheep.push({ entity, gray, to: spotIn(pen, play.random, 1), leaving: play.random() < 0.35, stay: 30 + Math.floor(play.random() * 60) });
+            if (named < 0 || gray === named) countUp();
           }
         }
         for (const one of [...sheep]) {
@@ -129,6 +150,7 @@ export const COUNT_MOBS: MinigameDef = {
           } else if (one.leaving && inside(pen, at, 1)) {
             if (--one.stay <= 0) one.to = pick(gates, play.random);
           } else if (one.leaving) {
+            if (named < 0 || one.gray === named) countDown();
             removeEntity(one.entity);
             sheep.splice(sheep.indexOf(one), 1);
           }

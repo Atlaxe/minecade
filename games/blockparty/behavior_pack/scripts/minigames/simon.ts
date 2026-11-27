@@ -5,9 +5,10 @@
 // don't jump, don't sneak, don't look up. A wrong answer, or none to a command that wants one, costs
 // a heart; out at none. Last one in wins; the rest place by when they went out. Bots are right about
 // 85% of the time (a Medium bot; the lobby's level moves it).
-import { world, type Player, type Vector3 } from "@minecraft/server";
+import { world, type Entity, type Player, type Vector3 } from "@minecraft/server";
+import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botFace, botJump, botOdds, botWait, clock, everyTick, isPlayer, onPlan, pick, placesByOut, setBlock } from "./common.ts";
+import { BOT_WALK, botArm, botCrouch, botFace, botJump, botOdds, botWait, clock, stepBot, everyTick, isPlayer, onPlan, pick, placesByOut, setBlock } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play, type Spot } from "./kit.ts";
 
 const COLORS = [
@@ -103,6 +104,8 @@ export const SIMON: MinigameDef = {
   id: "simon",
   name: "Simon Says",
   kind: "ffa",
+  // Its bots act out their answers with their heads (look up, look down, spin): no idle glances.
+  botsIdle: false,
   rules: "Do what it says, and never what it says not to. A wrong answer costs a heart.",
   tutorial: [
     {
@@ -195,10 +198,14 @@ export const SIMON: MinigameDef = {
           if (tick !== botAt.get(who.key)) continue;
           const good = botRight.get(who.key) ?? true;
           botAnswer(command, record, good, play.random);
+          actOut(play, who, body, record, command);
           if (record.jumped) botJump(body);
           if (record.hit !== undefined) {
             const target = blocksOf.get(who.key)?.[record.hit];
-            if (target) botFace(body, target);
+            if (target) {
+              botFace(body, target);
+              botArm(play, who);
+            }
           }
         }
         if (tick % 5 === 0) play.status(`${statusOf()}  ${clock(window - tick)}`);
@@ -221,6 +228,51 @@ export const SIMON: MinigameDef = {
     return { places: placesByOut(everyone.map((who) => who.key), outAt, (key) => hearts.get(key) ?? 0) };
   },
 };
+
+/** Ticks a bot holds a crouch or a look up or down for, and spins over. */
+const ACT_HOLD = 14;
+const SPIN_TICKS = 8;
+
+/**
+ * A bot shows its answer the way a player gives it: a crouch, a look up or down, a spin, a few steps
+ * about (jumps and hits are done where it's judged).
+ */
+function actOut(play: Play, who: Who, body: Entity, record: Done, command: Command): void {
+  const { scope } = play;
+  if (record.sneaked) {
+    botCrouch(play, who, true);
+    scope.timeout(() => botCrouch(play, who, false), ACT_HOLD);
+  }
+  const turnBy = (pitch: number, yawStep: number, ticks: number) => {
+    for (let t = 1; t <= ticks; t++) {
+      scope.timeout(() => {
+        try {
+          if (!body.isValid) return;
+          const { y } = body.getRotation();
+          body.setRotation({ x: pitch, y: y + yawStep });
+        } catch {
+          // gone
+        }
+      }, t);
+    }
+  };
+  if (record.lookedUp || record.lookedDown) {
+    turnBy(record.lookedUp ? -80 : 80, 0, 1);
+    scope.timeout(() => turnBy(0, 0, 1), ACT_HOLD);
+  }
+  if (record.turned > 0) turnBy(0, record.turned / SPIN_TICKS, SPIN_TICKS);
+  if ((command.kind === "move" && record.still === 0) || (command.kind === "freeze" && record.moved > 0)) {
+    // Moving (rightly, or when it should freeze): a few steps one way and back.
+    const yaw = play.random() * Math.PI * 2;
+    for (let t = 0; t < ACT_HOLD; t++) {
+      const sign = t < ACT_HOLD / 2 ? 1 : -1;
+      scope.timeout(() => {
+        if (body.isValid) stepBot(body, -Math.sin(yaw) * BOT_WALK * sign, Math.cos(yaw) * BOT_WALK * sign);
+      }, t);
+    }
+    scope.timeout(() => body.isValid && stepBot(body, 0, 0), ACT_HOLD);
+  }
+}
 
 /** A bot's answer: what it does for `command`, right or wrong. */
 function botAnswer(command: Command, record: Done, good: boolean, random: () => number): void {

@@ -6,7 +6,7 @@
 import { world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP, PAINTER_TEAMS } from "./arenas.ts";
-import { BOT_RUN, BOT_WALK, botStep, clock, everyTick, flat, isPlayer, item, moveTo, onPlan, setBlock, sideMap, winnerBy } from "./common.ts";
+import { BOT_RUN, BOT_WALK, botArm, botHold, botLook, botStep, clock, everyTick, flat, isPlayer, item, moveTo, onPlan, setBlock, sideMap, winnerBy } from "./common.ts";
 import { over, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const WOOL = ["minecraft:red_wool", "minecraft:blue_wool"] as const;
@@ -70,6 +70,7 @@ export const WOOL_GAME: MinigameDef = {
       play.say(`${who.name} was tagged: the ${teams[team].name} wool goes home.`);
       resting.add(who.key);
       who.player?.getComponent("minecraft:inventory")?.container?.setItem(0, undefined);
+      if (!who.player) botHold(play, who, undefined);
       scope.timeout(() => {
         resting.delete(who.key);
         moveTo(who, play.bodyOf(who), startOf(who));
@@ -96,6 +97,7 @@ export const WOOL_GAME: MinigameDef = {
         if (!carrier[rival] && flat(body.location, woolAt[rival]) < TAKE && Math.abs(body.location.y - woolAt[rival].y) < 2) {
           carrier[rival] = who;
           takeWool(rival);
+          botArm(play, who);
           play.give(who, item(WOOL[rival], { name: `${teams[rival].name} wool` }), 0);
           play.say(`${who.name} took the ${teams[rival].name} wool.`);
         }
@@ -104,6 +106,10 @@ export const WOOL_GAME: MinigameDef = {
           captures[side]++;
           standWool(rival);
           who.player?.getComponent("minecraft:inventory")?.container?.setItem(0, undefined);
+          if (!who.player) {
+            botArm(play, who);
+            botHold(play, who, undefined);
+          }
           play.say(`${who.name} captured the ${teams[rival].name} wool for ${teams[side].name}.`);
           if (captures[side] >= needed) winner = side;
         }
@@ -112,6 +118,8 @@ export const WOOL_GAME: MinigameDef = {
         const enemyCarrier = carrier[side];
         const enemyBody = enemyCarrier && play.bodyOf(enemyCarrier);
         if (enemyCarrier && enemyBody && flat(body.location, enemyBody.location) < TAG) {
+          botLook(play, who, enemyBody.location, true);
+          botArm(play, who);
           tagged(enemyCarrier);
           continue;
         }

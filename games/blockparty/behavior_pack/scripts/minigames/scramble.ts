@@ -4,11 +4,12 @@
 // item each round, the chests refilled and inventories cleared. Most points after the rounds wins.
 // Every player's chests hold the same items, shuffled; the called item is in exactly one of them.
 // The items are games/blockparty/minigames/scramble.json's. Players are kept inside their own ring.
-// Bots open a chest every 2 to 3 seconds, finding the item when they open its chest.
+// Bots open a chest every 2 to 3 seconds, finding the item when they open its chest: each one looked
+// at, opened with a swing of the arm and the chest's sound, the item held up once it's found.
 import { EntityComponentTypes, ItemStack, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/scramble.json";
-import { blockAt, botStep, botWait, clock, everyTick, flat, moveTo, onPlan, pick, placesBy, setBlock, shuffled } from "./common.ts";
+import { blockAt, botArm, botHold, botLook, botStep, botWait, clock, everyTick, flat, moveTo, onPlan, pick, placesBy, setBlock, shuffled } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play, type Spot } from "./kit.ts";
 
 const CALLS: readonly string[] = file.calls;
@@ -29,6 +30,22 @@ const RING = [
 
 function itemName(id: string): string {
   return id.replace("minecraft:", "").replace(/_/g, " ");
+}
+
+/** A chest's open and close sounds at `at`, as when a player looks in it for a moment. */
+function openChestSound(play: Play, at: Vector3): void {
+  try {
+    play.dimension.playSound("random.chestopen", at, { volume: 0.6 });
+  } catch {
+    // unloaded
+  }
+  play.scope.timeout(() => {
+    try {
+      play.dimension.playSound("random.chestclosed", at, { volume: 0.6 });
+    } catch {
+      // unloaded
+    }
+  }, 16);
 }
 
 function holds(who: Who, id: string): boolean {
@@ -151,7 +168,12 @@ export const SCRAMBLE: MinigameDef = {
           if (tick < (botNext.get(who.key) ?? 0)) continue;
           botNext.set(who.key, tick + botWait(play, 40 + Math.floor(play.random() * 20)));
           const opened = order.shift();
+          const middle = { x: chest.x + 0.5, y: chest.y + 0.5, z: chest.z + 0.5 };
+          botLook(play, who, middle);
+          botArm(play, who);
+          openChestSound(play, middle);
           if (opened === callChest) {
+            botHold(play, who, call);
             found.push(who.key);
             const add = FIND_POINTS[found.length - 1] ?? 0;
             points.set(who.key, (points.get(who.key) ?? 0) + add);

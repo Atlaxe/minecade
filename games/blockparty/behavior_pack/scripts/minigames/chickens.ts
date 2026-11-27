@@ -5,7 +5,7 @@
 // apart by script).
 import { world, type Entity } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { BOT_RUN, botStep, clock, everyTick, flat, inside, isPlayer, onPlan, placesBy, removeEntity, spawnIn, spotIn } from "./common.ts";
+import { BOT_RUN, botArm, botLook, botStep, clock, everyTick, flat, inside, isPlayer, onPlan, placesBy, removeEntity, spawnIn, spotIn } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** How close a bot gets to catch a chicken. */
@@ -92,7 +92,12 @@ export const CHICKENS: MinigameDef = {
           }
         }
         if (!best) continue;
-        if (gap < BOT_CATCH) caught(who, best);
+        if (gap < BOT_CATCH) {
+          // Grabbed with a swing, as a player hits it.
+          botLook(play, who, best.location);
+          botArm(play, who);
+          caught(who, best);
+        }
         else botStep(play, who, best.location, BOT_RUN * 0.85);
       }
       if (tick % 5 === 0) play.status(`${everyone.map((who) => `${who.name} ${points.get(who.key)}`).join("  ")}  ${clock(total - tick)}`);

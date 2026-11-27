@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import config from "../game.config.ts";
 import { BOT_LEVELS, BOT_OPTION, BOT_SKILLS, MEDIUM, aim, botLevelOf, odds, pace, slip, wait } from "../behavior_pack/scripts/bot-skill.ts";
 import { BOT_SKINS, SKINS_PACK, botSkinTexture, pickSkin, wearableSkins } from "../behavior_pack/scripts/bot-skins.ts";
-import { BOT_RUN, BOT_WALK } from "../behavior_pack/scripts/bots.ts";
+import { BOT_RUN, BOT_WALK, POSE_CODES, yawGap } from "../behavior_pack/scripts/bots.ts";
+import { MINIGAMES } from "../behavior_pack/scripts/minigames/index.ts";
 import bot from "../behavior_pack/entities/bot.json";
 import client from "../resource_pack/entity/bot.entity.json";
 import controllers from "../resource_pack/render_controllers/blockparty.render_controllers.json";
@@ -62,6 +63,45 @@ describe("bot skins", () => {
     // All taken: any of them again; nothing wearable: Steve.
     expect([0, 1]).toContain(pickSkin([0, 1], [0, 1], sequence(0.5)));
     expect(pickSkin([], [], sequence(0.5))).toBe(0);
+  });
+});
+
+describe("bots like players", () => {
+  const description = client["minecraft:client_entity"].description;
+  const animate = description.scripts.animate as (string | Record<string, string>)[];
+  const when = (name: string) => animate.map((each) => (typeof each === "string" ? undefined : each[name])).find((condition) => condition !== undefined);
+
+  it("syncs the arm swing and the stance to the client", () => {
+    const properties = bot["minecraft:entity"].description.properties as Record<string, { type: string; range: number[]; client_sync: boolean }>;
+    expect(properties["blockparty:swing"]).toMatchObject({ type: "int", client_sync: true });
+    expect(properties["blockparty:pose"]).toMatchObject({ type: "int", client_sync: true });
+    expect(properties["blockparty:pose"].range[1]).toBeGreaterThanOrEqual(Math.max(...Object.values(POSE_CODES)));
+  });
+
+  it("plays the player's own animations for them, by the same pose codes", () => {
+    expect(description.enable_attachables).toBe(true);
+    const animations = description.animations as Record<string, string>;
+    expect(animations["attack.rotations"]).toBe("animation.player.attack.rotations");
+    expect(animations.sneaking).toBe("animation.player.sneaking");
+    expect(animations.bow).toBe("animation.player.bow_equipped");
+    expect(animations.holding).toBe("animation.player.holding");
+    expect(animate).toContain("holding");
+    expect(when("sneaking")).toBe(`q.property('blockparty:pose') == ${POSE_CODES.crouch}`);
+    expect(when("bow")).toBe(`q.property('blockparty:pose') == ${POSE_CODES.bow}`);
+    expect(when("attack.rotations")).toBe("v.attack_time > 0.0");
+    expect(description.scripts.pre_animation.some((line: string) => line.startsWith("v.attack_time"))).toBe(true);
+  });
+
+  it("turns the short way round", () => {
+    expect(yawGap(170, -170)).toBe(20);
+    expect(yawGap(-170, 170)).toBe(-20);
+    expect(yawGap(0, 90)).toBe(90);
+    expect(yawGap(10, 10)).toBe(0);
+  });
+
+  it("keeps idle glances out of the minigames that read where bots look", () => {
+    const off = MINIGAMES.filter((def) => def.botsIdle === false).map((def) => def.id);
+    expect(off.sort()).toEqual(["enderman", "simon"]);
   });
 });
 

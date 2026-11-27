@@ -9,7 +9,7 @@
 import { world, type Entity, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, botFace, botOdds, botStep, botStop, botWait, clock, everyTick, flat, inside, isPlayer, onPlan, pick, removeEntity, setBlock, spawnIn, spotIn, yawToward } from "./common.ts";
+import { BOT_WALK, blockId, botArm, botLook, botOdds, botStep, botStop, botWait, clock, everyTick, flat, inside, isPlayer, onPlan, pick, removeEntity, setBlock, spawnIn, spotIn, yawToward } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const ANIMALS = [
@@ -156,7 +156,9 @@ export const BARNYARD: MinigameDef = {
         const left = hiders.filter((who) => !found.has(who.key));
         const target = play.random() < botOdds(play, BOT_FINDS) && left.length > 0 ? disguise.get(pick(left, play.random).key) : pick(animals.filter((one) => one.isValid), play.random);
         if (target) {
-          botFace(farmerBody, target.location);
+          // The farmer looks the animal over and gives it a poke.
+          botLook(play, farmer, target.location);
+          botArm(play, farmer);
           guess(target);
         }
       } else if (farmerBody && !isPlayer(farmerBody)) {

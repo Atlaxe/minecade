@@ -38,7 +38,8 @@
 import { EasingType, EntityComponentTypes, EquipmentSlot, GameMode, InputPermissionCategory, StructureRotation, system, world, type Dimension, type Entity, type ItemStack, type Player, type Vector3 } from "@minecraft/server";
 import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type Hit, type MapConfig, type QuarterTurns, type Scope } from "@minecade/minigame-core";
 import { mapSettingValue } from "@minecade/minigame-core/config";
-import { isPlayer, thinkTicks, type Who } from "./bots.ts";
+import { holdItem, isPlayer, thinkTicks, type Who } from "./bots.ts";
+import { botsIdle } from "./bot-life.ts";
 import type { BotSkill } from "./bot-skill.ts";
 import { line } from "./lines.ts";
 import { podiumLayout, podiumOrder, podiumPlaces, standInPodium, type PodiumLayout } from "./minigame-podium.ts";
@@ -412,6 +413,8 @@ export class MinigameRunner {
         this.whoByKey = new Map(everyone.map((who) => [who.key, who]));
         const settings = settingsOf(def.id, laid.config);
         this.watchPushes(scope);
+        /** The bots holding something now: one holds what a player would have in hand, its first item or its first slot's. */
+        const botsHolding = new Set<string>();
         const play: Play = {
           scope,
           dimension,
@@ -441,8 +444,16 @@ export class MinigameRunner {
           onHurt: (handler) => (this.hurtHandler = handler),
           pushed: (who) => (this.pushedUntil.get(who.key) ?? 0) > system.currentTick,
           push: (who, from, strength) => this.push(who, from, strength),
-          give: (who, item, slot) => give(who.player, item, slot),
+          give: (who, item, slot) => {
+            if (who.player) return give(who.player, item, slot);
+            const body = this.bodyOf(who);
+            if (!body || isPlayer(body) || (slot !== 0 && botsHolding.has(who.key))) return;
+            botsHolding.add(who.key);
+            holdItem(body, item.typeId);
+          },
         };
+        // Bots standing still look round and bob now and then, as players do, unless the minigame reads where they look.
+        if (def.botsIdle !== false) botsIdle(scope, everyone, (who) => this.bodyOf(who), this.host.random);
         try {
           // /minigame win ends it early: its scope goes below, which stops its waits for good.
           outcome = await Promise.race([def.play(play), new Promise<Outcome>((resolve) => (current.force = resolve))]);

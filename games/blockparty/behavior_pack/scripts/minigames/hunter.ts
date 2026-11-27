@@ -10,7 +10,7 @@
 import { world, type Entity, type Vector3 } from "@minecraft/server";
 import { BOT_RUN, BOT_WALK, isPlayer, stepBot, stepToward, thinkTicks, type Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botPace, botWait } from "./common.ts";
+import { botArm, botLook, botPace, botWait } from "./common.ts";
 import { at, fill, middleOf, over, secondsText, spread, testField, type Field, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 /** The test arena: length (x) and width (z) inside the walls, and where the gold starts from the near end. */
@@ -125,7 +125,11 @@ export const HUNTER: MinigameDef = {
           if (prey) {
             const preyBody = play.bodyOf(prey)!;
             stepToward(hunterBody, preyBody.location, botPace(play, BOT_RUN), 0.2);
-            if (Math.hypot(preyBody.location.x - hunterBody.location.x, preyBody.location.z - hunterBody.location.z) <= CATCH) catchRunner(prey);
+            if (Math.hypot(preyBody.location.x - hunterBody.location.x, preyBody.location.z - hunterBody.location.z) <= CATCH) {
+              botLook(play, hunter, preyBody.location, true);
+              botArm(play, hunter);
+              catchRunner(prey);
+            }
           } else stepBot(hunterBody, 0, 0);
         }
       }

@@ -7,7 +7,7 @@
 import { EntityComponentTypes, GameMode, ItemStack, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/towers.json";
-import { BOT_WALK, blockId, botStep, botWait, byWeight, clock, everyTick, fellOut, floorOf, Hearts, isPlayer, nearestOf, onPlan, placesByOut, setBlock } from "./common.ts";
+import { BOT_WALK, blockId, botArm, botCrouch, botLook, botStep, botWait, byWeight, clock, everyTick, fellOut, floorOf, Hearts, isPlayer, nearestOf, onPlan, placesByOut, setBlock } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 export const TOWER_ITEMS: readonly { id: string; amount?: number; weight?: number }[] = file.items;
@@ -85,10 +85,22 @@ export const TOWERS: MinigameDef = {
         const dz = foe.body.location.z - body.location.z;
         const length = Math.hypot(dx, dz) || 1;
         const ahead: Vector3 = { x: Math.floor(body.location.x + (dx / length) * 0.8), y: Math.floor(body.location.y) - 1, z: Math.floor(body.location.z + (dz / length) * 0.8) };
+        // Crouched at the edge while it bridges, as players do so they don't fall off.
+        botCrouch(play, who, t - (lastBridge.get(who.key) ?? -99) < 30);
         if (blockId(dimension, ahead) === "minecraft:air") {
           if (t - (lastBridge.get(who.key) ?? -99) >= botWait(play, BOT_BRIDGE)) {
             lastBridge.set(who.key, t);
+            // Placed looking down at the gap, with a swing and the block's sound.
+            const block = { x: ahead.x + 0.5, y: ahead.y + 0.5, z: ahead.z + 0.5 };
+            botCrouch(play, who, true);
+            botLook(play, who, block);
+            botArm(play, who);
             setBlock(dimension, ahead, "minecraft:oak_planks");
+            try {
+              dimension.playSound("use.wood", block, { volume: 0.7 });
+            } catch {
+              // unloaded
+            }
           }
           continue;
         }

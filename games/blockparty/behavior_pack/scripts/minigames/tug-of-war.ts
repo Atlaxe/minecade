@@ -10,7 +10,7 @@
 import { ButtonState, InputButton, world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP, PAINTER_TEAMS } from "./arenas.ts";
-import { botOdds, botWait, clock, everyTick, now, onPlan, sideMap, spawnIn } from "./common.ts";
+import { botJump, botOdds, botWait, clock, everyTick, now, onPlan, sideMap, spawnIn } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** How much of the gap to its target the flag closes each tick (it slides). */
@@ -115,6 +115,9 @@ export const TUG_OF_WAR: MinigameDef = {
       for (const who of sides.flat()) {
         if (who.player || tick < (nextBot.get(who.key) ?? 0)) continue;
         tug(who);
+        // A tug is a jump, as a player's: a hop whenever it's on the ground.
+        const body = play.bodyOf(who);
+        if (body) botJump(body);
         // In time with a teammate about half the time (a Medium bot's: botWait and botOdds).
         const side = sideOf.get(who.key) ?? 0;
         const mate = sides[side].find((one) => one.key !== who.key && !one.player);

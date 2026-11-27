@@ -9,7 +9,7 @@
 import { ButtonState, InputButton, world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, blocksOf, botStep, botWait, clock, everyTick, flat, isPlayer, nearestOf, onPlan, pick, setBlock, shuffled } from "./common.ts";
+import { BOT_WALK, blockId, blocksOf, botArm, botCrouch, botLook, botStep, botWait, clock, everyTick, flat, isPlayer, nearestOf, onPlan, pick, setBlock, shuffled } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play, type Spot } from "./kit.ts";
 
 const BOMB = "minecraft:tnt";
@@ -108,7 +108,12 @@ export const BOMB_DISPOSAL: MinigameDef = {
       const body = play.bodyOf(bomber);
       if (body && !isPlayer(body)) {
         const next = botSites.find((site) => !bombs.some((bomb) => bomb.at === site));
-        if (next && botStep(play, bomber, next, BOT_WALK * 1.2, 0.8)) plantAt(next);
+        if (next && botStep(play, bomber, next, BOT_WALK * 1.2, 0.8)) {
+          // Set down with a swing, as a player places it.
+          botLook(play, bomber, next);
+          botArm(play, bomber);
+          plantAt(next);
+        }
       }
       if (tick % 5 === 0) play.status(`Planting: ${bombs.length} of ${count}  ${clock(plantTime - tick)}`);
       return bombs.length >= count;
@@ -156,12 +161,18 @@ export const BOMB_DISPOSAL: MinigameDef = {
         let best: Bomb | undefined;
         for (const bomb of live) if (!best || flat(body.location, bomb.at) < flat(body.location, best.at)) best = bomb;
         if (best) botStep(play, who, best.at, BOT_WALK, 0.6);
+        // Crouched over a bomb while it defuses it, as a player would.
+        const defusing = best !== undefined && flat(body.location, best.at) < AT_SITE;
+        botCrouch(play, who, defusing);
+        if (defusing && best) botLook(play, who, best.at);
       }
       const bomberBody = play.bodyOf(bomber);
       if (bomberBody && !isPlayer(bomberBody)) {
         const prey = nearestOf(play, bomberBody.location, squad.filter((who) => (frozenUntil.get(who.key) ?? 0) <= tickNow));
         if (prey && prey.gap < BOT_TAG && tick - lastBotTag >= botWait(play, BOT_TAG_EVERY)) {
           lastBotTag = tick;
+          botLook(play, bomber, prey.body.location, true);
+          botArm(play, bomber);
           tag(prey.who);
         } else if (prey) botStep(play, bomber, prey.body.location, BOT_WALK * 1.1, 1.2);
       }

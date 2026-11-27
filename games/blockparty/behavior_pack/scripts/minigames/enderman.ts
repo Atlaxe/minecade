@@ -19,6 +19,8 @@ export const ENDERMAN: MinigameDef = {
   id: "enderman",
   name: "Enderman Roulette",
   kind: "ffa",
+  // Where a bot looks is the game (who looked away, when): no idle glances.
+  botsIdle: false,
   rules: "Stare at the Enderman, and look away before it snaps. The longer you stare, the more you score.",
   tutorial: [
     {

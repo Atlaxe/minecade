@@ -8,7 +8,7 @@
 // chases the nearest player; the others keep away from it.
 import { EntityComponentTypes, world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
-import { BOT_RUN, BOT_WALK, botStep, everyTick, flat, isPlayer, item, nearestOf, now, onPlan, pick, placesBy } from "./common.ts";
+import { BOT_RUN, BOT_WALK, botArm, botHold, botLook, botStep, everyTick, flat, isPlayer, item, nearestOf, now, onPlan, pick, placesBy } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** Ticks between one blast and the next TNT. */
@@ -70,6 +70,7 @@ export const HOT_TNT: MinigameDef = {
     };
     const handTo = (who: Who) => {
       if (holder?.player) holder.player.getComponent(EntityComponentTypes.Inventory)?.container?.setItem(0, undefined);
+      else if (holder) botHold(play, holder, undefined);
       try {
         holder?.player?.removeEffect("speed");
       } catch {
@@ -127,6 +128,8 @@ export const HOT_TNT: MinigameDef = {
               play.inPlay().filter((one) => one.key !== who.key && !(passedFrom?.key === one.key && now() - passedFrom.at < noPassBack)),
             );
             if (target && target.gap < BOT_PASS) {
+              botLook(play, who, target.body.location, true);
+              botArm(play, who);
               play.push(target.who, me.location, 1);
               pass(who, target.who);
             } else if (target) botStep(play, who, target.body.location, BOT_RUN, 1);

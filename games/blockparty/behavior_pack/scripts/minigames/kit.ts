@@ -172,7 +172,11 @@ export interface Play {
   pushed(who: Who): boolean;
   /** Pushes `who` away from `from`, `strength` times a hit's push (a bot's hit, a blast, a slap). */
   push(who: Who, from: Vector3, strength?: number): void;
-  /** A player gets `item` in a hotbar slot (the first empty one), taken back when the minigame ends; a bot gets nothing. */
+  /**
+   * A player gets `item` in a hotbar slot (the first empty one), taken back when the minigame ends;
+   * a bot holds it in its hand when it's the first item it gets or goes in the first slot (what a
+   * player would hold), and gets nothing else (botHold changes what it holds).
+   */
   give(who: Who, item: ItemStack, slot?: number): void;
 }
 
@@ -198,6 +202,11 @@ export interface MinigameDef {
   /** Where each member of each side starts on a field: [side][member]. */
   spawns(field: Field, sides: readonly number[]): Spot[][];
   play(play: Play): Promise<Outcome>;
+  /**
+   * False when its bots mustn't look round or bob while they stand still (bot-life.ts), because the
+   * minigame reads where they look (the Enderman's stare) or moves their heads itself (Simon Says).
+   */
+  botsIdle?: boolean;
 }
 
 /** Hands out spawns in order, each side its own players' worth (FFA and duels: one each). */

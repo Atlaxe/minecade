@@ -5,7 +5,7 @@
 // (taken away before it lands, so no chicks hatch). Bots run to the nearest egg's landing spot.
 import { world, type Entity, type Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { BOT_RUN, blockId, botStep, clock, everyTick, flat, onPlan, placesBy, removeEntity, spawnIn } from "./common.ts";
+import { BOT_RUN, blockId, botLook, botStep, clock, everyTick, flat, onPlan, placesBy, removeEntity, spawnIn } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 interface Egg {
@@ -127,7 +127,11 @@ export const EGG_DROP: MinigameDef = {
             best = egg;
           }
         }
-        if (best) botStep(play, who, { x: best.at.x, y: body.location.y, z: best.at.z }, BOT_RUN * 0.85, 0.2);
+        if (best) {
+          botStep(play, who, { x: best.at.x, y: body.location.y, z: best.at.z }, BOT_RUN * 0.85, 0.2);
+          // Eyes up on the egg as it comes down.
+          if (best.entity?.isValid) botLook(play, who, best.entity.location);
+        }
       }
       if (tick % 5 === 0) play.status(`${everyone.map((who) => `${who.name} ${points.get(who.key)}`).join("  ")}  ${clock(total - tick)}`);
     });

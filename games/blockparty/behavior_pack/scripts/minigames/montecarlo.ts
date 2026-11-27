@@ -6,7 +6,7 @@
 // a door they haven't tried in this hallway.
 import type { Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, botStep, clock, everyTick, inside, moveTo, onPlan, placesBy, shuffled, tilesOf } from "./common.ts";
+import { BOT_WALK, botArm, botStep, clock, everyTick, inside, moveTo, onPlan, placesBy, shuffled, tilesOf } from "./common.ts";
 import { middleOf, type Field, type MinigameDef, type Outcome, type Play, type Spot, type WorldBox } from "./kit.ts";
 
 interface Course {
@@ -69,6 +69,8 @@ export const MONTECARLO: MinigameDef = {
     const goingBack = new Map<string, number>();
     const tried = new Map(everyone.map((who) => [who.key, new Set<WorldBox>()]));
     const target = new Map<string, Vector3>();
+    /** Bots that have pushed the door they're headed for (a new door, a new push). */
+    const pushed = new Set<string>();
     await everyTick(play, total, (tick) => {
       for (const who of play.inPlay()) {
         if (finished.includes(who.key)) continue;
@@ -122,9 +124,17 @@ export const MONTECARLO: MinigameDef = {
             const middle = middleOf(pick);
             goal = { x: middle.x, y: pick.min.y, z: middle.z };
             target.set(who.key, goal);
+            pushed.delete(who.key);
           }
         }
-        if (goal) botStep(play, who, goal, BOT_WALK, 0.1);
+        if (goal) {
+          // The door pushed open with a swing as it gets there, as a player opens one.
+          if (Math.hypot(goal.x - body.location.x, goal.z - body.location.z) < 1.6 && !pushed.has(who.key)) {
+            pushed.add(who.key);
+            botArm(play, who);
+          }
+          botStep(play, who, goal, BOT_WALK, 0.1);
+        }
       }
       if (tick % 5 === 0) play.status(`${everyone.map((who) => `${who.name} ${finished.includes(who.key) ? "done" : `hall ${(hall.get(who.key) ?? 0) + 1}`}`).join("  ")}  ${clock(total - tick)}`);
       return finished.length >= play.inPlay().length;

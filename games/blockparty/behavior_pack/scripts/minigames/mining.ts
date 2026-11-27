@@ -8,7 +8,7 @@ import { world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/mining.json";
 import { MARKUP } from "./arenas.ts";
-import { blockId, blocksOf, botFace, botStep, botWait, byWeight, clock, everyTick, flat, item, onPlan, placesBy, setBlock } from "./common.ts";
+import { blockId, blocksOf, botArm, botFace, botLook, botStep, botWait, byWeight, clock, everyTick, flat, item, onPlan, placesBy, setBlock } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 export const ORES: readonly { id: string; points: number; weight: number }[] = file.ores;
@@ -111,7 +111,19 @@ export const MINING: MinigameDef = {
           continue;
         }
         lastDig.set(who.key, tick);
+        // Each block it breaks: looked at, a swing of the pick, the block's breaking sound.
+        const mined = (at: Vector3) => {
+          const block = { x: at.x + 0.5, y: at.y + 0.5, z: at.z + 0.5 };
+          botLook(play, who, block);
+          botArm(play, who);
+          try {
+            dimension.playSound("dig.stone", block, { volume: 0.7 });
+          } catch {
+            // unloaded
+          }
+        };
         if (flat(body.location, middle) < 2.6 && Math.abs(ore.y - body.location.y) < 3) {
+          mined(ore);
           score(who, blockId(dimension, ore));
           setBlock(dimension, ore, "minecraft:air");
           continue;
@@ -124,6 +136,7 @@ export const MINING: MinigameDef = {
           const at = { x: Math.floor(body.location.x + (dx / length) * 0.9), y: Math.floor(body.location.y) + dy, z: Math.floor(body.location.z + (dz / length) * 0.9) };
           const id = blockId(dimension, at);
           if (id === STONE || pointsOf.has(id)) {
+            mined(at);
             score(who, id);
             setBlock(dimension, at, "minecraft:air");
           }

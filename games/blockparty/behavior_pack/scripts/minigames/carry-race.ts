@@ -9,7 +9,7 @@
 import { world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, botWait, botWalkTo, clock, everyTick, flat, inside, isPlayer, item, onPlan, tilesOf, walkPath, yawToward } from "./common.ts";
+import { BOT_WALK, botArm, botWait, botWalkTo, clock, everyTick, flat, inside, isPlayer, item, onPlan, tilesOf, walkPath, yawToward } from "./common.ts";
 import { middleOf, type Field, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const CALLS = ["Left", "Right", "Straight", "Back"] as const;
@@ -123,7 +123,11 @@ export const CARRY_RACE: MinigameDef = {
         if (rider && riderBody && !isPlayer(riderBody) && tick - lastCall[s] >= botWait(play, BOT_CALL)) {
           lastCall[s] = tick;
           const next = walkPath(dimension, floor, standY, body.location, target)[1];
-          if (next) call(s, turnTo(body.getRotation().y, body.location, next));
+          if (next) {
+            // Pointed out with a wave of the arm.
+            botArm(play, rider);
+            call(s, turnTo(body.getRotation().y, body.location, next));
+          }
         }
         if (!isPlayer(body)) botWalkTo(play, walker, floor, standY, target, paths, BOT_WALK * 0.8);
       });

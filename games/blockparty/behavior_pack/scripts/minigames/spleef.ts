@@ -7,7 +7,7 @@
 import { EntityComponentTypes, ItemStack, world } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, blocksOf, botAim, botFace, botStep, botWait, clock, everyTick, fellOut, floorOf, isPlayer, item, nearestOf, onPlan, placesByOut, setBlock, sideMap, throwFrom } from "./common.ts";
+import { BOT_WALK, blockId, blocksOf, botAim, botArm, botFace, botLook, botStep, botWait, clock, everyTick, fellOut, floorOf, isPlayer, item, nearestOf, onPlan, placesByOut, setBlock, sideMap, throwFrom } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const SNOW = "minecraft:snow";
@@ -98,7 +98,18 @@ export const SPLEEF: MinigameDef = {
         if (rival.gap < 3.2 && tick - (lastBreak.get(who.key) ?? -99) >= botWait(play, BOT_BREAK)) {
           lastBreak.set(who.key, tick);
           const under = { x: Math.floor(rival.body.location.x), y: Math.floor(rival.body.location.y - 0.5), z: Math.floor(rival.body.location.z) };
-          if (blockId(dimension, under) === SNOW) setBlock(dimension, under, "minecraft:air");
+          if (blockId(dimension, under) === SNOW) {
+            // Looked at and dug out with a swing, as a player breaks it.
+            const block = { x: under.x + 0.5, y: under.y + 0.5, z: under.z + 0.5 };
+            botLook(play, who, block);
+            botArm(play, who);
+            try {
+              dimension.playSound("dig.snow", block, { volume: 0.7 });
+            } catch {
+              // unloaded
+            }
+            setBlock(dimension, under, "minecraft:air");
+          }
         } else if (rival.gap < 12 && tick - (lastThrow.get(who.key) ?? -99) >= botWait(play, BOT_THROW)) {
           lastThrow.set(who.key, tick);
           throwFrom(play, body, { x: rival.body.location.x, y: rival.body.location.y + 1, z: rival.body.location.z }, { error: botAim(play, 1) });
