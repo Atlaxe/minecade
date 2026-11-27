@@ -25,11 +25,12 @@ describe("Block Party's arenas", () => {
     for (const arena of ARENAS) expect(arena.box).toEqual({ footprint: [40, 60], height: arena.id === "legbreaker" ? LEG_BREAKER_HEIGHT : ARENA_HEIGHT });
   });
 
-  it("give every minigame not built yet a test arena its checklist passes, its marks inside it", () => {
-    const built = new Set(MINIGAMES.map((def) => def.id));
+  it("give every minigame but the first three a test arena its checklist passes, its marks inside it", () => {
+    // Hot Floor, Co-op Painters and Hunter lay test arenas of their own; every other minigame plays on its plan.
+    const own = new Set([HOT_FLOOR.id, PAINTERS.id, HUNTER.id]);
     for (const arena of ARENAS) {
       const plan = TEST_ARENAS[arena.id];
-      if (built.has(arena.id)) {
+      if (own.has(arena.id)) {
         expect(plan, arena.id).toBeUndefined();
         continue;
       }

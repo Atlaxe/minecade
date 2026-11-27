@@ -6,7 +6,7 @@
 // runner (minigame-runner.ts) lays it behind the loading screen, puts everyone on its spawns, shows
 // the rules until everyone is ready, counts down, calls play(), and takes everyone back to the
 // board; play() says how it went.
-import { BlockVolume, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
+import { BlockVolume, type Dimension, type Entity, type ItemStack, type Vector3 } from "@minecraft/server";
 import { arenaBox, mapTimeTicks, type Box, type MapConfig, type MapPosition, type PlacedArena, type Scope } from "@minecade/minigame-core";
 import type { Who } from "../bots.ts";
 import type { Kind } from "../minigame-rules.ts";
@@ -65,6 +65,13 @@ export interface Field {
   camera?: Required<Spot>;
   /** The arena's own time of day, in ticks. */
   time?: number;
+  /** The map's Kill Y in the world: a player below it has fallen out. */
+  killY?: number;
+  /**
+   * A tiled arena's copies (arenas.ts, TILED; piece 9), side by side, each its own markup: one for
+   * each player or side, in side order. This field is the first copy's markup over all of them.
+   */
+  tiles?: Field[];
 }
 
 /** A test arena's markup (made in code, already in the world's terms) as a Field. */
@@ -91,6 +98,7 @@ export function mapField(config: MapConfig, placed: PlacedArena): Field {
     return { min: { x: turned.min[0], y: turned.min[1], z: turned.min[2] }, max: { x: turned.max[0], y: turned.max[1], z: turned.max[2] } };
   };
   const time = mapTimeTicks(config.time);
+  const box = arenaBox(config);
   // The Start view, as servers get it: the lens of the camera players wait looking through.
   const view = config.startView ? placed.point(config.startView) : undefined;
   return {
@@ -103,6 +111,7 @@ export function mapField(config: MapConfig, placed: PlacedArena): Field {
     ...(config.spectatorSpawn ? { watch: spot(config.spectatorSpawn) } : {}),
     ...(view ? { camera: { x: view.x, y: view.y, z: view.z, yaw: view.yaw ?? 0, pitch: view.pitch ?? 0 } } : {}),
     ...(time !== undefined ? { time } : {}),
+    ...(config.killY !== undefined && box ? { killY: placed.point([box.min[0], config.killY, box.min[2]]).y } : {}),
   };
 }
 
@@ -111,6 +120,13 @@ export function arenaSize(config: MapConfig): Vec3 | undefined {
   const box = arenaBox(config);
   return box ? [box.max[0] - box.min[0] + 1, box.max[1] - box.min[1] + 1, box.max[2] - box.min[2] + 1] : undefined;
 }
+
+/**
+ * What a hit does to a minigame's players while it plays (piece 13): nothing, the default (Block
+ * Party cancels every hit); a push (a 0-damage hit, vanilla's knockback, and on a bot a push by
+ * script); or real damage (vanilla's, falls too: a lethal hit goes to onDown). Teammates never.
+ */
+export type HitMode = "none" | "push" | "real";
 
 /** What a minigame plays with. */
 export interface Play {
@@ -136,6 +152,20 @@ export interface Play {
   say(text: string): void;
   /** The line top right for everyone while it's on: its clock, its score. */
   status(text: string): void;
+  /** A Game setting's value (arenas.ts): the arena map's own, else its default. */
+  setting(key: string): number;
+  /** Words for one player (piece 19): their own line top right, over the status, for `ticks` (NOTICE.show by default). */
+  tell(who: Who, text: string, ticks?: number): void;
+  /** What a hit does from now on (HitMode); `strength` scales a push (1 is vanilla's). */
+  hits(mode: HitMode, strength?: number): void;
+  /** A lethal hit with real damage: the player is kept up at full health, and `handler` says what comes of it. */
+  onDown(handler: (who: Who, cause: string) => void): void;
+  /** Whether a hit pushed `who` in the last few ticks (a bot's steps wait meanwhile, so the push carries it). */
+  pushed(who: Who): boolean;
+  /** Pushes `who` away from `from`, `strength` times a hit's push (a bot's hit, a blast, a slap). */
+  push(who: Who, from: Vector3, strength?: number): void;
+  /** A player gets `item` in a hotbar slot (the first empty one), taken back when the minigame ends; a bot gets nothing. */
+  give(who: Who, item: ItemStack, slot?: number): void;
 }
 
 export interface MinigameDef {

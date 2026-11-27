@@ -127,9 +127,11 @@ describe("the tiebreaker and the final places", () => {
   it("plays a duel for two and a free-for-all for more, from the short pool's minigames that are built", () => {
     expect(tiebreakFormat(2)).toBe("duel");
     expect(tiebreakFormat(3)).toBe("ffa");
-    expect(tiebreakPool(MINIGAMES).map((minigame) => minigame.id)).toEqual(["hotfloor"]);
+    const pool = new Set(["hotfloor", "sumoduel", "cactus"]);
+    expect(tiebreakPool(MINIGAMES).map((minigame) => minigame.id)).toEqual(MINIGAMES.filter((minigame) => pool.has(minigame.id)).map((minigame) => minigame.id));
     // With none of the pool built, any free-for-all minigame.
-    expect(tiebreakPool(MINIGAMES.filter((minigame) => minigame.id !== "hotfloor"))).toEqual([]);
+    const rest = MINIGAMES.filter((minigame) => !pool.has(minigame.id));
+    expect(tiebreakPool(rest)).toEqual(rest.filter((minigame) => minigame.kind === "ffa"));
   });
 
   it("ranks by Stars, then coins, ties together, and lets the tiebreaker order the first place", () => {

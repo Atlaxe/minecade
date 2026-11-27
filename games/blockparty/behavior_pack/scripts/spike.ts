@@ -48,7 +48,7 @@ import {
   type Vector3,
 } from "@minecraft/server";
 import { ActionFormData, ModalFormData } from "@minecraft/server-ui";
-import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say, showForm, spacesOf, worldPoint, type GameContext, type MapPosition, type Result, type SpawnReason } from "@minecade/minigame-core";
+import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say, showForm, spacesOf, worldPoint, type Down, type DownDecision, type GameContext, type Hit, type MapPosition, type Result, type SpawnReason } from "@minecade/minigame-core";
 import { BLOCK_PARTY_BOARD, type MapEdit, type MapSettingConfig } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import skins from "#skins";
@@ -335,6 +335,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private transfers!: Transfers;
   /** The minigame's line top right while one is on (it takes the board's place). */
   private minigameStatus: string | undefined;
+  /** A player's own line over the minigame's status (Play.tell), by key, until its tick. */
+  private readonly ownLines = new Map<string, { text: string; until: number }>();
   /** The board's words above the hotbar (barText: a turn's start) and the tick they go at. */
   private barWords: { text: string; until: number } | undefined;
   /** Players put on the pre-game podium who haven't rolled for turn order yet (by key): they may walk. */
@@ -453,6 +455,10 @@ export class BlockPartySpike extends Minigame<Config> {
       say: (text) => this.everyone(text),
       random: () => this.ctx.random(),
       status: (text) => (this.minigameStatus = text),
+      tell: (key, text, ticks) => {
+        if (text === undefined) this.ownLines.delete(key);
+        else this.ownLines.set(key, { text, until: system.currentTick + ticks });
+      },
       zoomOut: (seconds) => this.boardCamera.zoomOut(seconds),
       boardAbove: () => {
         if (this.boardCameraBack()) this.boardCamera.above();
@@ -583,7 +589,8 @@ export class BlockPartySpike extends Minigame<Config> {
       talk: (id, fills, options) => this.dialogue.talk(id, fills, options),
       cutscene: (skippable, work) => this.dialogue.cutscene(skippable, work),
       stage: this.staging,
-      minigames: MINIGAMES,
+      // A minigame with no published arena map plays its test arena only while testing (the user, 2026-11-26).
+      minigames: this.testing ? MINIGAMES : MINIGAMES.filter((def) => (this.ctx.vars.arenas[def.id] ?? []).length > 0),
       playMinigame: (format, def, sides, pool, onlookers, settle, options) => this.runner.play(format, def, sides, pool, onlookers, settle, options),
       everyone: (text) => this.everyone(text),
       tell: (who, text) => who.player && this.tell(who.player, text),
@@ -726,6 +733,16 @@ export class BlockPartySpike extends Minigame<Config> {
   private get testing(): boolean {
     const { devMinPlayers, preview } = this.ctx.vars;
     return this.config.test || devMinPlayers === 1 || preview !== "";
+  }
+
+  /** A hit on a player: cancelled unless the minigame playing now lets it through (minigame-runner.ts, damage). */
+  protected override onDamage(hit: Hit): number | "cancel" | void {
+    return this.runner.damage(hit);
+  }
+
+  /** A lethal hit in a minigame with real damage: the minigame takes it, the player kept up. */
+  protected override onDown(name: string, down: Down): DownDecision | void {
+    if (this.runner.downed(name, down.cause)) return "handled";
   }
 
   protected override onStart(): void {
@@ -1382,8 +1399,9 @@ export class BlockPartySpike extends Minigame<Config> {
    */
   private sendLine(player: Player, tests: PlayerTests, force = false): void {
     if (this.barWords && system.currentTick >= this.barWords.until) this.barWords = undefined;
-    const status = this.minigameStatus ?? "";
     const name = player.name.toLowerCase();
+    const mine = this.ownLines.get(name);
+    const status = (mine && mine.until > system.currentTick ? mine.text : undefined) ?? this.minigameStatus ?? "";
     const tutorial = this.tutorialView;
     const own =
       (this.viewing.has(name) ? STANDINGS_CODE : "") +
@@ -1772,14 +1790,22 @@ export class BlockPartySpike extends Minigame<Config> {
   private async minigameForm(player: Player): Promise<void> {
     if (!this.loop.active) return this.tell(player, "Play a minigame works once the board game is on.");
     const formatName: Record<Format, string> = { ffa: "free for all", battle: "Battle", "2v2": "2 vs 2", "1v3": "1 vs 3", duel: "duel" };
-    const entries = MINIGAMES.flatMap((def) =>
-      (def.kind === "ffa" ? (["ffa", "battle"] as const) : [def.kind]).map((format: Format) => ({ def, format, label: `${def.name}: ${formatName[format]}` })),
-    );
+    // The minigame, then its format when it has more than one.
     const form = new ActionFormData().title("Play a minigame now");
-    for (const entry of entries) form.button(entry.label);
+    for (const def of MINIGAMES) form.button(def.name);
     const picked = (await showForm(this.scope, player, form))?.selection;
     if (picked === undefined) return;
-    const entry = entries[picked];
+    const def = MINIGAMES[picked];
+    const formats: Format[] = def.kind === "ffa" ? ["ffa", "battle"] : [def.kind];
+    let format = formats[0];
+    if (formats.length > 1) {
+      const which = new ActionFormData().title(def.name);
+      for (const each of formats) which.button(formatName[each]);
+      const chosen = (await showForm(this.scope, player, which))?.selection;
+      if (chosen === undefined) return;
+      format = formats[chosen];
+    }
+    const entry = { def, format, label: `${def.name}: ${formatName[format]}` };
     if (!fits(entry.format, this.loop.seated)) return this.tell(player, `${entry.label} doesn't fit ${this.loop.seated} players.`);
     this.loop.testJump({ kind: "minigame", format: entry.format, def: entry.def });
     this.callOffRoll(player);

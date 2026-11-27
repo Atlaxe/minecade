@@ -35,15 +35,17 @@
 // Nothing is a title (the user, 2026-11-18): the countdown and the results are notices in the
 // dialogue box with no speaker (dialogue.ts, notify; NOTICE for how long). The announcement's steps,
 // the countdown and Go play the user's sound map's minigame.* events.
-import { EasingType, GameMode, InputPermissionCategory, StructureRotation, world, type Dimension, type Entity, type Player, type Vector3 } from "@minecraft/server";
-import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type QuarterTurns, type Scope } from "@minecade/minigame-core";
+import { EasingType, EntityComponentTypes, EquipmentSlot, GameMode, InputPermissionCategory, StructureRotation, system, world, type Dimension, type Entity, type ItemStack, type Player, type Vector3 } from "@minecraft/server";
+import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type Hit, type MapConfig, type QuarterTurns, type Scope } from "@minecade/minigame-core";
+import { mapSettingValue } from "@minecade/minigame-core/config";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
 import { line } from "./lines.ts";
 import { podiumLayout, podiumOrder, podiumPlaces, standInPodium, type PodiumLayout } from "./minigame-podium.ts";
 import { forcedOutcome, pickName, spinStart, wheelOf, type Format } from "./minigame-rules.ts";
 import type { AnnounceScreen, TutorialScreen, TutorialSide } from "./screen-codes.ts";
 import { eventCue, playCue } from "./sounds.ts";
-import { arenaSize, fill, mapField, NOTICE, type Field, type MinigameDef, type Outcome, type Play, type Spot } from "./minigames/kit.ts";
+import { ARENAS, TILED } from "./minigames/arenas.ts";
+import { arenaSize, fill, mapField, NOTICE, type Field, type HitMode, type MinigameDef, type Outcome, type Play, type Spot } from "./minigames/kit.ts";
 
 /** Where arenas go: the middle of the floor (the map's arena slot's, or far east of the board), and the slot's size across (x by z) when there is one. */
 export interface ArenaPlace {
@@ -82,6 +84,8 @@ export interface RunnerHost {
   random(): number;
   /** The line top right for everyone, while a minigame is on (undefined: the board's again). */
   status(text: string | undefined): void;
+  /** One player's own line top right for `ticks`, over the status (undefined: theirs goes). */
+  tell?(key: string, text: string | undefined, ticks: number): void;
   /**
    * Into a minigame (block-party-ui.md, "The minigame announcement"): the board's camera rises and
    * pulls back over `seconds`, still aimed at the same point.
@@ -153,11 +157,20 @@ const WATCH_HEIGHT = 6;
 const BOTS_AFTER = 10;
 const ROTATIONS: Record<QuarterTurns, StructureRotation> = { 0: StructureRotation.None, 1: StructureRotation.Rotate90, 2: StructureRotation.Rotate180, 3: StructureRotation.Rotate270 };
 
-/** The arena a minigame is played on this time: where, its markup there, and the structure placed for it (none: its test arena). */
+/** The arena a minigame is played on this time: where, its markup there, and the structure placed for it (none: its test arena), as many times as it's tiled, a copy's width apart. */
 interface Laid {
   field: Field;
-  structure?: { id: string; turns: QuarterTurns; map: string };
+  structure?: { id: string; turns: QuarterTurns; map: string; copies: number; step: number };
+  /** The arena map's config (its Game settings), when it's one. */
+  config?: MapConfig;
 }
+
+/** Ticks a pushed bot's own steps wait, so the push carries it. */
+const PUSHED_TICKS = 10;
+/** A push's force on a bot (blocks a tick away, and up), times its strength. */
+const BOT_PUSH = { horizontal: 0.45, vertical: 0.32 };
+/** The extra push on a player on top of vanilla's (applyKnockback's force), Sumo's measured numbers: horizontal times (strength - 0.5). */
+const PLAYER_PUSH = { horizontal: 1, vertical: 0.4 };
 
 /** A minigame on now: what it is, who's on which side, and the outcome /minigame win forced on it, with what ends its play() early. */
 interface Running {
@@ -192,6 +205,17 @@ export class MinigameRunner {
   private current: Running | undefined;
   /** The results are on the podium: a mood played now is held. */
   private podiumUp = false;
+  /** What a hit does in the minigame playing now (Play.hits), and how hard a push is. */
+  private hitMode: HitMode = "none";
+  private pushStrength = 1;
+  /** Who's on which side in the minigame on now, by key (teammates never hit each other). */
+  private sideOf = new Map<string, number>();
+  /** The minigame's handler for a lethal hit (Play.onDown). */
+  private downHandler: ((who: Who, cause: string) => void) | undefined;
+  /** Everyone in the minigame on now, by key. */
+  private whoByKey = new Map<string, Who>();
+  /** When each pushed bot's steps may go on again (system tick), by key. */
+  private readonly pushedUntil = new Map<string, number>();
 
   constructor(host: RunnerHost) {
     this.host = host;
@@ -210,6 +234,39 @@ export class MinigameRunner {
   /** Whether `key` is playing a minigame now: from Go until it ends, out or not. */
   isPlaying(key: string): boolean {
     return this.playing.has(key);
+  }
+
+  /**
+   * A hit on a player (the game's onDamage, inside a before-event: decide only): cancelled unless
+   * the minigame playing now lets hits through (Play.hits), between two players in it on different
+   * sides. A push keeps vanilla's knockback with no damage; real damage keeps every cause.
+   */
+  damage(hit: Hit): number | "cancel" | undefined {
+    if (this.hitMode === "none" || !this.current) return "cancel";
+    const victim = hit.victim.toLowerCase();
+    if (!this.playing.has(victim) || this.outs.has(victim)) return "cancel";
+    if (hit.attacker !== undefined) {
+      const attacker = hit.attacker.toLowerCase();
+      if (attacker !== victim && (!this.playing.has(attacker) || this.outs.has(attacker) || this.sideOf.get(attacker) === this.sideOf.get(victim))) return "cancel";
+    }
+    if (this.hitMode === "push") return hit.attacker !== undefined && (hit.cause === "entityAttack" || hit.cause === "projectile") ? 0 : "cancel";
+    return undefined;
+  }
+
+  /** A player's lethal hit (the game's onDown): true when the minigame on now takes it (they're kept up at full health). */
+  downed(name: string, cause: string): boolean {
+    const who = this.whoByKey.get(name.toLowerCase());
+    if (!who || !this.downHandler || this.outs.has(who.key) || !this.playing.has(who.key)) return false;
+    heal(who.player);
+    const handler = this.downHandler;
+    system.run(() => {
+      try {
+        handler(who, cause);
+      } catch (error) {
+        log.warn(`blockparty: a minigame's down failed: ${describeError(error)}`);
+      }
+    });
+    return true;
   }
 
   /** A player jumped: while the tutorial shows, that's their Ready. True when it was. */
@@ -255,7 +312,8 @@ export class MinigameRunner {
     const everyone = sides.flat();
     const { dimension } = this.host;
     // Picked before the announcement, so a map that can't be played is named while the wheel spins.
-    const laid = this.lay(def);
+    const tiled = TILED[def.id];
+    const laid = this.lay(def, tiled === "player" ? everyone.length : tiled === "side" ? sides.length : 1);
     let field = laid.field;
     let watchSpot = watchSpotOf(field);
     let boardTime: number | undefined;
@@ -325,7 +383,17 @@ export class MinigameRunner {
         playCue(eventCue("minigame.go"));
         for (const who of everyone) if (who.player) setMoving(who.player, true);
         for (const who of everyone) this.playing.add(who.key);
+        // Vanilla's hotbar from Go: empty, for what the minigame hands out.
+        for (const who of everyone) emptyHands(who.player);
         const scope = this.host.scope.child(`minigame ${def.id}`);
+        this.hitMode = "none";
+        this.pushStrength = 1;
+        this.downHandler = undefined;
+        this.pushedUntil.clear();
+        this.sideOf = new Map(sides.flatMap((side, index) => side.map((who) => [who.key, index] as const)));
+        this.whoByKey = new Map(everyone.map((who) => [who.key, who]));
+        const settings = settingsOf(def.id, laid.config);
+        this.watchPushes(scope);
         const play: Play = {
           scope,
           dimension,
@@ -344,6 +412,16 @@ export class MinigameRunner {
           notice: (text, ticks) => this.host.notice(text, ticks ?? NOTICE.show),
           say: (text) => this.host.say(text),
           status: (text) => this.host.status(text),
+          setting: settings,
+          tell: (who, text, ticks) => this.host.tell?.(who.key, text, ticks ?? NOTICE.show),
+          hits: (mode, strength = 1) => {
+            this.hitMode = mode;
+            this.pushStrength = strength;
+          },
+          onDown: (handler) => (this.downHandler = handler),
+          pushed: (who) => (this.pushedUntil.get(who.key) ?? 0) > system.currentTick,
+          push: (who, from, strength) => this.push(who, from, strength),
+          give: (who, item, slot) => give(who.player, item, slot),
         };
         try {
           // /minigame win ends it early: its scope goes below, which stops its waits for good.
@@ -355,6 +433,15 @@ export class MinigameRunner {
         } finally {
           scope.dispose();
           this.playing.clear();
+          this.hitMode = "none";
+          this.downHandler = undefined;
+          this.pushedUntil.clear();
+          // Whatever it handed out goes, and everyone is whole again.
+          for (const who of everyone) {
+            emptyAll(who.player);
+            heal(who.player);
+            if (who.player) this.host.tell?.(who.key, undefined, 0);
+          }
         }
       }
       if (this.current === current) this.current = undefined;
@@ -416,7 +503,10 @@ export class MinigameRunner {
     const { structure } = laid;
     if (structure) {
       try {
-        world.structureManager.place(structure.id, dimension, laid.field.min, { rotation: ROTATIONS[structure.turns], includeEntities: false });
+        for (let copy = 0; copy < structure.copies; copy++) {
+          const min = { x: laid.field.min.x + copy * structure.step, y: laid.field.min.y, z: laid.field.min.z };
+          world.structureManager.place(structure.id, dimension, min, { rotation: ROTATIONS[structure.turns], includeEntities: false });
+        }
         log.info(`blockparty: ${def.name} on its arena map ${structure.map}${structure.turns > 0 ? `, turned ${structure.turns * 90} degrees to fit the arena slot` : ""}`);
         return laid.field;
       } catch (error) {
@@ -445,18 +535,23 @@ export class MinigameRunner {
    * Arena box centered where arenas go, turned a quarter when only that fits the arena slot; or its
    * test arena, while it has no arena map, or none it can be played on (it says why).
    */
-  private lay(def: MinigameDef): Laid {
+  private lay(def: MinigameDef, copies = 1): Laid {
     const place = this.host.arenaPlace();
     const maps = this.host.arenaMaps(def.id);
     const arena = maps.length > 0 ? maps[Math.floor(this.host.random() * maps.length)] : undefined;
     const size = arena && arenaSize(arena.config);
     if (arena && size) {
-      const turns: QuarterTurns = place.slot ? (turnsToFit(size, place.slot) ?? 0) : 0;
+      // A tiled arena's copies go side by side east, never turned (piece 9).
+      const tiles = Math.max(1, Math.min(4, copies));
+      const turns: QuarterTurns = tiles > 1 ? 0 : place.slot ? (turnsToFit(size, place.slot) ?? 0) : 0;
       const turned = turnedSize(size, turns);
-      const min = { x: Math.floor(place.middle.x - turned[0] / 2), y: Math.floor(place.middle.y), z: Math.floor(place.middle.z - turned[2] / 2) };
-      const field = mapField(arena.config, placeArena(arena.config, [min.x, min.y, min.z], turns));
+      const across = turned[0] * tiles;
+      const min = { x: Math.floor(place.middle.x - across / 2), y: Math.floor(place.middle.y), z: Math.floor(place.middle.z - turned[2] / 2) };
+      const copyAt = (copy: number) => mapField(arena.config, placeArena(arena.config, [min.x + copy * turned[0], min.y, min.z], turns));
+      const first = copyAt(0);
+      const field: Field = tiles > 1 ? { ...first, size: [across, turned[1], turned[2]], tiles: Array.from({ length: tiles }, (_, copy) => copyAt(copy)) } : first;
       const problem = world.structureManager.get(arena.structure) ? def.problem?.(field) : `its structure ${arena.structure} isn't on this server`;
-      if (!problem) return { field, structure: { id: arena.structure, turns, map: arena.map } };
+      if (!problem) return { field, structure: { id: arena.structure, turns, map: arena.map, copies: tiles, step: turned[0] }, config: arena.config };
       log.warn(`blockparty: ${def.name}'s arena map ${arena.map} can't be played: ${problem}`);
       this.host.say(`${def.name}'s arena map ${arena.map} can't be played (${problem}), so its test arena stands in.`);
     }
@@ -708,6 +803,50 @@ export class MinigameRunner {
     }
   }
 
+  /**
+   * While hits push (Play.hits "push"): a player's hit on a bot in the minigame pushes the bot away
+   * by script (bots take no hits), and a hit on a player gets a push on top of vanilla's when the
+   * minigame pushes harder than vanilla.
+   */
+  private watchPushes(scope: Scope): void {
+    scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
+      if (this.hitMode !== "push" || isPlayer(hitEntity) || !isPlayer(damagingEntity)) return;
+      const attacker = damagingEntity.name.toLowerCase();
+      const victim = [...this.whoByKey.values()].find((who) => this.bodyOf(who)?.id === hitEntity.id);
+      if (!victim || !this.playing.has(attacker) || this.outs.has(attacker) || this.outs.has(victim.key) || this.sideOf.get(attacker) === this.sideOf.get(victim.key)) return;
+      this.push(victim, damagingEntity.location, this.pushStrength);
+    });
+    scope.subscribe(world.afterEvents.entityHurt, ({ hurtEntity, damageSource }) => {
+      if (this.hitMode !== "push" || this.pushStrength <= 1 || damageSource.cause !== "entityAttack" || damageSource.damagingProjectile) return;
+      const attacker = damageSource.damagingEntity;
+      if (!attacker || !isPlayer(hurtEntity) || !this.whoByKey.has(hurtEntity.name.toLowerCase())) return;
+      const away = flatAway(attacker.location, hurtEntity.location);
+      const horizontal = PLAYER_PUSH.horizontal * (this.pushStrength - 0.5);
+      try {
+        hurtEntity.applyKnockback({ x: away.x * horizontal, z: away.z * horizontal }, PLAYER_PUSH.vertical);
+      } catch {
+        // gone
+      }
+    });
+  }
+
+  /** Pushes `who` away from `from`, `strength` times a hit's push: a player by knockback, a bot by script (its own steps wait meanwhile). */
+  push(who: Who, from: Vector3, strength = 1): void {
+    const body = this.bodyOf(who);
+    if (!body) return;
+    const away = flatAway(from, body.location);
+    try {
+      if (isPlayer(body)) body.applyKnockback({ x: away.x * strength, z: away.z * strength }, 0.4);
+      else {
+        body.clearVelocity();
+        body.applyImpulse({ x: away.x * BOT_PUSH.horizontal * strength, y: BOT_PUSH.vertical, z: away.z * BOT_PUSH.horizontal * strength });
+        this.pushedUntil.set(who.key, system.currentTick + PUSHED_TICKS);
+      }
+    } catch {
+      // gone
+    }
+  }
+
   private bodyOf(who: Who): Entity | undefined {
     try {
       return who.body.isValid ? who.body : undefined;
@@ -715,6 +854,14 @@ export class MinigameRunner {
       return undefined;
     }
   }
+}
+
+/** The level direction from `from` to `to` (a unit), any way when they're on top of each other. */
+function flatAway(from: Vector3, to: Vector3): { x: number; z: number } {
+  const x = to.x - from.x;
+  const z = to.z - from.z;
+  const length = Math.hypot(x, z);
+  return length < 0.01 ? { x: 1, z: 0 } : { x: x / length, z: z / length };
 }
 
 /** An arena's middle, on its floor. */
@@ -749,6 +896,74 @@ function setMoving(player: Player, moving: boolean): void {
   } catch {
     // gone
   }
+}
+
+/** A minigame's Game setting reader: the arena map's value when it fits, else the setting's default (arenas.ts), else 0. */
+function settingsOf(id: string, config: MapConfig | undefined): (key: string) => number {
+  const settings = ARENAS.find((arena) => arena.id === id)?.map?.settings ?? {};
+  return (key) => {
+    const setting = settings[key];
+    if (!setting) return 0;
+    return config ? mapSettingValue(setting, config, key) : setting.default;
+  };
+}
+
+/** A player's inventory, if they're still here. */
+function containerOf(player: Player | undefined) {
+  try {
+    return player?.isValid ? player.getComponent(EntityComponentTypes.Inventory)?.container : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A player's hotbar emptied (the board's standings items go while they play). */
+function emptyHands(player: Player | undefined): void {
+  const container = containerOf(player);
+  if (!container) return;
+  for (let slot = 0; slot < 9; slot++) container.setItem(slot, undefined);
+}
+
+/** Everything a minigame handed a player taken back: the whole inventory, their armor and off hand, and its effects. */
+function emptyAll(player: Player | undefined): void {
+  const container = containerOf(player);
+  if (!container || !player) return;
+  try {
+    container.clearAll();
+    const equipment = player.getComponent(EntityComponentTypes.Equippable);
+    for (const slot of [EquipmentSlot.Head, EquipmentSlot.Chest, EquipmentSlot.Legs, EquipmentSlot.Feet, EquipmentSlot.Offhand]) equipment?.setEquipment(slot, undefined);
+    for (const effect of player.getEffects()) player.removeEffect(effect.typeId);
+    player.extinguishFire();
+  } catch {
+    // gone
+  }
+}
+
+/** A player back to full health. */
+function heal(player: Player | undefined): void {
+  try {
+    if (!player?.isValid) return;
+    player.getComponent(EntityComponentTypes.Health)?.resetToMaxValue();
+  } catch {
+    // gone
+  }
+}
+
+/** A player handed `item` into `slot`, or the first empty hotbar slot. */
+function give(player: Player | undefined, item: ItemStack, slot?: number): void {
+  const container = containerOf(player);
+  if (!container) return;
+  if (slot !== undefined) {
+    container.setItem(slot, item);
+    return;
+  }
+  for (let each = 0; each < 9; each++) {
+    if (container.getItem(each) === undefined) {
+      container.setItem(each, item);
+      return;
+    }
+  }
+  container.addItem(item);
 }
 
 function clearCamera(player: Player | undefined): void {

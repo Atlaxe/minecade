@@ -253,8 +253,8 @@ export class GameStats {
   }
 }
 
-/** The tiebreaker's short pool (the plan's): Quick Draw, Hot Floor and Sumo Duel, as they're built. */
-export const TIEBREAK_IDS: readonly string[] = ["quickdraw", "hotfloor", "sumoduel"];
+/** The tiebreaker's short pool (the user, 2026-11-26): Hot Floor, Sumo Duel and Cactus Slap, as they're built. */
+export const TIEBREAK_IDS: readonly string[] = ["hotfloor", "sumoduel", "cactus"];
 
 /** The tiebreaker's minigames: the pool's that are built, else every free-for-all one. */
 export function tiebreakPool(minigames: readonly MinigameDef[]): MinigameDef[] {

@@ -31,7 +31,9 @@ export default defineGame({
   // Each player's portrait on the cards and the results (heads.ts): the build renders it from their
   // saved skin, and Steve's for bots from Minecraft's own.
   playerPortraits: true,
-  combat: { damage: "none", fall: false, outOfBounds: "ignore" },
+  // Hits are the minigames': every one is cancelled unless the minigame playing now lets it through
+  // (minigame-runner.ts, damage; Play.hits), falls too.
+  combat: { damage: "normal", fall: true, outOfBounds: "ignore" },
   respawn: { mode: "none" },
   win: "custom",
   // Boards: spaces (the board kit, BLOCK_PARTY_BOARD: types, shares, placement rules; each space's marker is spaces.json's) and
