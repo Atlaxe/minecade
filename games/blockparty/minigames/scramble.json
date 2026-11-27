@@ -1,0 +1,43 @@
+{
+  "about": "Item Scramble's items (docs/plans/block-party-minigames.md, Item Scramble): calls is what a round asks for (one is hidden in exactly one of each player's chests); fill is what else fills the chests. A starting list for the user to fill.",
+  "calls": [
+    "minecraft:golden_carrot",
+    "minecraft:diamond",
+    "minecraft:cake",
+    "minecraft:compass",
+    "minecraft:name_tag",
+    "minecraft:music_disc_cat",
+    "minecraft:heart_of_the_sea",
+    "minecraft:spyglass",
+    "minecraft:totem_of_undying",
+    "minecraft:trident"
+  ],
+  "fill": [
+    "minecraft:carrot",
+    "minecraft:potato",
+    "minecraft:apple",
+    "minecraft:bread",
+    "minecraft:coal",
+    "minecraft:iron_ingot",
+    "minecraft:gold_ingot",
+    "minecraft:emerald",
+    "minecraft:stick",
+    "minecraft:string",
+    "minecraft:feather",
+    "minecraft:bone",
+    "minecraft:arrow",
+    "minecraft:clock",
+    "minecraft:map",
+    "minecraft:book",
+    "minecraft:paper",
+    "minecraft:egg",
+    "minecraft:wheat",
+    "minecraft:sugar",
+    "minecraft:leather",
+    "minecraft:slime_ball",
+    "minecraft:flint",
+    "minecraft:lead",
+    "minecraft:bucket",
+    "minecraft:shears"
+  ]
+}

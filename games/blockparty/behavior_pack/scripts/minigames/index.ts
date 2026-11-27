@@ -2,9 +2,12 @@
 // The first three have test arenas of their own; the rest play on test-arenas.ts's while they have no
 // arena map.
 import { ANVIL_RAIN } from "./anvil-rain.ts";
+import { BOMB_DISPOSAL } from "./bomb.ts";
+import { BUTTON_MASH } from "./button-mash.ts";
 import { CACTUS } from "./cactus.ts";
 import { CHICKENS } from "./chickens.ts";
 import { CORE } from "./core.ts";
+import { COUNT_MOBS } from "./count-mobs.ts";
 import { ENDERMAN } from "./enderman.ts";
 import { HILL } from "./hill.ts";
 import { HOT_FLOOR } from "./hot-floor.ts";
@@ -17,6 +20,8 @@ import { LEG_BREAKER } from "./leg-breaker.ts";
 import { MINING } from "./mining.ts";
 import { MOB_FREEZE } from "./mob-freeze.ts";
 import { PAINTERS } from "./painters.ts";
+import { QUIZ } from "./quiz.ts";
+import { SCRAMBLE } from "./scramble.ts";
 import { SIMON } from "./simon.ts";
 import { SLITHER } from "./slither.ts";
 import { SPLEEF } from "./spleef.ts";
@@ -25,6 +30,7 @@ import { SURVIVAL } from "./survival.ts";
 import { TNT_RUN } from "./tnt-run.ts";
 import { TOWERS } from "./towers.ts";
 import { TRAP_MASTER } from "./trap-master.ts";
+import { TUG_OF_WAR } from "./tug-of-war.ts";
 import { WOOL_GAME } from "./wool.ts";
 
 export const MINIGAMES: readonly MinigameDef[] = [
@@ -56,4 +62,11 @@ export const MINIGAMES: readonly MinigameDef[] = [
   SPLEEF,
   TOWERS,
   SURVIVAL,
+  // Batch 5: files of their own, words for one player, cameras.
+  QUIZ,
+  SCRAMBLE,
+  COUNT_MOBS,
+  BUTTON_MASH,
+  TUG_OF_WAR,
+  BOMB_DISPOSAL,
 ];

@@ -1,0 +1,15 @@
+{
+  "about": "Quiz Floor's questions (docs/plans/block-party-minigames.md, Quiz Floor): each with its 4 answers, in pad order (red, blue, yellow, green), and which one is right (0 to 3). The game shuffles the questions, not the answers. A starting list for the user to fill.",
+  "questions": [
+    { "question": "Which mob explodes when it gets close?", "answers": ["Skeleton", "Creeper", "Spider", "Zombie"], "right": 1 },
+    { "question": "What do you need to make a Nether portal?", "answers": ["Obsidian", "Bedrock", "Netherrack", "Glowstone"], "right": 0 },
+    { "question": "Which tool mines diamond ore?", "answers": ["Wooden pickaxe", "Stone pickaxe", "Iron pickaxe", "Golden pickaxe"], "right": 2 },
+    { "question": "What does a cow give you with a bucket?", "answers": ["Water", "Lava", "Honey", "Milk"], "right": 3 },
+    { "question": "Which block falls when nothing holds it up?", "answers": ["Sand", "Dirt", "Stone", "Oak planks"], "right": 0 },
+    { "question": "How many hearts does a player have?", "answers": ["5", "8", "10", "20"], "right": 2 },
+    { "question": "Which mob drops ender pearls?", "answers": ["Witch", "Enderman", "Blaze", "Ghast"], "right": 1 },
+    { "question": "What do you plant to grow wheat?", "answers": ["Wheat seeds", "Bread", "Hay bales", "Sugar cane"], "right": 0 },
+    { "question": "Which of these is a hostile mob in the Nether?", "answers": ["Fox", "Axolotl", "Ghast", "Allay"], "right": 2 },
+    { "question": "What light level stops most mobs spawning?", "answers": ["Any light at all", "Above 0", "Only sunlight", "Only torches"], "right": 1 }
+  ]
+}
