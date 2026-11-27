@@ -5,6 +5,7 @@ import { ANVIL_RAIN } from "./anvil-rain.ts";
 import { BOMB_DISPOSAL } from "./bomb.ts";
 import { BUTTON_MASH } from "./button-mash.ts";
 import { CANNONS } from "./cannons.ts";
+import { CARRY_RACE } from "./carry-race.ts";
 import { CACTUS } from "./cactus.ts";
 import { CHICKENS } from "./chickens.ts";
 import { COOK } from "./cook.ts";
@@ -20,13 +21,16 @@ import { HOT_TNT } from "./hot-tnt.ts";
 import { HUNTER } from "./hunter.ts";
 import { KIT_BRAWL } from "./kit-brawl.ts";
 import type { MinigameDef } from "./kit.ts";
+import { LABYRINTH } from "./labyrinth.ts";
 import { LADDER } from "./ladder.ts";
 import { LEG_BREAKER } from "./leg-breaker.ts";
 import { MINING } from "./mining.ts";
 import { MOB_FREEZE } from "./mob-freeze.ts";
 import { MONTECARLO } from "./montecarlo.ts";
 import { PAINTERS } from "./painters.ts";
+import { PARKOUR } from "./parkour.ts";
 import { QUIZ } from "./quiz.ts";
+import { RISING_LAVA } from "./rising-lava.ts";
 import { SCRAMBLE } from "./scramble.ts";
 import { SIMON } from "./simon.ts";
 import { SLITHER } from "./slither.ts";
@@ -85,4 +89,9 @@ export const MINIGAMES: readonly MinigameDef[] = [
   HOLE_IN_WALL,
   HOOK_MOB,
   CANNONS,
+  // Batch 8: riding, leads and bots on a course.
+  PARKOUR,
+  CARRY_RACE,
+  RISING_LAVA,
+  LABYRINTH,
 ];

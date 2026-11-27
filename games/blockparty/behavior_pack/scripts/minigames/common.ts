@@ -589,3 +589,73 @@ export function throwFrom(play: Play, from: Entity, to: Vector3, options: { type
   }
   return ball;
 }
+
+/**
+ * The shortest walk over a flat floor (a maze's): from `from` to `to`, through cells whose two
+ * blocks a player stands in (at `standY` and over it) are free, inside `box`'s footprint. The cell
+ * middles to walk through, the first after `from`, or [] when there's no way.
+ */
+export function walkPath(dimension: Dimension, box: WorldBox, standY: number, from: Vector3, to: Vector3): Vector3[] {
+  const x0 = box.min.x;
+  const z0 = box.min.z;
+  const w = box.max.x - x0 + 1;
+  const d = box.max.z - z0 + 1;
+  const open = (x: number, z: number) => {
+    const a = blockId(dimension, { x: x0 + x, y: standY, z: z0 + z });
+    const b = blockId(dimension, { x: x0 + x, y: standY + 1, z: z0 + z });
+    const passable = (id: string) => id === "minecraft:air" || id.includes("water") || id.includes("carpet") || id === "";
+    return passable(a) && passable(b);
+  };
+  const sx = Math.floor(from.x) - x0;
+  const sz = Math.floor(from.z) - z0;
+  const tx = Math.floor(to.x) - x0;
+  const tz = Math.floor(to.z) - z0;
+  if (sx < 0 || sz < 0 || sx >= w || sz >= d) return [];
+  const came = new Int32Array(w * d).fill(-1);
+  const start = sx * d + sz;
+  came[start] = start;
+  const queue = [start];
+  for (let head = 0; head < queue.length; head++) {
+    const at = queue[head];
+    const x = Math.floor(at / d);
+    const z = at % d;
+    if (x === tx && z === tz) break;
+    for (const [dx, dz] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const nx = x + dx;
+      const nz = z + dz;
+      if (nx < 0 || nz < 0 || nx >= w || nz >= d) continue;
+      const next = nx * d + nz;
+      if (came[next] >= 0 || !open(nx, nz)) continue;
+      came[next] = at;
+      queue.push(next);
+    }
+  }
+  const goal = tx * d + tz;
+  if (tx < 0 || tz < 0 || tx >= w || tz >= d || came[goal] < 0) return [];
+  const path: Vector3[] = [];
+  for (let at = goal; at !== start; at = came[at]) path.push({ x: x0 + Math.floor(at / d) + 0.5, y: standY, z: z0 + (at % d) + 0.5 });
+  return path.reverse();
+}
+
+/**
+ * A bot walking a path to `to` (walkPath, worked out again every so often): one step this tick along
+ * it. True once it's there.
+ */
+export function botWalkTo(play: Play, who: Who, box: WorldBox, standY: number, to: Vector3, paths: Map<string, { path: Vector3[]; at: number }>, speed = BOT_WALK): boolean {
+  const body = play.bodyOf(who);
+  if (!body || isPlayer(body) || play.pushed(who)) return false;
+  let plan = paths.get(who.key);
+  if (!plan || system.currentTick - plan.at > 40 || plan.path.length === 0) {
+    plan = { path: walkPath(play.dimension, box, standY, body.location, to), at: system.currentTick };
+    paths.set(who.key, plan);
+  }
+  const next = plan.path[0];
+  if (!next) return stepToward(body, to, speed, 0.4);
+  if (stepToward(body, next, speed, 0.25)) plan.path.shift();
+  return plan.path.length === 0 && flat(body.location, to) < 0.6;
+}
