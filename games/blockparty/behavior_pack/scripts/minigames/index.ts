@@ -4,13 +4,17 @@
 import { ANVIL_RAIN } from "./anvil-rain.ts";
 import { BOMB_DISPOSAL } from "./bomb.ts";
 import { BUTTON_MASH } from "./button-mash.ts";
+import { CANNONS } from "./cannons.ts";
 import { CACTUS } from "./cactus.ts";
 import { CHICKENS } from "./chickens.ts";
 import { COOK } from "./cook.ts";
 import { CORE } from "./core.ts";
 import { COUNT_MOBS } from "./count-mobs.ts";
+import { EGG_DROP } from "./egg-drop.ts";
 import { ENDERMAN } from "./enderman.ts";
 import { HILL } from "./hill.ts";
+import { HOLE_IN_WALL } from "./hole-in-wall.ts";
+import { HOOK_MOB } from "./hook-mob.ts";
 import { HOT_FLOOR } from "./hot-floor.ts";
 import { HOT_TNT } from "./hot-tnt.ts";
 import { HUNTER } from "./hunter.ts";
@@ -26,6 +30,7 @@ import { QUIZ } from "./quiz.ts";
 import { SCRAMBLE } from "./scramble.ts";
 import { SIMON } from "./simon.ts";
 import { SLITHER } from "./slither.ts";
+import { SNOWBALL } from "./snowball.ts";
 import { SPLEEF } from "./spleef.ts";
 import { SUMO_DUEL } from "./sumo-duel.ts";
 import { SURVIVAL } from "./survival.ts";
@@ -74,4 +79,10 @@ export const MINIGAMES: readonly MinigameDef[] = [
   // Batch 6: tiled arenas.
   MONTECARLO,
   COOK,
+  // Batch 7: moving entities.
+  EGG_DROP,
+  SNOWBALL,
+  HOLE_IN_WALL,
+  HOOK_MOB,
+  CANNONS,
 ];

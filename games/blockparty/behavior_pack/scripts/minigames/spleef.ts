@@ -4,10 +4,10 @@
 // a hole; a fall (Kill Y) is out. The last team with someone standing wins (each alone: places by
 // when they fell). After the time, the floor crumbles by itself. Bots walk at a rival, break the snow
 // under them now and then, and throw.
-import { EntityComponentTypes, ItemStack, world, type Entity } from "@minecraft/server";
+import { EntityComponentTypes, ItemStack, world } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, blocksOf, botFace, botStep, clock, everyTick, fellOut, floorOf, isPlayer, item, nearestOf, onPlan, placesByOut, setBlock, sideMap, spawnIn } from "./common.ts";
+import { BOT_WALK, blockId, blocksOf, botFace, botStep, clock, everyTick, fellOut, floorOf, isPlayer, item, nearestOf, onPlan, placesByOut, setBlock, sideMap, throwFrom } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const SNOW = "minecraft:snow";
@@ -75,22 +75,6 @@ export const SPLEEF: MinigameDef = {
     });
     const lastBreak = new Map<string, number>();
     const lastThrow = new Map<string, number>();
-    const throwAt = (from: Entity, target: Entity) => {
-      const eye = { x: from.location.x, y: from.location.y + 1.5, z: from.location.z };
-      const ball = spawnIn(play, "minecraft:snowball", eye);
-      if (!ball) return;
-      const to = { x: target.location.x - eye.x, y: target.location.y + 1 - eye.y, z: target.location.z - eye.z };
-      const length = Math.hypot(to.x, to.y, to.z) || 1;
-      try {
-        const projectile = ball.getComponent(EntityComponentTypes.Projectile);
-        if (projectile) {
-          projectile.owner = from;
-          projectile.shoot({ x: (to.x / length) * 1.5, y: (to.y / length) * 1.5 + 0.1, z: (to.z / length) * 1.5 });
-        }
-      } catch {
-        // gone
-      }
-    };
     let crumbled = 0;
     const order = [...snow].sort(() => play.random() - 0.5);
     const sidesLeft = () => new Set(play.inPlay().map((who) => sideOf.get(who.key))).size;
@@ -117,7 +101,7 @@ export const SPLEEF: MinigameDef = {
           if (blockId(dimension, under) === SNOW) setBlock(dimension, under, "minecraft:air");
         } else if (rival.gap < 12 && tick - (lastThrow.get(who.key) ?? -99) >= BOT_THROW) {
           lastThrow.set(who.key, tick);
-          throwAt(body, rival.body);
+          throwFrom(play, body, { x: rival.body.location.x, y: rival.body.location.y + 1, z: rival.body.location.z }, { error: 1 });
         }
         if (rival.gap > 2.6) botStep(play, who, rival.body.location, BOT_WALK * 0.8, 2.4);
       }

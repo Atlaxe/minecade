@@ -563,3 +563,29 @@ export function byWeight<T extends { weight?: number }>(list: readonly T[], rand
   }
   return list[list.length - 1];
 }
+
+/**
+ * Throws a projectile (a snowball by default) from `from` toward `to` at `speed` blocks a tick, its
+ * owner `from` (so a hit counts as theirs), `error` blocks off at random. Gone with the minigame.
+ */
+export function throwFrom(play: Play, from: Entity, to: Vector3, options: { type?: string; speed?: number; error?: number; lift?: number } = {}): Entity | undefined {
+  const eye = { x: from.location.x, y: from.location.y + 1.5, z: from.location.z };
+  const ball = spawnIn(play, options.type ?? "minecraft:snowball", eye);
+  if (!ball) return undefined;
+  const error = options.error ?? 0;
+  const aim = { x: to.x + (play.random() - 0.5) * error * 2 - eye.x, y: to.y + (play.random() - 0.5) * error - eye.y, z: to.z + (play.random() - 0.5) * error * 2 - eye.z };
+  const length = Math.hypot(aim.x, aim.y, aim.z) || 1;
+  const speed = options.speed ?? 1.5;
+  // A lob: a little up for the drop over the distance.
+  const lift = options.lift ?? Math.min(0.5, length * 0.012);
+  try {
+    const projectile = ball.getComponent(EntityComponentTypes.Projectile);
+    if (projectile) {
+      projectile.owner = from;
+      projectile.shoot({ x: (aim.x / length) * speed, y: (aim.y / length) * speed + lift, z: (aim.z / length) * speed });
+    }
+  } catch {
+    // gone
+  }
+  return ball;
+}
