@@ -6,6 +6,7 @@ import { BOMB_DISPOSAL } from "./bomb.ts";
 import { BUTTON_MASH } from "./button-mash.ts";
 import { CACTUS } from "./cactus.ts";
 import { CHICKENS } from "./chickens.ts";
+import { COOK } from "./cook.ts";
 import { CORE } from "./core.ts";
 import { COUNT_MOBS } from "./count-mobs.ts";
 import { ENDERMAN } from "./enderman.ts";
@@ -19,6 +20,7 @@ import { LADDER } from "./ladder.ts";
 import { LEG_BREAKER } from "./leg-breaker.ts";
 import { MINING } from "./mining.ts";
 import { MOB_FREEZE } from "./mob-freeze.ts";
+import { MONTECARLO } from "./montecarlo.ts";
 import { PAINTERS } from "./painters.ts";
 import { QUIZ } from "./quiz.ts";
 import { SCRAMBLE } from "./scramble.ts";
@@ -69,4 +71,7 @@ export const MINIGAMES: readonly MinigameDef[] = [
   BUTTON_MASH,
   TUG_OF_WAR,
   BOMB_DISPOSAL,
+  // Batch 6: tiled arenas.
+  MONTECARLO,
+  COOK,
 ];

@@ -1,0 +1,64 @@
+{
+  "about": "Cook's Request (docs/plans/block-party-minigames.md, Cook's Request): the dishes and their recipes (in: pot for the cooking pot, crafting for a crafting table; from: what goes in the pot, chopped for the cutting board's), what the skillet cooks, what the cutting board chops, the crops (the block, what breaking it gives, and its growth state when grown), what each animal gives, what the pantry chests hold and a few decoys. The starting recipes are proposed: the user's to change.",
+  "dishes": [
+    { "id": "minecraft:cake", "name": "Cake", "in": "crafting", "from": [] },
+    { "id": "minecraft:rabbit_stew", "name": "Rabbit Stew", "in": "crafting", "from": [] },
+    { "id": "minecade:pumpkin_pie", "name": "Pumpkin Pie", "in": "pot", "from": [{ "id": "minecraft:pumpkin", "chopped": true }, { "id": "minecraft:sugar" }, { "id": "minecraft:egg" }, { "id": "minecraft:wheat" }] },
+    { "id": "minecade:apple_pie", "name": "Apple Pie", "in": "pot", "from": [{ "id": "minecraft:apple", "chopped": true }, { "id": "minecraft:apple", "chopped": true }, { "id": "minecraft:sugar" }, { "id": "minecraft:wheat" }, { "id": "minecraft:milk_bucket" }] },
+    { "id": "minecade:chocolate_pie", "name": "Chocolate Pie", "in": "pot", "from": [{ "id": "minecraft:cocoa_beans" }, { "id": "minecraft:cocoa_beans" }, { "id": "minecraft:sugar" }, { "id": "minecraft:wheat" }, { "id": "minecraft:milk_bucket" }] },
+    { "id": "minecade:sweet_berry_cheesecake", "name": "Sweet Berry Cheesecake", "in": "pot", "from": [{ "id": "minecraft:sweet_berries" }, { "id": "minecraft:sweet_berries" }, { "id": "minecraft:sweet_berries" }, { "id": "minecraft:sugar" }, { "id": "minecraft:wheat" }, { "id": "minecraft:milk_bucket" }] },
+    { "id": "minecade:gleaming_salad_block", "name": "Gleaming Salad", "in": "pot", "from": [{ "id": "minecraft:glistering_melon_slice" }, { "id": "minecraft:melon_slice", "chopped": true }, { "id": "minecraft:carrot", "chopped": true }, { "id": "minecraft:bowl" }] },
+    { "id": "minecade:honey_glazed_ham_block", "name": "Honey Glazed Ham", "in": "pot", "from": [{ "id": "minecraft:cooked_porkchop" }, { "id": "minecraft:cooked_porkchop" }, { "id": "minecraft:honey_bottle" }, { "id": "minecraft:sweet_berries" }] },
+    { "id": "minecade:roast_chicken_block", "name": "Roast Chicken", "in": "pot", "from": [{ "id": "minecraft:cooked_chicken" }, { "id": "minecraft:carrot", "chopped": true }, { "id": "minecraft:baked_potato" }, { "id": "minecraft:bread" }] },
+    { "id": "minecade:shepherds_pie_block", "name": "Shepherd's Pie", "in": "pot", "from": [{ "id": "minecraft:cooked_mutton" }, { "id": "minecraft:baked_potato" }, { "id": "minecraft:carrot", "chopped": true }, { "id": "minecraft:water_bucket" }] },
+    { "id": "minecade:stuffed_pumpkin_block", "name": "Stuffed Pumpkin", "in": "pot", "from": [{ "id": "minecraft:pumpkin" }, { "id": "minecraft:brown_mushroom" }, { "id": "minecraft:baked_potato" }, { "id": "minecraft:sweet_berries" }, { "id": "minecraft:carrot", "chopped": true }] },
+    { "id": "minecade:rice_roll_medley_block", "name": "Rice Roll Medley", "in": "pot", "from": [{ "id": "minecraft:cooked_salmon" }, { "id": "minecraft:dried_kelp" }, { "id": "minecraft:dried_kelp" }, { "id": "minecraft:carrot", "chopped": true }, { "id": "minecraft:potion" }] }
+  ],
+  "skillet": {
+    "minecraft:beef": "minecraft:cooked_beef",
+    "minecraft:porkchop": "minecraft:cooked_porkchop",
+    "minecraft:chicken": "minecraft:cooked_chicken",
+    "minecraft:mutton": "minecraft:cooked_mutton",
+    "minecraft:rabbit": "minecraft:cooked_rabbit",
+    "minecraft:salmon": "minecraft:cooked_salmon",
+    "minecraft:cod": "minecraft:cooked_cod",
+    "minecraft:potato": "minecraft:baked_potato",
+    "minecraft:kelp": "minecraft:dried_kelp"
+  },
+  "chop": ["minecraft:carrot", "minecraft:apple", "minecraft:pumpkin", "minecraft:melon_slice"],
+  "crops": [
+    { "block": "minecraft:wheat", "item": "minecraft:wheat", "grown": 7 },
+    { "block": "minecraft:carrots", "item": "minecraft:carrot", "grown": 7 },
+    { "block": "minecraft:potatoes", "item": "minecraft:potato", "grown": 7 },
+    { "block": "minecraft:beetroot", "item": "minecraft:beetroot", "grown": 7 },
+    { "block": "minecraft:sweet_berry_bush", "item": "minecraft:sweet_berries", "grown": 3 },
+    { "block": "minecraft:pumpkin", "item": "minecraft:pumpkin" },
+    { "block": "minecraft:melon_block", "item": "minecraft:melon_slice" }
+  ],
+  "animals": {
+    "minecraft:cow": "minecraft:beef",
+    "minecraft:pig": "minecraft:porkchop",
+    "minecraft:chicken": "minecraft:chicken",
+    "minecraft:sheep": "minecraft:mutton",
+    "minecraft:rabbit": "minecraft:rabbit"
+  },
+  "pantry": [
+    "minecraft:salmon",
+    "minecraft:honey_bottle",
+    "minecraft:brown_mushroom",
+    "minecraft:red_mushroom",
+    "minecraft:cocoa_beans",
+    "minecraft:kelp",
+    "minecraft:sugar",
+    "minecraft:bowl",
+    "minecraft:bucket",
+    "minecraft:glass_bottle",
+    "minecraft:glistering_melon_slice",
+    "minecraft:apple",
+    "minecraft:pumpkin",
+    "minecraft:melon_slice",
+    "minecraft:sweet_berries",
+    "minecraft:egg"
+  ],
+  "decoys": ["minecraft:rotten_flesh", "minecraft:poisonous_potato", "minecraft:spider_eye", "minecraft:stick", "minecraft:bone"]
+}
