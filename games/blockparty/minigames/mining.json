@@ -1,0 +1,13 @@
+{
+  "about": "Mining Race's ores (docs/plans/block-party-minigames.md, Mining Race): each ore's block, the points it scores, and how often it turns up (weight) among the ores the game puts in each mine. A starting list for the user to fill.",
+  "ores": [
+    { "id": "minecraft:coal_ore", "points": 1, "weight": 30 },
+    { "id": "minecraft:copper_ore", "points": 1, "weight": 25 },
+    { "id": "minecraft:iron_ore", "points": 2, "weight": 18 },
+    { "id": "minecraft:redstone_ore", "points": 2, "weight": 10 },
+    { "id": "minecraft:lapis_ore", "points": 2, "weight": 8 },
+    { "id": "minecraft:gold_ore", "points": 3, "weight": 6 },
+    { "id": "minecraft:diamond_ore", "points": 5, "weight": 2 },
+    { "id": "minecraft:emerald_ore", "points": 8, "weight": 1 }
+  ]
+}

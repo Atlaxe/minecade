@@ -1,0 +1,31 @@
+{
+  "about": "Towers of Fortune's item pool (docs/plans/block-party-minigames.md, Towers of Fortune): every few seconds everyone gets one of these at random by weight (amount for a stack). Any vanilla item works: blocks, tools, weapons, armor, food, potions, ender pearls, spawn eggs. A starting list for the user to fill.",
+  "items": [
+    { "id": "minecraft:oak_planks", "amount": 16, "weight": 12 },
+    { "id": "minecraft:cobblestone", "amount": 16, "weight": 10 },
+    { "id": "minecraft:white_wool", "amount": 16, "weight": 8 },
+    { "id": "minecraft:sand", "amount": 8, "weight": 3 },
+    { "id": "minecraft:ladder", "amount": 8, "weight": 3 },
+    { "id": "minecraft:stone_sword", "weight": 4 },
+    { "id": "minecraft:iron_sword", "weight": 2 },
+    { "id": "minecraft:stone_axe", "weight": 3 },
+    { "id": "minecraft:iron_pickaxe", "weight": 3 },
+    { "id": "minecraft:bow", "weight": 2 },
+    { "id": "minecraft:arrow", "amount": 8, "weight": 3 },
+    { "id": "minecraft:snowball", "amount": 8, "weight": 3 },
+    { "id": "minecraft:egg", "amount": 8, "weight": 2 },
+    { "id": "minecraft:iron_chestplate", "weight": 2 },
+    { "id": "minecraft:iron_helmet", "weight": 2 },
+    { "id": "minecraft:leather_boots", "weight": 2 },
+    { "id": "minecraft:shield", "weight": 2 },
+    { "id": "minecraft:bread", "amount": 4, "weight": 4 },
+    { "id": "minecraft:golden_apple", "weight": 2 },
+    { "id": "minecraft:ender_pearl", "weight": 2 },
+    { "id": "minecraft:water_bucket", "weight": 2 },
+    { "id": "minecraft:lava_bucket", "weight": 1 },
+    { "id": "minecraft:flint_and_steel", "weight": 1 },
+    { "id": "minecraft:tnt", "amount": 2, "weight": 1 },
+    { "id": "minecraft:zombie_spawn_egg", "weight": 1 },
+    { "id": "minecraft:spider_spawn_egg", "weight": 1 }
+  ]
+}

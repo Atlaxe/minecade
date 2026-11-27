@@ -1,0 +1,29 @@
+{
+  "about": "Mini Survival Games' loot (docs/plans/block-party-minigames.md, Mini Survival Games): what the Middle chests and the Outer chests are filled from, at random by weight (amount for a stack). The Middle ones get the better loot. A starting list for the user to fill.",
+  "perChest": 5,
+  "middle": [
+    { "id": "minecraft:iron_sword", "weight": 4 },
+    { "id": "minecraft:diamond_sword", "weight": 1 },
+    { "id": "minecraft:iron_axe", "weight": 2 },
+    { "id": "minecraft:bow", "weight": 2 },
+    { "id": "minecraft:arrow", "amount": 12, "weight": 3 },
+    { "id": "minecraft:iron_chestplate", "weight": 3 },
+    { "id": "minecraft:iron_leggings", "weight": 2 },
+    { "id": "minecraft:iron_helmet", "weight": 2 },
+    { "id": "minecraft:diamond_chestplate", "weight": 1 },
+    { "id": "minecraft:golden_apple", "weight": 2 },
+    { "id": "minecraft:cooked_beef", "amount": 3, "weight": 3 }
+  ],
+  "outer": [
+    { "id": "minecraft:wooden_sword", "weight": 4 },
+    { "id": "minecraft:stone_sword", "weight": 4 },
+    { "id": "minecraft:stone_axe", "weight": 3 },
+    { "id": "minecraft:leather_chestplate", "weight": 3 },
+    { "id": "minecraft:leather_helmet", "weight": 3 },
+    { "id": "minecraft:chainmail_boots", "weight": 2 },
+    { "id": "minecraft:arrow", "amount": 6, "weight": 2 },
+    { "id": "minecraft:bread", "amount": 3, "weight": 4 },
+    { "id": "minecraft:apple", "amount": 2, "weight": 4 },
+    { "id": "minecraft:fishing_rod", "weight": 2 }
+  ]
+}

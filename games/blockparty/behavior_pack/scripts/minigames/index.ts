@@ -14,12 +14,16 @@ import { KIT_BRAWL } from "./kit-brawl.ts";
 import type { MinigameDef } from "./kit.ts";
 import { LADDER } from "./ladder.ts";
 import { LEG_BREAKER } from "./leg-breaker.ts";
+import { MINING } from "./mining.ts";
 import { MOB_FREEZE } from "./mob-freeze.ts";
 import { PAINTERS } from "./painters.ts";
 import { SIMON } from "./simon.ts";
 import { SLITHER } from "./slither.ts";
+import { SPLEEF } from "./spleef.ts";
 import { SUMO_DUEL } from "./sumo-duel.ts";
+import { SURVIVAL } from "./survival.ts";
 import { TNT_RUN } from "./tnt-run.ts";
+import { TOWERS } from "./towers.ts";
 import { TRAP_MASTER } from "./trap-master.ts";
 import { WOOL_GAME } from "./wool.ts";
 
@@ -47,4 +51,9 @@ export const MINIGAMES: readonly MinigameDef[] = [
   CORE,
   LEG_BREAKER,
   HOT_TNT,
+  // Batch 4: place and break, Survival.
+  MINING,
+  SPLEEF,
+  TOWERS,
+  SURVIVAL,
 ];
