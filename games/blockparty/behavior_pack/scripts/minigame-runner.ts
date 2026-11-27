@@ -210,8 +210,9 @@ export class MinigameRunner {
   private pushStrength = 1;
   /** Who's on which side in the minigame on now, by key (teammates never hit each other). */
   private sideOf = new Map<string, number>();
-  /** The minigame's handler for a lethal hit (Play.onDown). */
+  /** The minigame's handler for a lethal hit (Play.onDown), and for any hit with real damage (Play.onHurt). */
   private downHandler: ((who: Who, cause: string) => void) | undefined;
+  private hurtHandler: ((victim: Who, damage: number, cause: string, attacker: Who | undefined) => number | "cancel" | void) | undefined;
   /** Everyone in the minigame on now, by key. */
   private whoByKey = new Map<string, Who>();
   /** When each pushed bot's steps may go on again (system tick), by key. */
@@ -255,7 +256,15 @@ export class MinigameRunner {
       if (attacker !== victim && (!this.playing.has(attacker) || this.outs.has(attacker) || this.sideOf.get(attacker) === this.sideOf.get(victim))) return "cancel";
     }
     if (this.hitMode === "push") return hit.attacker !== undefined && (hit.cause === "entityAttack" || hit.cause === "projectile") ? 0 : "cancel";
-    return undefined;
+    const who = this.whoByKey.get(victim);
+    if (!who || !this.hurtHandler) return undefined;
+    try {
+      const verdict = this.hurtHandler(who, hit.damage, hit.cause, hit.attacker !== undefined ? this.whoByKey.get(hit.attacker.toLowerCase()) : undefined);
+      return verdict === undefined ? undefined : verdict;
+    } catch (error) {
+      log.warn(`blockparty: a minigame's hurt failed: ${describeError(error)}`);
+      return undefined;
+    }
   }
 
   /** A player's lethal hit (the game's onDown): true when the minigame on now takes it (they're kept up at full health). */
@@ -394,6 +403,7 @@ export class MinigameRunner {
         this.hitMode = "none";
         this.pushStrength = 1;
         this.downHandler = undefined;
+        this.hurtHandler = undefined;
         this.pushedUntil.clear();
         this.sideOf = new Map(sides.flatMap((side, index) => side.map((who) => [who.key, index] as const)));
         this.whoByKey = new Map(everyone.map((who) => [who.key, who]));
@@ -424,6 +434,7 @@ export class MinigameRunner {
             this.pushStrength = strength;
           },
           onDown: (handler) => (this.downHandler = handler),
+          onHurt: (handler) => (this.hurtHandler = handler),
           pushed: (who) => (this.pushedUntil.get(who.key) ?? 0) > system.currentTick,
           push: (who, from, strength) => this.push(who, from, strength),
           give: (who, item, slot) => give(who.player, item, slot),
@@ -440,6 +451,7 @@ export class MinigameRunner {
           this.playing.clear();
           this.hitMode = "none";
           this.downHandler = undefined;
+          this.hurtHandler = undefined;
           this.pushedUntil.clear();
           // Whatever it handed out goes, and everyone is whole again.
           for (const who of everyone) {

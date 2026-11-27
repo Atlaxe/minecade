@@ -1499,6 +1499,11 @@ marks, its Game settings, the formats it plays, the pieces it needs and a build 
 Every minigame has four checkboxes for the formats it plays, **1v1**, **FFA**, **2v2** and **1v3**,
 any number checked; the groups below go by its main one.
 
+**All 44 are built for testing** (2026-11-27), each on its test arena with bots: what every minigame
+gets from the runner (Game settings, Kill Y, tiled copies, hits that push or hurt, items, words for
+one player) and what still stands in (models, smooth logs, the Wither form, the boss bar) are in
+`block-party-minigames.md`, "Built for testing". Play any of them from Tests' Play a minigame now.
+
 Removed by the user (2026-11-26): Bridge Dash, Name That Mob or Item, Quick Draw, Trap Door Maze.
 Do the Opposite is merged into Simon Says; Don't Look became Enderman Roulette; Prop Hunt became
 Barnyard Bluff.

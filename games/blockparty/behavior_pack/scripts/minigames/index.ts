@@ -1,8 +1,10 @@
-// Block Party's minigames (docs/plans/block-party-minigames.md), each with its arena in arenas.ts.
-// The first three have test arenas of their own; the rest play on test-arenas.ts's while they have no
-// arena map.
+// Block Party's minigames (docs/plans/block-party-minigames.md), every one of the plan's 44, each
+// with its arena in arenas.ts (built for testing, 2026-11-27). The first three have test arenas of
+// their own; the rest play on test-arenas.ts's while they have no arena map.
 import { ANVIL_RAIN } from "./anvil-rain.ts";
+import { BARNYARD } from "./barnyard.ts";
 import { BOMB_DISPOSAL } from "./bomb.ts";
+import { BOSS_FIGHT } from "./boss-fight.ts";
 import { BUTTON_MASH } from "./button-mash.ts";
 import { CANNONS } from "./cannons.ts";
 import { CARRY_RACE } from "./carry-race.ts";
@@ -24,6 +26,7 @@ import type { MinigameDef } from "./kit.ts";
 import { LABYRINTH } from "./labyrinth.ts";
 import { LADDER } from "./ladder.ts";
 import { LEG_BREAKER } from "./leg-breaker.ts";
+import { MINECARTS } from "./minecarts.ts";
 import { MINING } from "./mining.ts";
 import { MOB_FREEZE } from "./mob-freeze.ts";
 import { MONTECARLO } from "./montecarlo.ts";
@@ -94,4 +97,9 @@ export const MINIGAMES: readonly MinigameDef[] = [
   CARRY_RACE,
   RISING_LAVA,
   LABYRINTH,
+  // Batch 9: moving platforms.
+  MINECARTS,
+  // Batch 10: playing as a mob.
+  BARNYARD,
+  BOSS_FIGHT,
 ];

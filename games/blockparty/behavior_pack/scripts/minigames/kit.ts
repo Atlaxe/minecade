@@ -160,6 +160,11 @@ export interface Play {
   hits(mode: HitMode, strength?: number): void;
   /** A lethal hit with real damage: the player is kept up at full health, and `handler` says what comes of it. */
   onDown(handler: (who: Who, cause: string) => void): void;
+  /**
+   * With real damage, a hit on a player before it lands (inside a before-event: decide only): a new
+   * amount, "cancel", or nothing to keep it. Boss Fight's Wither takes hits into its own health.
+   */
+  onHurt(handler: (victim: Who, damage: number, cause: string, attacker: Who | undefined) => number | "cancel" | void): void;
   /** Whether a hit pushed `who` in the last few ticks (a bot's steps wait meanwhile, so the push carries it). */
   pushed(who: Who): boolean;
   /** Pushes `who` away from `from`, `strength` times a hit's push (a bot's hit, a blast, a slap). */

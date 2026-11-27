@@ -7,12 +7,13 @@ formats it plays (Plays as), what its arena map marks in the map editor, the num
 hands out, the tutorial's controls, how bots play it and its test arena. It covers pass 9 ("The rest
 of the minigames") and the parts of pass 11 ("The minigame editor") the minigames need.
 
-44 minigames, 3 of them built (Hot Floor, Co-op Painters, Hunter). **Every one has its map editor
-entry** (its checklist and Game settings, `minigames/arenas.ts`), and every one not built has its
-**test arena** (`minigames/test-arenas.ts`; the Tests menu's Test arenas lays any of them with its
-marks shown), since 2026-11-26. Everything else is proposed, for the user to change: the designs fill in what the user's one-liners leave open, and every number is a
-starting point to tune in play tests. Every question is answered; the calls made without one are at
-the end.
+44 minigames, **all 44 built for testing** (2026-11-27; "Built for testing" below says what each
+does for now and what still stands in). **Every one has its map editor entry** (its checklist and
+Game settings, `minigames/arenas.ts`) and plays on its **test arena** (`minigames/test-arenas.ts`;
+the Tests menu's Test arenas lays any of them with its marks shown) while it has no arena map.
+Everything else is proposed, for the user to change: the designs fill in what the user's one-liners
+leave open, and every number is a starting point to tune in play tests. Every question is answered;
+the calls made without one are at the end.
 
 **For the session that builds one:**
 - Work in a worktree of your own (`CLAUDE.md`, "Branch and merge"). Build a batch at a time
@@ -1353,6 +1354,72 @@ both.
    Labyrinth (1v3).
 9. **Moving platforms:** Minecart Dodge, after its spike (piece 17).
 10. **Playing as a mob:** Barnyard Bluff (1v3) and Boss Fight (1v3), after their spike.
+
+## Built for testing (2026-11-27)
+
+The user asked for the remaining minigame logic, for testing. Every minigame of the list plays on its
+test arena (or a published arena map) with bots, from Tests' Play a minigame now (the minigame, then
+its format). Built in commits e325693 and after.
+
+**What every minigame now gets** (the runner, `minigame-runner.ts`; `minigames/kit.ts` Play):
+- **Game settings** (piece 1): `play.setting(key)`, the arena map's value when it fits, else the
+  default in `arenas.ts`.
+- **Kill Y** (piece 2): `field.killY`, from the map or the test arena.
+- **Tiled arenas** (piece 9): a tiled arena map is placed once for each player or side, side by side
+  east, never turned; each copy's markup is in `field.tiles`.
+- **Words for one player** (piece 19): `play.tell(who, text)`, their own line top right over the
+  status.
+- **Hits** (pieces 13 and 14): `play.hits("none" | "push" | "real", strength)`. Block Party's combat
+  is now `damage: "normal"` with every hit cancelled unless the minigame playing now lets it
+  through, teammates never. A push keeps vanilla's knockback (and a push on top past 1x); a player's
+  hit on a bot pushes it by script. Real damage keeps every cause, falls too; a lethal hit goes to
+  `play.onDown`, `play.onHurt` can change a hit (the Wither's own health). Vanilla's hearts and armor
+  show while a minigame with real damage plays. Bots keep hearts of the script's (`common.ts`
+  Hearts).
+- **Items:** `play.give`, and at the end everything handed out goes (inventory, armor, effects) and
+  everyone is healed.
+- **Dev mode** (piece 4): a minigame with no published arena map plays its test arena only while
+  Block Party is being tested (a test game, DEV_MIN_PLAYERS at 1, or an editor preview), the same
+  switch as `/minigame win`, in place of the proposed `DEV_TEST_ARENAS` (my call). Block Party is a
+  test game today, so every minigame plays.
+- **The sudden death's pool** is Hot Floor, Sumo Duel and Cactus Slap.
+- **Files** (piece 12): `games/blockparty/minigames/` holds kitbrawl, mining, towers, survival, quiz,
+  scramble and cook `.json`, starting lists for the user to fill; `test/minigames.test.ts` checks
+  their shape.
+
+**Still to come** (not built): Plays as checkboxes (piece 3: each minigame plays only its own kind
+today; Kit Brawl, Slither, Spleef Duo, Hook the Mob, Cook's Request and Mini Survival Games handle
+teams when they're given them), Pot point, Rules camera end, Covered arena and Preview from an arena
+map (pieces 5 to 8), the look input on the tutorial (11), Hot Floor's 1 x 1 tiles, and the art below.
+
+**What stands in for now** (each minigame's file says so too):
+- **Models of the game's own** (piece 16) are vanilla's or the board's: Button Mash's buttons and
+  Snowball Sniper's targets are the board's coin, Tug of War's flag the coin and its rope particles,
+  Egg Drop's eggs vanilla's thrown egg moved by script, Minecart Dodge's carts vanilla's minecarts
+  moved by script, Bomb Disposal's bombs TNT blocks, Cannon Duel's balls snowballs and its cannon
+  the spot itself, Count the Mobs' sheep vanilla sheep walked by script, Hook the Mob's mobs
+  vanilla's.
+- **Minecart Dodge's logs** (piece 17) move a block at a time with their riders, the plan's fallback;
+  the smooth logs still need their spike.
+- **Riding and leads** (piece 18) use the players pack when both are players and it's installed;
+  otherwise the game keeps the rider over the walker (Carry Race) or pulls teammates back past 5
+  blocks (Paired Parkour).
+- **Playing as a mob** (piece 22): a Barnyard Bluff hider is invisible inside a vanilla animal that
+  follows them; the Wither is the player as they are, flying with Slow Falling and a push on jump.
+- **The boss bar** (piece 23): the Wither's health is on everyone's status line.
+- **Cameras** (piece 20): Count the Mobs, Tug of War and Button Mash's launches use free cameras set
+  by script; the Labyrinth hunter's is a free camera over their head, moved every other tick.
+- **Bots on a course** (piece 21): bots hop gaps and steps toward the next checkpoint, and maze bots
+  take the shortest way (`common.ts` walkPath); Rising Lava's bots climb the nearest step up.
+- **Chicken Chase:** every chicken is worth 1 (cold chickens can't be told apart by script yet).
+- **Cook's Request** plays in Adventure; whether a use on the kitchen's custom blocks reaches the
+  script there is the thing to check first (if it doesn't, it moves to Survival like Towers).
+- **Calls I made here:** Simon Says' colors count a hit or a use on the block; Bomb Disposal plants
+  with a jump (or a use) at a site, and its squad room opens by clearing its walls' two lowest layers;
+  Barnyard Bluff's barn opens two blocks ahead of the farmer's spawn; Cannon Duel fires with a use of
+  a Fire stick (an attack at the air reaches no script), its first player aims and the second loads;
+  Carry Race's calls are four named sticks; Montecarlo holds a player a moment after a wrong door
+  instead of a trapdoor drop; Mining Race gives Haste; Hot TNT's blast takes health straight off.
 
 ## Calls made without a question
 
