@@ -378,7 +378,10 @@ notices in the dialogue box.
 
 ## The results screen
 
-After every minigame, and when a player gets a Star.
+After every minigame (duels too), and when a player gains or loses a Star: bought, the Shooting
+Star, the Warden's Sonic Boom, the bonus Stars at the end. Never for coins alone (the user,
+2026-11-27): Coin Rain, Coin Swap, Reverse Fortune, Double or Nothing, Lightning Strike, the Iron
+Golem's shakedown and the Warden's taxes and Hush Money show only their hand-over or flight.
 - **Behind it:** the camera's view darkened (the user: no blur needed, black is fine).
 - **Results** at the top left, in MinecraftTen.
 - **A row per player,** best first: the place (1st to 4th) in MinecraftTen (on the player cards too,
@@ -563,8 +566,9 @@ Party. Built for every change of hands, which also covers the pops above (`token
     the turn order: a player who gains an item and then passes one on is one shot). After the last,
     the camera cuts back to the scene's own shot, or the board view takes it back.
   - The change is made (and the cards change) when it happens; the hand-over plays after the line
-    that tells of it: Coin Swap, Reverse Fortune, the Shooting Star, Lightning Strike and the Iron
-    Golem's shakedown just before their results screen, Hush Money after the Warden's line and
+    that tells of it: Coin Swap, Reverse Fortune, Lightning Strike and the Iron Golem's shakedown
+    right after it (no results screen: coins only), the Shooting Star just before its results
+    screen, Hush Money after the Warden's line and
     before he leaves, Gift Exchange before the Witch's goodbye (in place of the shot from high over
     everyone), Happening's item swap after its line, and the Mystery Die's coin swap after the
     face's line. Anything one missed is shown at the end of the space's or the item's scene.

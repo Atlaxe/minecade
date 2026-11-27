@@ -374,6 +374,8 @@ export class SpacePlay {
     if (["reverse_fortune", "zombie_outbreak", "half_price", "shooting_star"].includes(id)) this.loop.feature(ends.leader, ends.last);
     if (["coin_rain", "gift_exchange", "position_shuffle"].includes(id)) this.loop.feature(...here);
     const before = this.loop.snapshot();
+    // The results screen only when a Star moves (the user, 2026-11-27: it's for minigames and Stars,
+    // never coins alone).
     let results = false;
     switch (id) {
       case "coin_rain": {
@@ -386,7 +388,6 @@ export class SpacePlay {
         }
         this.host.changed();
         await this.host.say("chance.coin-rain", { player: who.name, coins: count(coins, "coin") }, false, who);
-        results = true;
         break;
       }
       case "coin_swap": {
@@ -403,14 +404,14 @@ export class SpacePlay {
         this.host.changed();
         await this.host.stage.twoSeats(who, target, "chance.coin-swap");
         await this.host.say("chance.coin-swap", { player: who.name, other: target.name }, false, who);
-        results = true;
+        await this.loop.handOver();
         break;
       }
       case "reverse_fortune": {
         if (!ends.leader || !ends.last || ends.level) break;
         const paid = this.loop.pay(ends.leader.key, ends.last.key, grown(REVERSE_FORTUNE, late));
         await this.host.say("chance.reverse-fortune", { player: ends.leader.name, other: ends.last.name, coins: count(paid, "coin") }, false, who);
-        results = true;
+        await this.loop.handOver();
         break;
       }
       case "double_or_nothing": {
@@ -431,7 +432,6 @@ export class SpacePlay {
         void (won ? this.loop.transfer(witch, who, "coin", seat.coins - was) : this.loop.transfer(who, witch, "coin", was - seat.coins));
         this.host.changed();
         await this.host.say(won ? "chance.double.won" : "chance.double.lost", { player: who.name, coins: count(bet, "coin") }, false, who);
-        results = true;
         break;
       }
       case "gift_exchange": {
@@ -552,6 +552,7 @@ export class SpacePlay {
           this.host.random,
         );
       const before = this.loop.snapshot();
+      // The results screen only when a Star goes (the user, 2026-11-27: never for coins alone).
       let results = false;
       stage.move(WARDEN, "Warden", event === "sonic_boom" ? "Sonic boom" : "Roar", who.body);
       switch (event) {
@@ -560,16 +561,13 @@ export class SpacePlay {
           seat.coins -= took;
           void this.loop.transfer(who, stage.get(WARDEN), "coin", took);
           await this.host.say("warden.sculk-tax", { player: who.name, coins: count(took, "coin") }, false, who);
-          results = took > 0;
           break;
         }
         case "hush_money": {
           this.loop.feature(...here);
-          let paid = 0;
-          for (const other of here) if (other.key !== who.key) paid += this.loop.pay(who.key, other.key, HUSH_MONEY);
+          for (const other of here) if (other.key !== who.key) this.loop.pay(who.key, other.key, HUSH_MONEY);
           await this.host.say("warden.hush-money", { player: who.name, coins: count(HUSH_MONEY, "coin") }, false, who);
           await this.loop.handOver();
-          results = paid > 0;
           break;
         }
         case "star_tax": {
@@ -577,7 +575,6 @@ export class SpacePlay {
           seat.coins -= took;
           void this.loop.transfer(who, stage.get(WARDEN), "coin", took);
           await this.host.say("warden.star-tax", { player: who.name, coins: count(STAR_TAX, "coin") }, false, who);
-          results = took > 0;
           break;
         }
         case "silenced":

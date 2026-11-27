@@ -198,7 +198,6 @@ export class ItemPlay {
     }
     this.spend(who, seat, "lightning");
     this.loop.feature(leader, last);
-    const before = this.loop.snapshot();
     if (self) {
       this.host.stage.lightning(who);
       void this.zombieOff(who, false);
@@ -215,7 +214,9 @@ export class ItemPlay {
       const paid = this.loop.pay(leader.key, last.key, LIGHTNING);
       await this.host.say("items.lightning", { player: leader.name, other: last.name, coins: count(paid, "coin") }, false, who);
     }
-    await this.loop.showResults(before);
+    // Coins only: the hand-over after the line, no results screen (the user, 2026-11-27: that's for
+    // minigames and Stars).
+    await this.loop.handOver();
     return true;
   }
 
@@ -250,10 +251,10 @@ export class ItemPlay {
     this.spend(who, seat, "iron_golem");
     await stage.visit(ACTOR, "iron_golem", rival, this.loop.spaceOf(rival), "items.iron-golem");
     stage.act(ACTOR, "animation.blockparty.golem_hit");
-    const before = this.loop.snapshot();
     const took = this.loop.pay(rival.key, who.key, SHAKEDOWN);
     await this.host.say("items.iron-golem", { player: who.name, other: rival.name, coins: count(took, "coin") }, false, who);
-    await this.loop.showResults(before);
+    // Coins only: the hand-over after the line, no results screen.
+    await this.loop.handOver();
     return true;
   }
 

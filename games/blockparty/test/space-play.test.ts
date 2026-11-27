@@ -163,6 +163,18 @@ describe("Block Party's Chance Time", () => {
     // A hand-over: the camera on Sam as the Star goes, then on Kim as it lands (the results show it).
     expect(f.calls.pass).toHaveBeenCalledWith(f.who.sam, f.who.kim, "star", 1);
     expect(f.calls.transfer).not.toHaveBeenCalled();
+    // A Star moved: the results screen (the user, 2026-11-27: minigames and Stars only).
+    expect(f.calls.showResults).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no results screen for coins alone: Coin Rain, Reverse Fortune, Double or Nothing", async () => {
+    for (const id of ["coin_rain", "reverse_fortune", "double_or_nothing"] as ChanceId[]) {
+      const f = fake();
+      f.seats.get("sam")!.coins = 30;
+      f.seats.get("kim")!.coins = 2;
+      await f.spaces.chanceOutcome(f.who.alex, id, false);
+      expect(f.calls.showResults, id).not.toHaveBeenCalled();
+    }
   });
 
   it("hands the difference from the richer to the poorer with a Coin Swap", async () => {
@@ -173,6 +185,9 @@ describe("Block Party's Chance Time", () => {
     expect(f.seats.get("alex")!.coins).toBe(25);
     expect(f.seats.get("sam")!.coins).toBe(10);
     expect(f.calls.pass).toHaveBeenCalledWith(f.who.sam, f.who.alex, "coin", 15);
+    // The hand-over after the line, and no results screen.
+    expect(f.calls.handOver).toHaveBeenCalledTimes(1);
+    expect(f.calls.showResults).not.toHaveBeenCalled();
   });
 
   it("gives last place a coupon with a Half-price Star, and sends a zombie to the leader with Zombie Outbreak", async () => {
@@ -222,13 +237,24 @@ describe("Block Party's Warden", () => {
     await f.spaces.warden(f.who.alex);
     expect(f.seats.get("alex")!.coins).toBe(4);
     expect(f.seats.get("sam")!.coins).toBe(13);
-    // Shown after its line, while the Warden is still there.
+    // Shown after its line, while the Warden is still there; coins only, so no results screen.
     expect(f.calls.handOver).toHaveBeenCalled();
+    expect(f.calls.showResults).not.toHaveBeenCalled();
     const g = fake();
     g.seats.get("alex")!.stars = 2;
     g.spaces.forced.warden = "star_tax";
     await g.spaces.warden(g.who.alex);
     expect(g.seats.get("alex")!.coins).toBe(4);
+    expect(g.calls.showResults).not.toHaveBeenCalled();
+  });
+
+  it("shows the results screen when the Sonic Boom takes the leader's Star", async () => {
+    const f = fake();
+    f.seats.get("sam")!.stars = 2;
+    f.spaces.forced.warden = "sonic_boom";
+    await f.spaces.warden(f.who.alex);
+    expect(f.seats.get("sam")!.stars).toBe(1);
+    expect(f.calls.showResults).toHaveBeenCalledTimes(1);
   });
 
   it("takes the next prize of a Silenced seat", async () => {
@@ -372,6 +398,9 @@ describe("Block Party's items", () => {
     expect(used).toBe(true);
     expect(f.seats.get("sam")!.coins).toBe(30 - LIGHTNING);
     expect(f.seats.get("kim")!.coins).toBe(LIGHTNING);
+    // Coins only: the hand-over, never the results screen (the user, 2026-11-27).
+    expect(f.calls.handOver).toHaveBeenCalled();
+    expect(f.calls.showResults).not.toHaveBeenCalled();
   });
 
   it("lets a user with a zombie strike themselves: the zombie goes, and the coins go to last place", async () => {
@@ -397,6 +426,7 @@ describe("Block Party's items", () => {
   it("shakes a rival down with the Iron Golem, or sends the user's zombie away", async () => {
     const { f } = await useOn("iron_golem", (f) => (f.seats.get("kim")!.coins = 3));
     expect(f.seats.get("alex")!.coins).toBe(10 + SHAKEDOWN);
+    expect(f.calls.showResults).not.toHaveBeenCalled();
     const { f: g } = await useOn("iron_golem", (g) => (g.seats.get("alex")!.effects.zombie = 3));
     expect(g.seats.get("alex")!.effects.zombie).toBe(0);
   });
