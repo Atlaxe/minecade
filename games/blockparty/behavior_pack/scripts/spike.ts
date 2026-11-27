@@ -782,7 +782,7 @@ export class BlockPartySpike extends Minigame<Config> {
     if (players !== 1 || !level || wanted <= 0) return;
     this.botSkill = BOT_SKILLS[level];
     const [x, y, z] = standAt(this.spaces[0], 0);
-    for (const bot of this.bots.add(wanted, { x, y, z })) this.pieces.place(bot.body);
+    for (const bot of this.bots.add(wanted, { x, y, z }, world.getAllPlayers().map((player) => player.name))) this.pieces.place(bot.body);
     const label = BOT_OPTION.find((option) => option.value === level)?.label ?? level;
     const joined = { count: wanted, players: this.bots.all().map((bot) => bot.name).join(", "), level: label };
     this.everyone(wanted === 1 ? line("bots.join.one", joined) : line("bots.join.many", joined));

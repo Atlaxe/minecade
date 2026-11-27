@@ -3,7 +3,8 @@
 // watched to work out how it flows. A bot is an entity of the game's own (blockparty:bot, on the
 // player's model; vanilla's zombie model maps a 64 x 32 skin and stretched Steve's) wearing one of
 // Minecraft's skins (bot-skins.ts: a different one for each bot, at random, kept every time it's made
-// again), named "Bot 1" and on (its name shows when you look at it). It moves and acts like a player
+// again), and named after it (the user, 2026-11-27: "Kai", "Tennis Steve"; botName), its name shown
+// over its head and on its card like a player's. It moves and acts like a player
 // (the user, 2026-11-27): it turns as it walks rather than snapping round, looks at what it's after,
 // swings its arm to hit, open, use, throw or place, crouches, draws a bow, and holds and wears what a
 // minigame hands out. Its client entity plays the player's own animations for those (vanilla's arm
@@ -260,6 +261,13 @@ export function thinkTicks(random: () => number, min = 20, max = 40): number {
   return min + Math.floor(random() * (max - min + 1));
 }
 
+/** A bot's name: its skin's ("Tennis Steve"), with a number after it ("Steve 2") when someone in `taken` has that name already. */
+export function botName(skin: string, taken: readonly string[]): string {
+  const used = new Set(taken.map((name) => name.toLowerCase()));
+  if (!used.has(skin.toLowerCase())) return skin;
+  for (let n = 2; ; n++) if (!used.has(`${skin} ${n}`.toLowerCase())) return `${skin} ${n}`;
+}
+
 export class Bots {
   private readonly dimension: Dimension;
   /** The skins this build can draw (bot-skins.ts, wearableSkins), and the game's random. */
@@ -275,12 +283,15 @@ export class Bots {
     scope.add(() => this.removeAll());
   }
 
-  /** Sits `count` bots down, "Bot 1" and on, each in a skin no other bot wears while there are enough; each gets a body at `at`. */
-  add(count: number, at: Vector3): Who[] {
+  /**
+   * Sits `count` bots down, each in a skin no other bot wears while there are enough, and named after
+   * it, never as anyone in `taken` (the players here) or another bot is; each gets a body at `at`.
+   */
+  add(count: number, at: Vector3, taken: readonly string[] = []): Who[] {
     const added: Who[] = [];
     for (let i = 0; i < count; i++) {
-      const name = `Bot ${this.bodies.size + 1}`;
       const skin = pickSkin(this.wearable, [...this.bodies.values()].map((entry) => entry.skin), this.random);
+      const name = botName(BOT_SKINS[skin].name, [...taken, ...[...this.bodies.values()].map((entry) => entry.name)]);
       this.bodies.set(name.toLowerCase(), { name, skin });
       const body = this.spawn(name, at);
       if (body) added.push({ name, key: name.toLowerCase(), body });

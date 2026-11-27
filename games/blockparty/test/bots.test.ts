@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import config from "../game.config.ts";
 import { BOT_LEVELS, BOT_OPTION, BOT_SKILLS, MEDIUM, aim, botLevelOf, odds, pace, slip, wait } from "../behavior_pack/scripts/bot-skill.ts";
 import { BOT_SKINS, SKINS_PACK, botSkinTexture, pickSkin, wearableSkins } from "../behavior_pack/scripts/bot-skins.ts";
-import { BOT_RUN, BOT_WALK, POSE_CODES, yawGap } from "../behavior_pack/scripts/bots.ts";
+import { BOT_RUN, BOT_WALK, POSE_CODES, botName, yawGap } from "../behavior_pack/scripts/bots.ts";
 import { MINIGAMES } from "../behavior_pack/scripts/minigames/index.ts";
 import bot from "../behavior_pack/entities/bot.json";
 import client from "../resource_pack/entity/bot.entity.json";
@@ -50,6 +50,14 @@ describe("bot skins", () => {
   it("wears only Steve and Alex without the private skins pack", () => {
     expect(wearableSkins([]).map((index) => BOT_SKINS[index].id)).toEqual(["steve", "alex"]);
     expect(wearableSkins(["icons", SKINS_PACK])).toHaveLength(BOT_SKINS.length);
+  });
+
+  it("names a bot after its skin, numbered only when someone has that name", () => {
+    expect(botName("Tennis Steve", [])).toBe("Tennis Steve");
+    expect(botName("Steve", ["Alex", "Steve"])).toBe("Steve 2");
+    expect(botName("Steve", ["steve", "Steve 2"])).toBe("Steve 3");
+    // A player called the same.
+    expect(botName("Kai", ["KAI"])).toBe("Kai 2");
   });
 
   it("picks a skin no other bot wears while there is one", () => {

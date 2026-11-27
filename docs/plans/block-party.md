@@ -1647,6 +1647,9 @@ reward was dropped.
      with a swing. Walking bots turn at most 40 degrees a tick, sprint jump on long runs, and, standing
      still, glance at whoever is near or bob down and up (`bot-life.ts`; off in Enderman Roulette and
      Simon Says, `botsIdle: false`).
+     Bots are named after the skin they wear ("Kai", "Tennis Steve"; `botName` in `bots.ts`), the
+     name over their heads and on their cards, with a number only when two would share one or one
+     would be the player's ("Steve 2").
    - **Test help** (the user asked): the One Die (always 1) in place of the Slow Die, Get star in
      Tests (on your roll, the roll is the number of spaces to the nearest Star and the branches go
      that way), and 30 starting coins while Block Party is a test game or `DEV_MIN_PLAYERS` is 1.
