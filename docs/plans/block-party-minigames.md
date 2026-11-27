@@ -325,6 +325,60 @@ Shared work the minigames lean on, built before the minigames that need them.
 | Boss Fight | `bossfight` | 1v3 | 90 s | Proposed, spike first | 2, 13, 14, 22, 23 |
 | Bomb Disposal | `bomb` | 1v3 | 75 s | Proposed | 16, 19 |
 
+**How big each map should be.** An Arena box is at most 40 x 60 across, either way around, and 48
+tall (Leg Breaker's 96); the editor's checklist flags a bigger one. The sizes below are what each
+game needs, in blocks, across by long and then tall. Each is the size of the minigame's test
+arena. A real map can be smaller if it still plays well, or put scenery around the play area up
+to the limit. A tiled map is one copy: the game lays a copy for each player (or each team) side by
+side, so the size given is a single copy's.
+
+| Minigame | Across x long | Tall | What needs the room |
+|---|---|---|---|
+| Hot Floor | 24 x 24 | 12 | A floor of 1 x 1 tiles, at least 6 x 6 (18 x 18 plays well), raised over a drop |
+| Mob Freeze | 20 x 50 | 10 | A long run from the spawns to the Warden, the Finish just before it |
+| Simon Says | 30 x 16 | 10 | 4 stations in a row, and a Display everyone can see |
+| Enderman Roulette | 20 x 20 | 10 | The players in a row facing the Enderman |
+| Button Mash | 24 x 12 | 48 | 4 buttons in a row; the whole height open over the spawns for the launches |
+| Anvil Rain | 20 x 20 | 20 | Anvils fall from the Floor box's top |
+| TNT Run | 20 x 20 | 20 | 3 floors about 6 apart |
+| Egg Drop | 20 x 20 | 20 | Eggs fall from the Drop box's top |
+| Hot TNT | 16 x 16 | 8 | Small and walled, so the TNT is always close to someone |
+| Hole in the Wall | 16 x 30 | 10 | The wall travels the long way toward the platform |
+| Minecart Dodge | 30 x 40 | 8 | Rails and water lanes run across; the race runs the long way |
+| Rising Lava | 20 x 20 | 44 | A climb of about 40 as the lava rises |
+| Leg Breaker | 20 x 20 | 96 | A deep shaft with water at the bottom |
+| Montecarlo (tiled) | 10 x 60 a player | 6 | 4 hallways of 3 doorways; 4 copies side by side make 40 x 60 |
+| Climb the Ladder | 20 x 10 | 32 | A ladder wall about 28 tall |
+| Item Scramble | 40 x 40 | 10 | Room for the chests to search |
+| Snowball Sniper | 30 x 50 | 10 | Rows of targets down the long way |
+| Chicken Chase | 20 x 20 | 8 | A fenced pen |
+| Mining Race | 40 x 20 | 10 | A mine of about 6 x 6 x 6 for each player |
+| Slither | 30 x 30 | 8 | An open flat floor for the trails |
+| Hook the Mob | 30 x 30 | 8 | A pool in the middle, a pit for each player around it |
+| Cook's Request (tiled) | 10 x 30 a player or team | 6 | One kitchen with its crops, animals and pantry; 4 copies make 40 x 30 |
+| Quiz Floor | 28 x 24 | 10 | 4 answer pads of about 6 x 8 |
+| Count the Mobs | 30 x 30 | 12 | A pen, the camera above one side looking down into it |
+| Kit Brawl | 20 x 20 | 8 | A walled floor |
+| King of the Hill | 24 x 24 | 8 | A hill of about 6 x 6 in the middle |
+| Sumo Duel | 17 x 17 | 8 | A round ring over a drop |
+| Cactus Slap | 20 x 20 | 8 | Cactus around the edge |
+| Towers of Fortune | 40 x 40 | 24 | 4 towers about 20 tall, far apart |
+| Mini Survival Games | 30 x 30 | 8 | Middle chests and outer chests |
+| Co-op Painters | 24 x 24 | 6 | A 20 x 20 Floor |
+| Tug of War | 40 x 20 | 10 | The rope the long way, water between the teams |
+| Capture the Wool | 20 x 40 | 8 | A base at each end |
+| Spleef Duo | 24 x 24 | 10 | A snow floor raised over a drop |
+| Paired Parkour (tiled) | 20 x 60 a team | 8 | One course; 2 copies make 40 x 60 |
+| Carry Race (tiled) | 20 x 40 a team | 6 | One maze; 2 copies make 40 x 40 |
+| Cannon Duel | 30 x 50 | 10 | A team and its cannon at each end |
+| Hunter | 42 x 22 | 6 | A 40 x 20 field |
+| Trap Master | 12 x 60 | 10 | A long gauntlet, the master's booth beside it |
+| Defend the Core | 30 x 30 | 8 | The core in the middle, the sides apart |
+| Barnyard Bluff | 30 x 30 | 8 | A fenced field for the herd, and the farmer's barn |
+| Labyrinth | 31 x 31 | 8 | The Maze box, the game builds the maze inside it |
+| Boss Fight | 30 x 30 | 24 | An open walled floor, room above for the boss |
+| Bomb Disposal | 30 x 30 | 8 | Bomb sites spread across the floor |
+
 Each entry below lists the map's marks besides every map's own (above), its Game settings as
 `key`, **label**, default and range, and its Checklist Features beyond the Podium camera, Pot point
 and Rules camera end every map has. Spawns are the Spawn tool's, points the Game marker tool's,
