@@ -159,6 +159,8 @@ const ICON_TEST_TICKS = 400;
 const HIDDEN_HUD = [HudElement.Hotbar, HudElement.ItemText, HudElement.Health, HudElement.Hunger, HudElement.ProgressBar, HudElement.Armor, HudElement.AirBubbles, HudElement.StatusEffects];
 /** What comes back while a player plays a minigame: vanilla's hotbar (the user: only in minigames, never on the board or in cutscenes). */
 const MINIGAME_HUD = [HudElement.Hotbar, HudElement.ItemText];
+/** And in a minigame with real damage. */
+const HEARTS_HUD = [HudElement.Health, HudElement.Armor];
 /**
  * The chat's switch (the user: no chat, /chat brings it back): vanilla's status effects element,
  * whose icons no server shows, so the pack's hud_screen.json shows the chat only while it's on.
@@ -274,6 +276,8 @@ interface PlayerTests {
   /** What their keys were last set to do, and whether vanilla's hotbar was last shown (undefined: set them again). */
   controls?: Controls;
   hotbar?: boolean;
+  /** Vanilla's hearts and armor show: a minigame with real damage is playing. */
+  hearts?: boolean;
   /** Ticks at which their locks are sent again (LOCKS_RESEND), soonest first. */
   resendAt?: number[];
 }
@@ -1361,6 +1365,16 @@ export class BlockPartySpike extends Minigame<Config> {
       }
       // The board's held item leaves the hotbar while vanilla's shows (keepStandingsItems puts it back after).
       if (hotbar) takeStandingsItems(player);
+    }
+    // Vanilla's hearts and armor too, while a minigame with real damage plays.
+    const hearts = hotbar && this.runner.realDamage;
+    if (tests.hearts !== hearts) {
+      tests.hearts = hearts;
+      try {
+        player.onScreenDisplay.setHudVisibility(hearts ? HudVisibility.Reset : HudVisibility.Hide, HEARTS_HUD);
+      } catch {
+        // gone
+      }
     }
     if (tests.jumpMode !== "free") return;
     let controls: Controls = "held";

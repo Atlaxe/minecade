@@ -231,6 +231,11 @@ export class MinigameRunner {
     return this.podiumUp;
   }
 
+  /** Whether the minigame playing now hurts for real (vanilla's hearts show). */
+  get realDamage(): boolean {
+    return this.hitMode === "real";
+  }
+
   /** Whether `key` is playing a minigame now: from Go until it ends, out or not. */
   isPlaying(key: string): boolean {
     return this.playing.has(key);

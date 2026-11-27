@@ -2,12 +2,12 @@
 // "How a minigame is built"): the arena from its plan, places from scores or from who went out when,
 // a tick loop, the moves their bots make, the game's own entities and blocks, and the items they hand
 // out. Kept small: each minigame's own rules stay in its file.
-import { BlockPermutation, ItemLockMode, ItemStack, system, type Block, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
-import { BOT_RUN, BOT_WALK, hop, isPlayer, stepBot, stepToward, type Who } from "../bots.ts";
+import { BlockPermutation, EntityComponentTypes, EntityDamageCause, EquipmentSlot, ItemLockMode, ItemStack, system, world, type Block, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
+import { BOT_RUN, BOT_WALK, hop, isPlayer, moveBot, stepBot, stepToward, type Who } from "../bots.ts";
 import { TEST_ARENAS, layTestArena, testArenaCopies, testArenaField } from "./test-arenas.ts";
 import { middleOf, secondsText, type Field, type MinigameDef, type Play, type Spot, type WorldBox } from "./kit.ts";
 
-export { BOT_RUN, BOT_WALK, hop, isPlayer, stepBot, stepToward };
+export { BOT_RUN, BOT_WALK, hop, isPlayer, moveBot, stepBot, stepToward };
 
 /**
  * A minigame's test arena (test-arenas.ts) as its MinigameDef's size, build and testField, with its
@@ -337,4 +337,229 @@ export function lookAngle(body: Entity, at: Vector3): number {
   } catch {
     return 180;
   }
+}
+
+/** Ticks between a bot's hits. */
+const BOT_HIT_EVERY = 12;
+/** How close a bot gets to hit. */
+const BOT_REACH = 2.4;
+
+/**
+ * A bot fighter's tick: toward the nearest foe still in (or `toward`, a spot it holds, when the foe
+ * is far), and a hit when one is in reach: a push of `strength`, every so often. Returns the foe it
+ * hit, if it did.
+ */
+export function botBrawl(play: Play, who: Who, foes: readonly Who[], strength: number, lastHit: Map<string, number>, toward?: Vector3, speed = BOT_WALK): Who | undefined {
+  const body = play.bodyOf(who);
+  if (!body || isPlayer(body)) return undefined;
+  const foe = nearestOf(play, body.location, foes.filter((one) => one.key !== who.key));
+  if (foe && foe.gap <= BOT_REACH) {
+    botFace(body, foe.body.location);
+    botStop(play, who);
+    if (system.currentTick - (lastHit.get(who.key) ?? -999) >= BOT_HIT_EVERY) {
+      lastHit.set(who.key, system.currentTick);
+      play.push(foe.who, body.location, strength);
+      return foe.who;
+    }
+    return undefined;
+  }
+  const target = toward && (!foe || foe.gap > 6) ? toward : foe?.body.location;
+  if (target) botStep(play, who, target, speed, 0.6);
+  return undefined;
+}
+
+/**
+ * A bot running a course's tick: toward `target`, hopping a gap or a step ahead of it (the block
+ * under the spot a block ahead is air, or the block ahead is solid). True once it's there.
+ */
+export function botRun(play: Play, who: Who, target: Vector3, speed = BOT_WALK, near = 0.5): boolean {
+  const body = play.bodyOf(who);
+  if (!body || isPlayer(body) || play.pushed(who)) return false;
+  const at = body.location;
+  const dx = target.x - at.x;
+  const dz = target.z - at.z;
+  const gap = Math.hypot(dx, dz);
+  if (gap <= near) {
+    stepBot(body, 0, 0);
+    return true;
+  }
+  let hopping = false;
+  if (grounded(body)) {
+    const ahead = { x: at.x + (dx / gap) * 0.9, y: at.y, z: at.z + (dz / gap) * 0.9 };
+    const below = blockId(play.dimension, { x: ahead.x, y: at.y - 0.5, z: ahead.z });
+    const front = blockId(play.dimension, { x: ahead.x, y: at.y + 0.5, z: ahead.z });
+    hopping = below === "minecraft:air" || (front !== "minecraft:air" && front !== "" && !front.includes("ladder"));
+  }
+  const step = Math.min(speed, gap);
+  stepBot(body, (dx / gap) * step, (dz / gap) * step, hopping ? 1 : 0);
+  return false;
+}
+
+/** A hand item's hit on a bot, in half hearts (a bot's hearts are the script's: bots take no vanilla hits). */
+function hitDamage(itemId: string | undefined): number {
+  if (!itemId) return 1;
+  const tier = ["wooden", "golden", "stone", "iron", "diamond", "netherite"].findIndex((name) => itemId.includes(name));
+  if (itemId.endsWith("_sword")) return 4 + Math.max(0, tier - 1);
+  if (itemId.endsWith("_axe")) return 5 + Math.max(0, tier - 1);
+  if (itemId.includes("trident") || itemId.includes("mace")) return 8;
+  return 1;
+}
+
+/**
+ * Real damage for a minigame's players and bots (piece 13): players take vanilla's (Play.hits
+ * "real", their down caught by the runner), bots keep hearts of the script's, hit by players (by
+ * what they hold), arrows and the game. `down` is called once for anyone with none left.
+ */
+export class Hearts {
+  private readonly play: Play;
+  private readonly bots = new Map<string, number>();
+  private readonly max = new Map<string, number>();
+  private readonly lastHit = new Map<string, number>();
+
+  constructor(play: Play, down: (who: Who, cause: string) => void, botHearts = 20) {
+    this.play = play;
+    for (const who of play.sides.flat()) if (!who.player) this.bots.set(who.key, botHearts);
+    play.hits("real");
+    play.onDown(down);
+    const whoOf = (id: string) => play.sides.flat().find((who) => !who.player && play.bodyOf(who)?.id === id);
+    const playerOf = (id: string) => play.sides.flat().find((who) => who.player?.id === id);
+    const sideOf = sideMap(play.sides);
+    const bot = (hitId: string, attackerId: string | undefined, amount: number, cause: string) => {
+      const who = whoOf(hitId);
+      if (!who || play.isOut(who)) return;
+      const attacker = attackerId ? playerOf(attackerId) : undefined;
+      if (attacker && sideOf.get(attacker.key) === sideOf.get(who.key) && attacker !== who) return;
+      this.hurt(who, amount, undefined, cause, down);
+    };
+    play.scope.subscribe(world.afterEvents.entityHitEntity, ({ damagingEntity, hitEntity }) => {
+      if (!isPlayer(damagingEntity) || isPlayer(hitEntity)) return;
+      const held = damagingEntity.getComponent(EntityComponentTypes.Inventory)?.container?.getItem(damagingEntity.selectedSlotIndex)?.typeId;
+      bot(hitEntity.id, damagingEntity.id, hitDamage(held), "entityAttack");
+    });
+    play.scope.subscribe(world.afterEvents.projectileHitEntity, (event) => {
+      const hit = event.getEntityHit()?.entity;
+      if (!hit || isPlayer(hit)) return;
+      bot(hit.id, event.source?.id, 4, "projectile");
+    });
+  }
+
+  /** Someone's hearts now, in half hearts. */
+  health(who: Who): number {
+    if (!who.player) return this.bots.get(who.key) ?? 0;
+    try {
+      return who.player.getComponent(EntityComponentTypes.Health)?.currentValue ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /** Sets someone's most and current hearts (a raider's extra hearts; a player's by Health Boost, roughly). */
+  setMax(who: Who, halfHearts: number): void {
+    this.max.set(who.key, halfHearts);
+    if (!who.player) {
+      this.bots.set(who.key, halfHearts);
+      return;
+    }
+    try {
+      const boost = Math.max(0, Math.ceil((halfHearts - 20) / 4));
+      if (boost > 0) who.player.addEffect("health_boost", 20 * 600, { amplifier: boost - 1, showParticles: false });
+      who.player.getComponent(EntityComponentTypes.Health)?.resetToMaxValue();
+    } catch {
+      // gone
+    }
+  }
+
+  /** Back to full. */
+  heal(who: Who): void {
+    if (!who.player) {
+      this.bots.set(who.key, this.max.get(who.key) ?? 20);
+      return;
+    }
+    try {
+      who.player.getComponent(EntityComponentTypes.Health)?.resetToMaxValue();
+    } catch {
+      // gone
+    }
+  }
+
+  /**
+   * Hurts someone by `amount` half hearts: a player through vanilla's damage (their down comes from
+   * the runner), a bot off its own hearts (`down` once none are left). `from` is who did it.
+   */
+  hurt(who: Who, amount: number, from?: Entity, cause = "entityAttack", down?: (who: Who, cause: string) => void): void {
+    if (this.play.isOut(who)) return;
+    if (who.player) {
+      try {
+        who.player.applyDamage(amount, from ? { cause: EntityDamageCause.entityAttack, damagingEntity: from } : { cause: EntityDamageCause.override });
+      } catch {
+        // gone
+      }
+      return;
+    }
+    const left = (this.bots.get(who.key) ?? 0) - amount;
+    this.bots.set(who.key, left);
+    const body = this.play.bodyOf(who);
+    try {
+      if (body) this.play.dimension.spawnParticle("minecraft:critical_hit_emitter", { x: body.location.x, y: body.location.y + 1, z: body.location.z });
+    } catch {
+      // unloaded
+    }
+    if (left <= 0) {
+      this.bots.set(who.key, 0);
+      down?.(who, cause);
+    }
+  }
+
+  /** A bot's swing at the nearest foe in reach: `amount` half hearts and a push, every so often. True when it hit. */
+  botSwing(who: Who, foes: readonly Who[], amount: number, down: (who: Who, cause: string) => void, every = 10): boolean {
+    const body = this.play.bodyOf(who);
+    if (!body || isPlayer(body)) return false;
+    const foe = nearestOf(this.play, body.location, foes.filter((one) => one.key !== who.key));
+    if (!foe || foe.gap > 2.4) return false;
+    if (system.currentTick - (this.lastHit.get(who.key) ?? -999) < every) return false;
+    this.lastHit.set(who.key, system.currentTick);
+    botFace(body, foe.body.location);
+    this.hurt(foe.who, amount, body, "entityAttack", down);
+    this.play.push(foe.who, body.location, 0.6);
+    return true;
+  }
+}
+
+/** Armor by slot, as the minigames' files and code give it. */
+export interface Armor {
+  head?: string;
+  chest?: string;
+  legs?: string;
+  feet?: string;
+}
+
+/** A player puts on `armor` (taken back when the minigame ends); a bot wears nothing. */
+export function wear(who: Who, armor: Armor): void {
+  try {
+    const equipment = who.player?.getComponent(EntityComponentTypes.Equippable);
+    if (!equipment) return;
+    const slots: [keyof Armor, EquipmentSlot][] = [
+      ["head", EquipmentSlot.Head],
+      ["chest", EquipmentSlot.Chest],
+      ["legs", EquipmentSlot.Legs],
+      ["feet", EquipmentSlot.Feet],
+    ];
+    for (const [key, slot] of slots) {
+      const id = armor[key];
+      if (id) equipment.setEquipment(slot, item(id));
+    }
+  } catch {
+    // gone
+  }
+}
+
+/** One of a list by weight. */
+export function byWeight<T extends { weight?: number }>(list: readonly T[], random: () => number): T {
+  const total = list.reduce((sum, each) => sum + Math.max(0, each.weight ?? 1), 0);
+  let roll = random() * total;
+  for (const each of list) {
+    roll -= Math.max(0, each.weight ?? 1);
+    if (roll < 0) return each;
+  }
+  return list[list.length - 1];
 }
