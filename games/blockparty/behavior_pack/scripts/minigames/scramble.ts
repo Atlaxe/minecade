@@ -8,7 +8,7 @@
 import { EntityComponentTypes, ItemStack, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/scramble.json";
-import { blockAt, botStep, clock, everyTick, flat, moveTo, onPlan, pick, placesBy, setBlock, shuffled } from "./common.ts";
+import { blockAt, botStep, botWait, clock, everyTick, flat, moveTo, onPlan, pick, placesBy, setBlock, shuffled } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play, type Spot } from "./kit.ts";
 
 const CALLS: readonly string[] = file.calls;
@@ -124,7 +124,7 @@ export const SCRAMBLE: MinigameDef = {
       }
       const found: string[] = [];
       const botOrder = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, shuffled([0, 1, 2, 3, 4, 5, 6, 7], play.random)]));
-      const botNext = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, 40 + Math.floor(play.random() * 20)]));
+      const botNext = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, botWait(play, 40 + Math.floor(play.random() * 20))]));
       play.notice(`Round ${round}: find a ${itemName(call)}!`, 60);
       await everyTick(play, roundTime, (tick) => {
         for (const who of play.inPlay()) {
@@ -144,12 +144,12 @@ export const SCRAMBLE: MinigameDef = {
             }
             continue;
           }
-          // A bot opens its next chest every 2 to 3 seconds.
+          // A bot opens its next chest every 2 to 3 seconds (a Medium bot's: botWait).
           const order = botOrder.get(who.key)!;
           const chest = chestsOf.get(who.key)![order[0] ?? 0];
           botStep(play, who, { x: chest.x + 0.5, y: body.location.y, z: chest.z + 0.5 }, 0.2, 1.4);
           if (tick < (botNext.get(who.key) ?? 0)) continue;
-          botNext.set(who.key, tick + 40 + Math.floor(play.random() * 20));
+          botNext.set(who.key, tick + botWait(play, 40 + Math.floor(play.random() * 20)));
           const opened = order.shift();
           if (opened === callChest) {
             found.push(who.key);

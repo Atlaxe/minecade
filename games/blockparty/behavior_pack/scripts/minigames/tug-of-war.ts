@@ -5,11 +5,12 @@
 // harder; pull it far enough your way and the other team is dragged into the water. At time, the team
 // the flag is nearer wins; dead center is a draw. The players are held on the rope and moved with it
 // (their jump is off); the rope is particles and the flag the board's coin, for now. Bots press 6 to
-// 9 times a second, in time with their teammate about half the time.
+// 9 times a second, in time with their teammate about half the time (a Medium bot; the lobby's level
+// moves both).
 import { ButtonState, InputButton, world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP, PAINTER_TEAMS } from "./arenas.ts";
-import { clock, everyTick, now, onPlan, sideMap, spawnIn } from "./common.ts";
+import { botOdds, botWait, clock, everyTick, now, onPlan, sideMap, spawnIn } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** How much of the gap to its target the flag closes each tick (it slides). */
@@ -114,11 +115,12 @@ export const TUG_OF_WAR: MinigameDef = {
       for (const who of sides.flat()) {
         if (who.player || tick < (nextBot.get(who.key) ?? 0)) continue;
         tug(who);
-        // In time with a teammate about half the time.
+        // In time with a teammate about half the time (a Medium bot's: botWait and botOdds).
         const side = sideOf.get(who.key) ?? 0;
         const mate = sides[side].find((one) => one.key !== who.key && !one.player);
-        nextBot.set(who.key, tick + 2 + Math.floor(play.random() * 2));
-        if (mate && play.random() < 0.5) nextBot.set(mate.key, tick + 1);
+        // At most 10 presses a second, as fast as a quick player: a Hard bot's waits would come out 1 or 2 ticks.
+        nextBot.set(who.key, tick + Math.max(2, botWait(play, 2 + Math.floor(play.random() * 2))));
+        if (mate && play.random() < botOdds(play, 0.5)) nextBot.set(mate.key, tick + 1);
       }
       flag += (target - flag) * SLIDE;
       place();

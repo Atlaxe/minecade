@@ -9,13 +9,13 @@
 import { ButtonState, InputButton, world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, blocksOf, botStep, clock, everyTick, flat, isPlayer, nearestOf, onPlan, pick, setBlock, shuffled } from "./common.ts";
+import { BOT_WALK, blockId, blocksOf, botStep, botWait, clock, everyTick, flat, isPlayer, nearestOf, onPlan, pick, setBlock, shuffled } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play, type Spot } from "./kit.ts";
 
 const BOMB = "minecraft:tnt";
 /** How close counts as at a site, or at a bomb. */
 const AT_SITE = 1.6;
-/** A bot bomber's hit reach and pause. */
+/** A bot bomber's hit reach and pause (the pause a Medium bot's: botWait). */
 const BOT_TAG = 2;
 const BOT_TAG_EVERY = 20;
 
@@ -160,7 +160,7 @@ export const BOMB_DISPOSAL: MinigameDef = {
       const bomberBody = play.bodyOf(bomber);
       if (bomberBody && !isPlayer(bomberBody)) {
         const prey = nearestOf(play, bomberBody.location, squad.filter((who) => (frozenUntil.get(who.key) ?? 0) <= tickNow));
-        if (prey && prey.gap < BOT_TAG && tick - lastBotTag >= BOT_TAG_EVERY) {
+        if (prey && prey.gap < BOT_TAG && tick - lastBotTag >= botWait(play, BOT_TAG_EVERY)) {
           lastBotTag = tick;
           tag(prey.who);
         } else if (prey) botStep(play, bomber, prey.body.location, BOT_WALK * 1.1, 1.2);

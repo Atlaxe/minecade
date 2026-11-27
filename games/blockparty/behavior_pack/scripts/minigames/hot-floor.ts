@@ -10,6 +10,7 @@
 import { system, type Dimension, type Vector3 } from "@minecraft/server";
 import { BOT_WALK, isPlayer, stepToward, thinkTicks, type Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
+import { botPace, botSlip, botWait } from "./common.ts";
 import { at, fill, inOrder, secondsText, spread, testField, type Field, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const COLORS = [
@@ -35,7 +36,7 @@ const LAST_COUNT = 30;
 /** Ticks the other tiles stay gone. */
 const GONE = 40;
 const MAX_ROUNDS = 12;
-/** How often a bot heads for a wrong tile. */
+/** How often a bot heads for a wrong tile (a Medium bot's: botSlip). */
 const BOT_MISTAKE = 0.12;
 /** Ticks after the tiles go before a bot that was off the color is taken out (if it hasn't fallen out already). */
 const BOT_DROP = 8;
@@ -147,7 +148,7 @@ export const HOT_FLOOR: MinigameDef = {
         if (isPlayer(who.body)) continue;
         const here = who.body.location;
         let best: { at: Vector3; gap: number } | undefined;
-        const wrong = play.random() < BOT_MISTAKE;
+        const wrong = play.random() < botSlip(play, BOT_MISTAKE);
         for (let tx = 0; tx < tiles.across; tx++) {
           for (let tz = 0; tz < tiles.along; tz++) {
             if ((colors[tx * tiles.along + tz] === color) === wrong) continue;
@@ -157,7 +158,7 @@ export const HOT_FLOOR: MinigameDef = {
             if (!best || gap < best.gap) best = { at: middle, gap };
           }
         }
-        if (best) targets.set(who.key, { at: best.at, from: system.currentTick + thinkTicks(play.random, 6, 18) });
+        if (best) targets.set(who.key, { at: best.at, from: system.currentTick + thinkTicks(play.random, botWait(play, 6), botWait(play, 18)) });
       }
       for (let tick = 0; tick < countdown + GONE && !scope.disposed; tick++) {
         if (tick === countdown) {
@@ -180,7 +181,7 @@ export const HOT_FLOOR: MinigameDef = {
         play.status(tick < countdown ? `Round ${round}: ${colorName} in ${secondsText(countdown - tick)}` : `Round ${round}: ${colorName}`);
         for (const who of play.inPlay()) {
           const target = targets.get(who.key);
-          if (target && system.currentTick >= target.from) stepToward(who.body, target.at, BOT_WALK);
+          if (target && system.currentTick >= target.from) stepToward(who.body, target.at, botPace(play, BOT_WALK));
         }
         checkFalls();
         await scope.wait(1);

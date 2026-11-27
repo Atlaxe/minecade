@@ -7,12 +7,13 @@
 // after a moment.
 import type { Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, botStep, everyTick, fellOut, onPlan, placesByOut, setBlock, shuffled } from "./common.ts";
+import { BOT_WALK, botStep, botWait, everyTick, fellOut, onPlan, placesByOut, setBlock, shuffled } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const WALL = "minecraft:light_blue_concrete";
-/** Ticks before a bot heads for a hole, and between walls. */
+/** Ticks before a bot heads for a hole (a Medium bot's: botWait). */
 const BOT_REACT = 14;
+/** Ticks between walls. */
 const BETWEEN = 30;
 
 interface Hole {
@@ -65,6 +66,7 @@ export const HOLE_IN_WALL: MinigameDef = {
     const top = Math.max(start.max.y, floor + 2);
     const floorY = platform.min.y;
     const outAt = new Map<string, number>();
+    const react = botWait(play, BOT_REACT);
     let tickAll = 0;
     const layer = (at: number, holes: readonly Hole[], block: string) => {
       for (let a = lo; a <= hi; a++) {
@@ -102,7 +104,7 @@ export const HOLE_IN_WALL: MinigameDef = {
             play.say(`${who.name} went in the water.`);
             continue;
           }
-          if (who.player || tick < BOT_REACT) continue;
+          if (who.player || tick < react) continue;
           // A bot: to a floor hole's line, in front of the wall.
           let hole = botHole.get(who.key);
           if (!hole) {

@@ -635,7 +635,8 @@ Party. Built for every change of hands, which also covers the pops above (`token
   angle (the user, 2026-11-18, after a flat face first: `playerPortraits`, `docs/skins.md`).
 - Skins are players' personal data: the renders stay out of git, as the lobby's do.
 - A new skin shows after the next build and restart; until then the player has their letter badge.
-  Bots show Steve's portrait (the user, 2026-11-18), drawn by the build from Minecraft's own Steve.
+  Bots show Steve's portrait (the user, 2026-11-18), drawn by the build from Minecraft's own Steve;
+  since 2026-11-27 each bot shows its own skin's (`bot-skins.ts`; `tools/blockparty/bot-portraits.ts`).
 - In JSON UI each head's picture path comes from the data (a texture bound from text), so one card
   template serves every player ("Checks first").
 
@@ -940,7 +941,8 @@ top 15 sidebar rows and the screens share them with the dialogue box:
   `results.count`, `results.swap`, `results.first`, `results.close`.
 - **Portraits** (2026-11-18): each card and result row shows the player's portrait in color
   (`heads.ts`): the build renders it from their saved skin into the game's pack (`playerPortraits`
-  in `game.config.ts`, `docs/skins.md`), a bot shows Steve's (rendered from Minecraft's own skin),
+  in `game.config.ts`, `docs/skins.md`), a bot shows its skin's (rendered from Minecraft's own Steve
+  and Alex or the private skins pack: `tools/blockparty/bot-portraits.ts`),
   and a player the watcher hasn't seen yet keeps their letter.
 - **Item and dice pictures** (2026-11-18): the cards' three item slots and the item panel's icon are
   pictures, `textures/blockparty/icons/<letters>`, which the build writes from each item's and

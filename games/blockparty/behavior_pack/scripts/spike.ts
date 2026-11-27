@@ -52,6 +52,7 @@ import { ARENA_SLOT, Minigame, describeError, draw, facingOf, hudLine, log, say,
 import { BLOCK_PARTY_BOARD, type MapEdit, type MapSettingConfig } from "@minecade/minigame-core/config";
 import registry from "#registry";
 import skins from "#skins";
+import privatePacks from "#private-packs";
 import { HOTBAR_SIZE, KEEP_UP, READY_CODE, SIDE_TWO_CODE, STANDINGS_CODE, STAR_LEVELS, holdingCode } from "./bar-codes.ts";
 import type config from "../../game.config.ts";
 import { boardBox, floorOf, mapSpaces, standAt, type Space, type Vec3 } from "./board.ts";
@@ -90,8 +91,10 @@ import { Stage, type StageMarkup } from "./stage.ts";
 import { nearestSpace, type Marker } from "./stage-layout.ts";
 import { STAGE_POINTS, chrisKey } from "./stage-markup.ts";
 import { line } from "./lines.ts";
-import { BOT_COUNTS, LENGTHS, START_COINS } from "./board-rules.ts";
+import { LENGTHS, START_COINS } from "./board-rules.ts";
 import { Bots, hop, isPlayer, thinkTicks, whoOf, type Who } from "./bots.ts";
+import { BOT_OPTION, BOT_SKILLS, MEDIUM, botLevelOf, type BotSkill } from "./bot-skill.ts";
+import { wearableSkins } from "./bot-skins.ts";
 import { fits, type Format } from "./minigame-rules.ts";
 import { MinigameRunner, type ArenaPlace, type TutorialView } from "./minigame-runner.ts";
 import { ARENAS, MARKUP, PAINTER_TEAMS } from "./minigames/arenas.ts";
@@ -327,6 +330,8 @@ export class BlockPartySpike extends Minigame<Config> {
   private boardLaid: Promise<void> = Promise.resolve();
   /** The bots in a game one player started (bots.ts), and the minigames' runner. */
   private bots!: Bots;
+  /** How well the bots play (the lobby's Bots option; bot-skill.ts): Medium until they sit down. */
+  private botSkill: BotSkill = MEDIUM;
   /** The heads on the cards and the results: players' faces from the build, Steve's for bots. */
   private readonly heads = new Heads(skins);
   private runner!: MinigameRunner;
@@ -441,7 +446,7 @@ export class BlockPartySpike extends Minigame<Config> {
       // The ground the walk goes over: jumps, falls, stairs and climbs (walk-plan.ts).
       terrain: new WorldTerrain(dimension, () => this.spaces),
     });
-    this.bots = new Bots(this.scope, dimension);
+    this.bots = new Bots(this.scope, dimension, wearableSkins(privatePacks), () => this.ctx.random());
     this.runner = new MinigameRunner({
       scope: this.scope,
       dimension,
@@ -458,6 +463,7 @@ export class BlockPartySpike extends Minigame<Config> {
       notice: (text, ticks) => void this.notice(text, "", ticks),
       say: (text) => this.everyone(text),
       random: () => this.ctx.random(),
+      botSkill: () => this.botSkill,
       status: (text) => (this.minigameStatus = text),
       tell: (key, text, ticks) => {
         if (text === undefined) this.ownLines.delete(key);
@@ -765,15 +771,20 @@ export class BlockPartySpike extends Minigame<Config> {
     }
   }
 
-  /** A game one player started gets bots in the empty seats, as many as the lobby's Bots option says. */
+  /**
+   * A game one player started gets a bot in every empty seat, playing as well as the lobby's Bots
+   * option says (bot-skill.ts), unless it says No bots.
+   */
   private seatBots(): void {
     const players = world.getAllPlayers().length;
-    const asked = Number(this.ctx.vars.settings.bots ?? BOT_COUNTS[0]);
-    const wanted = Math.min(SEATS - players, Number.isInteger(asked) && asked >= 0 ? asked : BOT_COUNTS[0]);
-    if (players !== 1 || wanted <= 0) return;
+    const level = botLevelOf(this.ctx.vars.settings.bots);
+    const wanted = SEATS - players;
+    if (players !== 1 || !level || wanted <= 0) return;
+    this.botSkill = BOT_SKILLS[level];
     const [x, y, z] = standAt(this.spaces[0], 0);
     for (const bot of this.bots.add(wanted, { x, y, z })) this.pieces.place(bot.body);
-    const joined = { count: wanted, players: this.bots.all().map((bot) => bot.name).join(", ") };
+    const label = BOT_OPTION.find((option) => option.value === level)?.label ?? level;
+    const joined = { count: wanted, players: this.bots.all().map((bot) => bot.name).join(", "), level: label };
     this.everyone(wanted === 1 ? line("bots.join.one", joined) : line("bots.join.many", joined));
   }
 
@@ -1144,11 +1155,11 @@ export class BlockPartySpike extends Minigame<Config> {
     this.gameSidebar.set("round", text ? { title: codesOf(SCREEN_WORDS.round), rows: [roundRow(text)] } : undefined);
   }
 
-  /** A seat's head picture by name: a bot's is Steve's, unless a player here has that name. */
+  /** A seat's head picture by name: a bot's is its skin's, unless a player here has that name. */
   private headOf(name: string): string | undefined {
     const lower = name.toLowerCase();
     const bot = this.bots.has(name) && !world.getAllPlayers().some((player) => player.name.toLowerCase() === lower);
-    return this.heads.of(name, bot);
+    return this.heads.of(name, bot ? (this.bots.skinOf(name) ?? true) : false);
   }
 
   protected override onSpawn(player: Player, _why: SpawnReason): void {

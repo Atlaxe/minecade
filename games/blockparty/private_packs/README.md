@@ -26,5 +26,12 @@ ships as it is.
   `blockparty:star` entities). The Star is the game's own nether star (`textures/items/nether_star`),
   so only its model is here. Built and installed by the private block-party-icons project in the
   workshop folder (`..\workshop\block-party-icons`: `tools\build.py`, then `tools\install.py`).
+- `skins/`: the skins Block Party's bots wear besides Steve and Alex
+  (`textures/blockparty/skins/<id>.png`, the ids of `behavior_pack/scripts/bot-skins.ts`): the
+  game's seven other default skins and Legacy Console Edition's Default Skin Pack, all Mojang's. The
+  build lets the bots wear them only when this pack is here ("#private-packs") and draws each one's
+  portrait for the player cards (`tools/blockparty/bot-portraits.ts`). Built and installed by the
+  private bot-skins project in the workshop folder (`..\workshopot-skins`: `toolsuild.py`, then
+  `tools\install.py`).
 
 Run the network's build (Start in the Panel) after installing to put a change on the server.

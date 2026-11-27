@@ -10,10 +10,10 @@
 import { ButtonState, InputButton, world } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botStep, clock, everyTick, fellOut, flat, floorOf, grounded, Hearts, isPlayer, item, moveTo, nearestOf, now, onPlan, throwFrom, wear } from "./common.ts";
+import { botAim, botStep, botWait, clock, everyTick, fellOut, flat, floorOf, grounded, Hearts, isPlayer, item, moveTo, nearestOf, now, onPlan, throwFrom, wear } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
-/** Ticks between the Wither's skulls (a player's and a bot's), and a bot trio's arrows. */
+/** Ticks between the Wither's skulls (a player's and a bot's), and a bot trio's arrows (the bots' a Medium bot's: botWait). */
 const SKULL_EVERY = 16;
 const BOT_SKULL_EVERY = 40;
 const BOT_ARROW_EVERY = 30;
@@ -171,7 +171,7 @@ export const BOSS_FIGHT: MinigameDef = {
         }
         if (prey) {
           if (prey.gap > 6) botStep(play, boss, prey.body.location, 0.16, 5);
-          if (tick - lastBotSkull >= BOT_SKULL_EVERY) {
+          if (tick - lastBotSkull >= botWait(play, BOT_SKULL_EVERY)) {
             lastBotSkull = tick;
             lastSkull = 0;
             fireSkull({ x: prey.body.location.x, y: prey.body.location.y + 1, z: prey.body.location.z });
@@ -191,9 +191,9 @@ export const BOSS_FIGHT: MinigameDef = {
         const gap = flat(body.location, bossBody.location);
         if (gap < 2.6 && grounded(bossBody)) {
           if (hearts.botSwing(who, [boss], 0, trioDown)) hurtBoss(5);
-        } else if (tick - (lastArrow.get(who.key) ?? -99) >= BOT_ARROW_EVERY) {
+        } else if (tick - (lastArrow.get(who.key) ?? -99) >= botWait(play, BOT_ARROW_EVERY)) {
           lastArrow.set(who.key, tick);
-          throwFrom(play, body, { x: bossBody.location.x, y: bossBody.location.y + 1.2, z: bossBody.location.z }, { type: "minecraft:arrow", speed: 2, error: 1 });
+          throwFrom(play, body, { x: bossBody.location.x, y: bossBody.location.y + 1.2, z: bossBody.location.z }, { type: "minecraft:arrow", speed: 2, error: botAim(play, 1) });
         }
         botStep(play, who, bossBody.location, 0.2, gap < 8 ? 7 : 2);
       }

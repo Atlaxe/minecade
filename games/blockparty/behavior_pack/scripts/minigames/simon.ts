@@ -4,10 +4,10 @@
 // the other three), jump, sneak, spin around, look up or down, keep moving, freeze; and the traps,
 // don't jump, don't sneak, don't look up. A wrong answer, or none to a command that wants one, costs
 // a heart; out at none. Last one in wins; the rest place by when they went out. Bots are right about
-// 85% of the time.
+// 85% of the time (a Medium bot; the lobby's level moves it).
 import { world, type Player, type Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { botFace, botJump, clock, everyTick, isPlayer, onPlan, pick, placesByOut, setBlock } from "./common.ts";
+import { botFace, botJump, botOdds, botWait, clock, everyTick, isPlayer, onPlan, pick, placesByOut, setBlock } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play, type Spot } from "./kit.ts";
 
 const COLORS = [
@@ -163,9 +163,9 @@ export const SIMON: MinigameDef = {
       for (const who of everyone) done.set(who.key, fresh());
       lay(command.kind === "hit" ? command.color : undefined);
       play.notice(words(command), window + 10);
-      // Each bot's answer: right most of the time, after a moment.
-      const botRight = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, play.random() < 0.85]));
-      const botAt = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, 6 + Math.floor(play.random() * Math.max(1, window - 14))]));
+      // Each bot's answer: right most of the time, after a moment (a Medium bot's: botOdds and botWait), always inside the answer time.
+      const botRight = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, play.random() < botOdds(play, 0.85)]));
+      const botAt = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, Math.min(window - 1, botWait(play, 6 + Math.floor(play.random() * Math.max(1, window - 14))))]));
       await everyTick(play, window, (tick) => {
         for (const who of play.inPlay()) {
           const record = done.get(who.key)!;

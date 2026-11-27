@@ -10,6 +10,15 @@
           "type": "bool",
           "default": false,
           "client_sync": true
+        },
+        "blockparty:skin": {
+          "type": "int",
+          "range": [
+            0,
+            31
+          ],
+          "default": 0,
+          "client_sync": true
         }
       }
     },

@@ -10,6 +10,7 @@
 import { world, type Entity, type Vector3 } from "@minecraft/server";
 import { BOT_RUN, BOT_WALK, isPlayer, stepBot, stepToward, thinkTicks, type Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
+import { botPace, botWait } from "./common.ts";
 import { at, fill, middleOf, over, secondsText, spread, testField, type Field, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 /** The test arena: length (x) and width (z) inside the walls, and where the gold starts from the near end. */
@@ -23,7 +24,7 @@ const HEAD_START = 40;
 const CATCH = 1.4;
 /** How near the hunter is before a bot runner swerves. */
 const SWERVE = 8;
-/** Bot runners run a little slower than the hunter. */
+/** Bot runners run a little slower than the hunter (a Medium bot's: botPace). */
 const RUNNER_SPEED = (BOT_WALK + BOT_RUN) / 2;
 
 function goalOf(field: Field): WorldBox | undefined {
@@ -97,7 +98,7 @@ export const HUNTER: MinigameDef = {
     });
     // The hunter waits: a player can't move till then.
     play.freeze(hunter, HEAD_START);
-    const starts = new Map(runners.map((who) => [who.key, thinkTicks(play.random, 0, 30)]));
+    const starts = new Map(runners.map((who) => [who.key, thinkTicks(play.random, 0, botWait(play, 30))]));
     const lane = new Map(runners.map((who) => [who.key, play.random() < 0.5 ? -1 : 1]));
     let tick = 0;
     for (; tick < PLAY_TICKS && !scope.disposed; tick++) {
@@ -123,7 +124,7 @@ export const HUNTER: MinigameDef = {
           const prey = nearestToGoal(active, play, caught, safe, goalMiddle);
           if (prey) {
             const preyBody = play.bodyOf(prey)!;
-            stepToward(hunterBody, preyBody.location, BOT_RUN, 0.2);
+            stepToward(hunterBody, preyBody.location, botPace(play, BOT_RUN), 0.2);
             if (Math.hypot(preyBody.location.x - hunterBody.location.x, preyBody.location.z - hunterBody.location.z) <= CATCH) catchRunner(prey);
           } else stepBot(hunterBody, 0, 0);
         }
@@ -132,7 +133,7 @@ export const HUNTER: MinigameDef = {
       for (const who of active) {
         const body = play.bodyOf(who);
         if (!body || isPlayer(body) || safe.has(who.key) || caught.has(who.key) || tick < (starts.get(who.key) ?? 0)) continue;
-        stepToward(body, runnerTarget(body.location, goalMiddle, hunterBody?.location, lane.get(who.key) ?? 1, field), RUNNER_SPEED, 0.1);
+        stepToward(body, runnerTarget(body.location, goalMiddle, hunterBody?.location, lane.get(who.key) ?? 1, field), botPace(play, RUNNER_SPEED), 0.1);
       }
       if (tick % 5 === 0) play.status(`Home ${safe.size} of ${needed}, ${secondsText(PLAY_TICKS - tick)}`);
       await scope.wait(1);

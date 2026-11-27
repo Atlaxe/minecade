@@ -9,7 +9,7 @@
 import { world, type Entity, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, botFace, botStep, botStop, clock, everyTick, flat, inside, isPlayer, onPlan, pick, removeEntity, setBlock, spawnIn, spotIn, yawToward } from "./common.ts";
+import { BOT_WALK, blockId, botFace, botOdds, botStep, botStop, botWait, clock, everyTick, flat, inside, isPlayer, onPlan, pick, removeEntity, setBlock, spawnIn, spotIn, yawToward } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const ANIMALS = [
@@ -18,7 +18,7 @@ const ANIMALS = [
   { type: "minecraft:sheep", name: "a sheep" },
   { type: "minecraft:chicken", name: "a chicken" },
 ] as const;
-/** Ticks between a bot farmer's guesses, and the chance one finds a hider. */
+/** Ticks between a bot farmer's guesses, and the chance one finds a hider (a Medium bot's: botWait and botOdds). */
 const BOT_GUESS = 90;
 const BOT_FINDS = 0.4;
 
@@ -148,12 +148,13 @@ export const BARNYARD: MinigameDef = {
     }
     open = true;
     play.notice(`Find them! ${guesses} guesses.`, 40);
+    const guessEvery = botWait(play, BOT_GUESS);
     await everyTick(play, total, (tick) => {
       follow(tick + hideTime);
       const farmerBody = play.bodyOf(farmer);
-      if (farmerBody && !isPlayer(farmerBody) && tick % BOT_GUESS === BOT_GUESS - 1) {
+      if (farmerBody && !isPlayer(farmerBody) && tick % guessEvery === guessEvery - 1) {
         const left = hiders.filter((who) => !found.has(who.key));
-        const target = play.random() < BOT_FINDS && left.length > 0 ? disguise.get(pick(left, play.random).key) : pick(animals.filter((one) => one.isValid), play.random);
+        const target = play.random() < botOdds(play, BOT_FINDS) && left.length > 0 ? disguise.get(pick(left, play.random).key) : pick(animals.filter((one) => one.isValid), play.random);
         if (target) {
           botFace(farmerBody, target.location);
           guess(target);

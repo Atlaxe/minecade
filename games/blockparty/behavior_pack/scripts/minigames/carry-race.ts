@@ -9,13 +9,13 @@
 import { world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, botWalkTo, clock, everyTick, flat, inside, isPlayer, item, onPlan, tilesOf, walkPath, yawToward } from "./common.ts";
+import { BOT_WALK, botWait, botWalkTo, clock, everyTick, flat, inside, isPlayer, item, onPlan, tilesOf, walkPath, yawToward } from "./common.ts";
 import { middleOf, type Field, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const CALLS = ["Left", "Right", "Straight", "Back"] as const;
 /** How high over the walker's feet the rider is kept. */
 const RIDE = 1.67;
-/** Ticks between a bot rider's calls. */
+/** Ticks between a bot rider's calls (a Medium bot's: botWait). */
 const BOT_CALL = 40;
 
 /** The rider on the walker's head with the players pack's riding. True when it took. */
@@ -120,7 +120,7 @@ export const CARRY_RACE: MinigameDef = {
         const goal = middleOf(finish);
         const target = { x: goal.x, y: standY, z: goal.z };
         // A bot rider calls the next turn of the way out.
-        if (rider && riderBody && !isPlayer(riderBody) && tick - lastCall[s] >= BOT_CALL) {
+        if (rider && riderBody && !isPlayer(riderBody) && tick - lastCall[s] >= botWait(play, BOT_CALL)) {
           lastCall[s] = tick;
           const next = walkPath(dimension, floor, standY, body.location, target)[1];
           if (next) call(s, turnTo(body.getRotation().y, body.location, next));

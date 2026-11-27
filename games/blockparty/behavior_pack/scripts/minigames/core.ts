@@ -6,11 +6,11 @@
 import { world } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botFace, botStep, clock, everyTick, flat, Hearts, isPlayer, item, moveTo, now, onPlan, setBlock, wear } from "./common.ts";
+import { botFace, botStep, botWait, clock, everyTick, flat, Hearts, isPlayer, item, moveTo, now, onPlan, setBlock, wear } from "./common.ts";
 import { type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const CORE_BLOCK = "minecraft:beacon";
-/** Ticks between a bot raider's hits on the core. */
+/** Ticks between a bot raider's hits on the core (a Medium bot's: botWait). */
 const BOT_CORE_EVERY = 12;
 
 export const CORE: MinigameDef = {
@@ -107,7 +107,7 @@ export const CORE: MinigameDef = {
         if (near && hearts.botSwing(raider, [near], 6, down)) {
           // fought back
         } else if (flat(raiderBody.location, coreAt) > 1.8) botStep(play, raider, coreAt, 0.2, 1.5);
-        else if (now() - coreSwing >= BOT_CORE_EVERY) {
+        else if (now() - coreSwing >= botWait(play, BOT_CORE_EVERY)) {
           coreSwing = now();
           botFace(raiderBody, coreAt);
           hitCore();

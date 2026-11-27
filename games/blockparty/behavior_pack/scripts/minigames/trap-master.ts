@@ -10,7 +10,7 @@
 import { world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, blocksOf, botRun, clock, everyTick, fellOut, inside, isPlayer, moveTo, now, onPlan, setBlock, spawnIn, removeEntity } from "./common.ts";
+import { BOT_WALK, blockId, blocksOf, botOdds, botRun, botWait, clock, everyTick, fellOut, inside, isPlayer, moveTo, now, onPlan, setBlock, spawnIn, removeEntity } from "./common.ts";
 import { middleOf, over, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 const KINDS = ["drop", "vanish", "tnt", "water"] as const;
@@ -19,7 +19,7 @@ const TRAPS: Record<Kind, string> = { drop: MARKUP.dropTraps, vanish: MARKUP.van
 const LEVERS: Record<Kind, string> = { drop: MARKUP.dropLevers, vanish: MARKUP.vanishLevers, tnt: MARKUP.tntLevers, water: MARKUP.waterLevers };
 /** Ticks a TNT falls before it blows. */
 const FUSE = 30;
-/** Ticks a bot master waits before it springs a trap a runner is on. */
+/** Ticks a bot master waits before it springs a trap a runner is on (a Medium bot's: botWait). */
 const BOT_REACT = 10;
 
 interface Trap {
@@ -135,6 +135,7 @@ export const TRAP_MASTER: MinigameDef = {
       if (trap && byMaster(player.id)) spring(trap);
     });
     play.notice(`${master.name} springs the traps. The rest: reach the Finish, ${needed} through wins.`);
+    const reactEvery = botWait(play, BOT_REACT);
     await everyTick(play, total, (tick) => {
       for (const who of runners) {
         if (safe.has(who.key) || play.isOut(who)) continue;
@@ -152,13 +153,13 @@ export const TRAP_MASTER: MinigameDef = {
       }
       // A bot master springs the trap a runner has been on for a moment.
       const masterBody = play.bodyOf(master);
-      if (masterBody && !isPlayer(masterBody) && tick % BOT_REACT === 0) {
+      if (masterBody && !isPlayer(masterBody) && tick % reactEvery === 0) {
         for (const trap of traps) {
           const caught = runners.some((who) => {
             const body = play.bodyOf(who);
             return body && !safe.has(who.key) && inside(trap.box, body.location, trap.kind === "tnt" ? 1 : 0.5);
           });
-          if (caught && play.random() < 0.6) spring(trap);
+          if (caught && play.random() < botOdds(play, 0.6)) spring(trap);
         }
       }
       if (tick % 5 === 0) play.status(`Through ${safe.size} of ${needed}  ${clock(total - tick)}`);

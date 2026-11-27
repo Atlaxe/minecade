@@ -7,6 +7,7 @@
 import type { Vector3 } from "@minecraft/server";
 import { BOT_WALK, isPlayer, stepToward } from "../bots.ts";
 import { MARKUP, PAINTER_TEAMS } from "./arenas.ts";
+import { botPace } from "./common.ts";
 import { at, fill, secondsText, spread, testField, type Field, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 /** The test arena: the floor's width each way, its corner from the arena's, and its height. */
@@ -94,7 +95,7 @@ export const PAINTERS: MinigameDef = {
         if (!body || side === undefined) continue;
         if (!isPlayer(body)) {
           const target = targets.get(who.key) ?? pickTarget(who.key, body.location, side);
-          if (stepToward(body, target, BOT_WALK)) pickTarget(who.key, body.location, side);
+          if (stepToward(body, target, botPace(play, BOT_WALK))) pickTarget(who.key, body.location, side);
         }
         const fx = Math.floor(body.location.x) - x0;
         const fz = Math.floor(body.location.z) - z0;

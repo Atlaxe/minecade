@@ -45,7 +45,10 @@ gets each saved skin's portrait in color (`portrait.png`: head and shoulders at 
 `textures/minecade/skins/steve_portrait` (`STEVE_SKIN`), drawn from Minecraft's own Steve skin in
 the vanilla texture cache (`tools/build/vanilla-textures.ts`, the `entity` archive, which the
 Panel copies at Start; never in git). Its scripts know whose portraits are there from `#skins`.
-Like the lobby's, a new skin shows after the next build and restart.
+Like the lobby's, a new skin shows after the next build and restart. Block Party's pack also gets
+a portrait of each skin its bots wear, at `textures/minecade/skins/<skin id>_portrait`
+(`tools/blockparty/bot-portraits.ts`): Steve and Alex from the same cache, the rest from its
+private skins pack (`games/blockparty/private_packs/README.md`).
 
 **In the map editor:** Edit's mannequins (stand-ins for players in game pictures) can wear the
 saved classic skins (wide, slim, or an old 64x32 one made 64x64): the editor's pack gets them each

@@ -6,7 +6,7 @@
 // it. Bots: the loader walks between pile and cannon; the aimer fires with some error.
 import { EntityComponentTypes, world, type Vector3 } from "@minecraft/server";
 import { MARKUP, PAINTER_TEAMS } from "./arenas.ts";
-import { BOT_WALK, botStep, clock, everyTick, flat, inside, isPlayer, item, now, onPlan, throwFrom, winnerBy } from "./common.ts";
+import { BOT_WALK, botAim, botStep, clock, everyTick, flat, inside, isPlayer, item, now, onPlan, throwFrom, winnerBy } from "./common.ts";
 import { middleOf, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** How close counts as at the pile or the cannon. */
@@ -112,13 +112,14 @@ export const CANNONS: MinigameDef = {
           play.tell(aimers[s], "Loaded!", 30);
         }
         if (!isPlayer(body) && loader !== aimers[s]) botStep(play, loader, carrying.has(loader.key) ? cannons[s] : loaded[s] ? cannons[s] : ammo[s], BOT_WALK, 1);
-        // A bot aimer fires at the target with some error.
+        // A bot aimer fires at the target with some error (a Medium bot's 4 blocks wide: botAim).
         const aimer = aimers[s];
         const aimBody = play.bodyOf(aimer);
         if (aimBody && !isPlayer(aimBody) && loaded[s] && now() >= readyAt[s]) {
           const goal = middleOf(targets[s]);
           const gap = flat(aimBody.location, goal);
-          fire(s, { x: goal.x + (play.random() - 0.5) * 4, y: goal.y + gap * 0.08, z: goal.z + (play.random() - 0.5) * 4 });
+          const spread = botAim(play, 4);
+          fire(s, { x: goal.x + (play.random() - 0.5) * spread, y: goal.y + gap * 0.08, z: goal.z + (play.random() - 0.5) * spread });
         }
       }
       // A one-player side (a bot) loads itself after the reload.

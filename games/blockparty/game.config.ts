@@ -1,5 +1,6 @@
 import { ARENA_SLOT, ARENA_SLOT_FOOTPRINT, BLOCK_PARTY_BOARD, defineGame } from "@minecade/minigame-core/config";
-import { BOT_COUNTS, LENGTHS } from "./behavior_pack/scripts/board-rules.ts";
+import { LENGTHS } from "./behavior_pack/scripts/board-rules.ts";
+import { BOT_OPTION } from "./behavior_pack/scripts/bot-skill.ts";
 import { ARENAS } from "./behavior_pack/scripts/minigames/arenas.ts";
 import { STAGE_ADJUSTABLE, STAGE_MARKUP } from "./behavior_pack/scripts/stage-markup.ts";
 
@@ -43,10 +44,11 @@ export default defineGame({
   // borrow check asks; Probe's maps can do without a spectator or queue spawn, so this game can
   // too (players then watch from over the first spawn). A map with spaces plays on them.
   // The game's length in rounds (the plan's 10, 15 or 20 turns), 15 unless the lobby picks another;
-  // and how many bots join a game one player starts (bots.ts), to watch a whole game flow.
+  // and the bots in a game one player starts (bots.ts), filling every empty seat, to play against or
+  // watch a whole game flow: how well they play (bot-skill.ts: Easy, Medium, Hard), or none.
   options: [
     { id: "length", label: "Length", values: LENGTHS.map((turns) => ({ value: String(turns), label: `${turns} turns` })) },
-    { id: "bots", label: "Bots (playing alone)", values: BOT_COUNTS.map((bots) => ({ value: String(bots), label: bots === 0 ? "No bots" : bots === 1 ? "1 bot" : `${bots} bots` })) },
+    { id: "bots", label: "Bots (playing alone)", values: BOT_OPTION.map(({ value, label }) => ({ value, label })) },
   ],
   map: {
     borrow: ["probe"],

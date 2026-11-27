@@ -8,6 +8,7 @@
 // board; play() says how it went.
 import { BlockVolume, type Dimension, type Entity, type ItemStack, type Vector3 } from "@minecraft/server";
 import { arenaBox, mapTimeTicks, type Box, type MapConfig, type MapPosition, type PlacedArena, type Scope } from "@minecade/minigame-core";
+import type { BotSkill } from "../bot-skill.ts";
 import type { Who } from "../bots.ts";
 import type { Kind } from "../minigame-rules.ts";
 import type { TutorialSide } from "../screen-codes.ts";
@@ -138,6 +139,8 @@ export interface Play {
   /** FFA and duels: each alone. 2v2: two pairs. 1v3: the solo, then the rest. */
   sides: Who[][];
   random(): number;
+  /** How well its bots play (the lobby's Bots option; bot-skill.ts): common.ts's bot helpers go by it, and so do the minigame's own bot calls. */
+  skill: BotSkill;
   /** Everyone still in. */
   inPlay(): Who[];
   /** Takes someone off the field: a player watches as a spectator over the arena, a bot from the stand beside it. */

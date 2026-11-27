@@ -7,10 +7,10 @@
 import type { Player } from "@minecraft/server";
 import { SHOWN } from "../animations.ts";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, botStep, botStop, clock, everyTick, flat, moveTo, onPlan, placesBy, spawnIn } from "./common.ts";
+import { BOT_WALK, botSlip, botStep, botStop, clock, everyTick, flat, moveTo, onPlan, placesBy, spawnIn } from "./common.ts";
 import { inOrder, middleOf, over, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
-/** How often a bot stops late (and goes back). */
+/** How often a bot stops late (and goes back; a Medium bot's: botSlip). */
 const BOT_LATE = 0.15;
 
 function moving(player: Player): boolean {
@@ -81,7 +81,7 @@ export const MOB_FREEZE: MinigameDef = {
           phase = "warning";
           phaseLeft = Math.max(1, tenths("warning"));
           play.dimension.playSound("mob.warden.heartbeat", spot, { volume: 2 });
-          late = new Set(everyone.filter((who) => !who.player && play.random() < BOT_LATE).map((who) => who.key));
+          late = new Set(everyone.filter((who) => !who.player && play.random() < botSlip(play, BOT_LATE)).map((who) => who.key));
         } else if (phase === "warning") {
           phase = "watching";
           phaseLeft = tenths("watch");

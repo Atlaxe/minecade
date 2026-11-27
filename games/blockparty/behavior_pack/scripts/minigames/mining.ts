@@ -8,12 +8,12 @@ import { world, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/mining.json";
 import { MARKUP } from "./arenas.ts";
-import { blockId, blocksOf, botFace, botStep, byWeight, clock, everyTick, flat, item, onPlan, placesBy, setBlock } from "./common.ts";
+import { blockId, blocksOf, botFace, botStep, botWait, byWeight, clock, everyTick, flat, item, onPlan, placesBy, setBlock } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 export const ORES: readonly { id: string; points: number; weight: number }[] = file.ores;
 const STONE = "minecraft:stone";
-/** Ticks between a bot's blocks. */
+/** Ticks between a bot's blocks (a Medium bot's: botWait). */
 const BOT_DIG = 14;
 
 export const MINING: MinigameDef = {
@@ -92,13 +92,14 @@ export const MINING: MinigameDef = {
     };
     const lastDig = new Map<string, number>();
     const oreOf = new Map<string, Vector3>();
+    const dig = botWait(play, BOT_DIG);
     await everyTick(play, total, (tick) => {
       for (const who of play.inPlay()) {
         if (who.player) continue;
         const body = play.bodyOf(who);
         const mine = mineOf.get(who.key);
         if (!body || !mine) continue;
-        const digging = tick - (lastDig.get(who.key) ?? -99) >= BOT_DIG;
+        const digging = tick - (lastDig.get(who.key) ?? -99) >= dig;
         // The ore it's after, looked for again only when it digs (a mine is a few hundred blocks).
         const ore = digging || !oreOf.has(who.key) ? nearestOre(mine, body.location) : oreOf.get(who.key);
         if (!ore) continue;

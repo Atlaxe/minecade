@@ -9,7 +9,7 @@
 import { world, type Entity, type Player, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { clock, everyTick, flat, inside, item, onPlan, pick, placesBy, removeEntity, sideMap, spawnIn, spotIn, winnerBy } from "./common.ts";
+import { botOdds, botWait, clock, everyTick, flat, inside, item, onPlan, pick, placesBy, removeEntity, sideMap, spawnIn, spotIn, winnerBy } from "./common.ts";
 import { inOrder, middleOf, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 const MOBS = [
@@ -23,7 +23,7 @@ const CREEPER_COST = 3;
 /** A throw's ticks in the air, and its height at the top. */
 const FLIGHT = 24;
 const ARC = 5;
-/** Ticks between a bot's throws. */
+/** Ticks between a bot's throws (a Medium bot's: botWait). */
 const BOT_EVERY = 70;
 
 interface Mob {
@@ -129,7 +129,7 @@ export const HOOK_MOB: MinigameDef = {
       removeEntity(mob.entity);
       spawnMob();
     };
-    const nextBot = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, 30 + Math.floor(play.random() * 40)]));
+    const nextBot = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, botWait(play, 30) + Math.floor(play.random() * botWait(play, 40))]));
     await everyTick(play, total, (tick) => {
       for (const mob of [...mobs]) {
         if (!mob.entity.isValid) {
@@ -159,7 +159,7 @@ export const HOOK_MOB: MinigameDef = {
       // Bots: the nearest good mob into their own pit; now and then a creeper into the leader's.
       for (const who of everyone) {
         if (who.player || tick < (nextBot.get(who.key) ?? 0)) continue;
-        nextBot.set(who.key, tick + BOT_EVERY + Math.floor(play.random() * 40));
+        nextBot.set(who.key, tick + botWait(play, BOT_EVERY) + Math.floor(play.random() * botWait(play, 40)));
         const body = play.bodyOf(who);
         if (!body) continue;
         const own = pits[pitOf.get(who.key) ?? 0];
@@ -172,7 +172,7 @@ export const HOOK_MOB: MinigameDef = {
           continue;
         }
         const good = mobs.filter((one) => one.type !== CREEPER && !one.flying).sort((a, b) => flat(a.entity.location, body.location) - flat(b.entity.location, body.location))[0];
-        if (good && own) throwMob(good, who, play.random() < 0.7 ? middleOf(own) : spotIn(pool, play.random));
+        if (good && own) throwMob(good, who, play.random() < botOdds(play, 0.7) ? middleOf(own) : spotIn(pool, play.random));
       }
       if (tick % 5 === 0) play.status(`${sides.map((side, s) => `${side.map((one) => one.name).join("+")} ${scores[s]}`).join("  ")}  ${clock(total - tick)}`);
     });

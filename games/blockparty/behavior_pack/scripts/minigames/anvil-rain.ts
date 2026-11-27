@@ -5,12 +5,12 @@
 // blocks until the arena is cleared. Bots step off a shadow after a moment's reaction.
 import type { Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, botStep, clock, everyTick, flat, onPlan, placesByOut, setBlock } from "./common.ts";
+import { BOT_WALK, blockId, botStep, botWait, clock, everyTick, flat, onPlan, placesByOut, setBlock } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** A falling block's speed gain a tick. */
 const GRAVITY = 0.04;
-/** Ticks before a bot sees a shadow under it. */
+/** Ticks before a bot sees a shadow under it (a Medium bot's: botWait). */
 const BOT_REACT = 8;
 
 interface Drop {
@@ -62,6 +62,7 @@ export const ANVIL_RAIN: MinigameDef = {
     const drops: Drop[] = [];
     const outAt = new Map<string, number>();
     const fleeTo = new Map<string, Vector3>();
+    const react = botWait(play, BOT_REACT);
     /** Where an anvil dropped on (x, z) lands: on the first block under the box's top. */
     const landing = (x: number, z: number): number | undefined => {
       for (let y = top - 1; y >= box.min.y - 1; y--) if (blockId(dimension, { x, y, z }) !== "minecraft:air") return y + 1 < top ? y + 1 : undefined;
@@ -137,7 +138,7 @@ export const ANVIL_RAIN: MinigameDef = {
         if (who.player) continue;
         const body = play.bodyOf(who);
         if (!body) continue;
-        const threat = drops.find((drop) => tick - (drop.dropAt - warning) >= BOT_REACT && flat(body.location, { x: drop.x + 0.5, y: 0, z: drop.z + 0.5 }) < 1.6);
+        const threat = drops.find((drop) => tick - (drop.dropAt - warning) >= react && flat(body.location, { x: drop.x + 0.5, y: 0, z: drop.z + 0.5 }) < 1.6);
         let target = fleeTo.get(who.key);
         if (threat && (!target || flat(target, { x: threat.x + 0.5, y: 0, z: threat.z + 0.5 }) < 2)) {
           target = safeSpot();

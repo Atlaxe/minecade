@@ -83,6 +83,21 @@ export function privateDataPlugin(used: (path: string) => void = () => undefined
   };
 }
 
+/**
+ * Resolves "#private-packs" to the names of the private packs this build gives the target
+ * (games/<id>/private_packs/<name>/; packs.ts, privatePacks), inlined as JSON: Block Party's bots
+ * wear the private skins pack's skins only when it's there.
+ */
+export function privatePacksPlugin(names: readonly string[]): Plugin {
+  return {
+    name: "minecade-private-packs",
+    setup(build) {
+      build.onResolve({ filter: /^#private-packs$/ }, () => ({ path: "private-packs", namespace: "minecade-private-packs" }));
+      build.onLoad({ filter: /.*/, namespace: "minecade-private-packs" }, () => ({ contents: JSON.stringify(names), loader: "json" }));
+    },
+  };
+}
+
 /** Resolves "#skins" to the players whose skin renders this build put in the lobby pack, inlined as JSON. */
 export function skinsPlugin(skins: PlayerSkin[]): Plugin {
   return {

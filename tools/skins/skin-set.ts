@@ -5,7 +5,7 @@
 //   portrait   the same head and shoulders in color (Block Party's player cards and results)
 // npm run skins also draws them all in color, to look at.
 import type { SkinRender } from "@minecade/minigame-core/config";
-import { LEGACY, WIDE, faceModelFor, modelFor } from "./geometry.ts";
+import { LEGACY, SLIM, WIDE, faceModelFor, modelFor } from "./geometry.ts";
 import { hologramLook } from "./look.ts";
 import type { Image } from "./png.ts";
 import { renderModel, type Layer } from "./render.ts";
@@ -45,6 +45,11 @@ export function renderSkinSet(skin: StoredSkin): Record<SkinRender, Image> {
 /** The color portrait of a classic skin's texture (64 x 64, or an old 64 x 32): Steve's, for bots. */
 export function classicPortrait(texture: Image): Image {
   return portraitOf([{ model: texture.height === 32 ? LEGACY : WIDE, texture }]);
+}
+
+/** The color portrait of a 64 x 64 skin with slim (3 pixel) arms: Alex's, for bots. */
+export function slimPortrait(texture: Image): Image {
+  return portraitOf([{ model: SLIM, texture }]);
 }
 
 /** The lobby pack's renders, plus the same in color, by file name (for npm run skins). */

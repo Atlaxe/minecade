@@ -1,9 +1,13 @@
 // What the minigames built on a test arena of test-arenas.ts share (docs/plans/block-party-minigames.md,
 // "How a minigame is built"): the arena from its plan, places from scores or from who went out when,
 // a tick loop, the moves their bots make, the game's own entities and blocks, and the items they hand
-// out. Kept small: each minigame's own rules stay in its file.
+// out. Kept small: each minigame's own rules stay in its file. The bots' moves go by how well the
+// game's bots play (play.skill; bot-skill.ts): botStep, botRun, botWalkTo and botBrawl step at its
+// pace, botBrawl and Hearts.botSwing wait its time between hits, and botWait, botAim, botOdds and
+// botSlip give a minigame's own bot numbers for its level (each written as a Medium bot's).
 import { BlockPermutation, EntityComponentTypes, EntityDamageCause, EquipmentSlot, ItemLockMode, ItemStack, system, world, type Block, type Dimension, type Entity, type Vector3 } from "@minecraft/server";
 import { BOT_RUN, BOT_WALK, hop, isPlayer, moveBot, stepBot, stepToward, type Who } from "../bots.ts";
+import { aim, odds, pace, slip, wait } from "../bot-skill.ts";
 import { TEST_ARENAS, layTestArena, testArenaCopies, testArenaField } from "./test-arenas.ts";
 import { middleOf, secondsText, type Field, type MinigameDef, type Play, type Spot, type WorldBox } from "./kit.ts";
 
@@ -93,6 +97,31 @@ export function clock(ticksLeft: number): string {
   return secondsText(ticksLeft);
 }
 
+/** A Medium bot's speed (blocks a tick) for this game's bots: what every step a bot takes goes at. */
+export function botPace(play: Play, speed: number): number {
+  return pace(play.skill, speed);
+}
+
+/** A Medium bot's wait in ticks (a reaction time, a gap between throws or digs) for this game's bots. */
+export function botWait(play: Play, ticks: number): number {
+  return wait(play.skill, ticks);
+}
+
+/** A Medium bot's throw or shot error (blocks off) for this game's bots. */
+export function botAim(play: Play, error: number): number {
+  return aim(play.skill, error);
+}
+
+/** The odds this game's bots get a call right (an answer, a guess, a good pick) that a Medium bot gets right at `chance`. */
+export function botOdds(play: Play, chance: number): number {
+  return odds(play.skill, chance);
+}
+
+/** The odds this game's bots slip (a mistake, a late start) that a Medium bot does at `chance`. */
+export function botSlip(play: Play, chance: number): number {
+  return slip(play.skill, chance);
+}
+
 /** Who's a bot among those still in. */
 export function botsIn(play: Play): Who[] {
   return play.inPlay().filter((who) => !who.player);
@@ -137,13 +166,13 @@ export function wholeFloor(field: Field): WorldBox {
 }
 
 /**
- * A bot's step this tick toward `target` at `speed`, unless a push is carrying it (Play.pushed).
- * True once it's there.
+ * A bot's step this tick toward `target` at `speed` (a Medium bot's: botPace), unless a push is
+ * carrying it (Play.pushed). True once it's there.
  */
 export function botStep(play: Play, who: Who, target: Vector3, speed = BOT_WALK, near = 0.3): boolean {
   const body = play.bodyOf(who);
   if (!body || isPlayer(body) || play.pushed(who)) return false;
-  return stepToward(body, target, speed, near);
+  return stepToward(body, target, botPace(play, speed), near);
 }
 
 /** A bot stands still (keeping its fall), unless a push is carrying it. */
@@ -346,8 +375,8 @@ const BOT_REACH = 2.4;
 
 /**
  * A bot fighter's tick: toward the nearest foe still in (or `toward`, a spot it holds, when the foe
- * is far), and a hit when one is in reach: a push of `strength`, every so often. Returns the foe it
- * hit, if it did.
+ * is far), and a hit when one is in reach: a push of `strength`, every so often (botWait). Returns
+ * the foe it hit, if it did.
  */
 export function botBrawl(play: Play, who: Who, foes: readonly Who[], strength: number, lastHit: Map<string, number>, toward?: Vector3, speed = BOT_WALK): Who | undefined {
   const body = play.bodyOf(who);
@@ -356,7 +385,7 @@ export function botBrawl(play: Play, who: Who, foes: readonly Who[], strength: n
   if (foe && foe.gap <= BOT_REACH) {
     botFace(body, foe.body.location);
     botStop(play, who);
-    if (system.currentTick - (lastHit.get(who.key) ?? -999) >= BOT_HIT_EVERY) {
+    if (system.currentTick - (lastHit.get(who.key) ?? -999) >= botWait(play, BOT_HIT_EVERY)) {
       lastHit.set(who.key, system.currentTick);
       play.push(foe.who, body.location, strength);
       return foe.who;
@@ -369,8 +398,9 @@ export function botBrawl(play: Play, who: Who, foes: readonly Who[], strength: n
 }
 
 /**
- * A bot running a course's tick: toward `target`, hopping a gap or a step ahead of it (the block
- * under the spot a block ahead is air, or the block ahead is solid). True once it's there.
+ * A bot running a course's tick: toward `target` at `speed` (a Medium bot's: botPace), hopping a gap
+ * or a step ahead of it (the block under the spot a block ahead is air, or the block ahead is solid).
+ * True once it's there.
  */
 export function botRun(play: Play, who: Who, target: Vector3, speed = BOT_WALK, near = 0.5): boolean {
   const body = play.bodyOf(who);
@@ -390,7 +420,7 @@ export function botRun(play: Play, who: Who, target: Vector3, speed = BOT_WALK, 
     const front = blockId(play.dimension, { x: ahead.x, y: at.y + 0.5, z: ahead.z });
     hopping = below === "minecraft:air" || (front !== "minecraft:air" && front !== "" && !front.includes("ladder"));
   }
-  const step = Math.min(speed, gap);
+  const step = Math.min(botPace(play, speed), gap);
   stepBot(body, (dx / gap) * step, (dz / gap) * step, hopping ? 1 : 0);
   return false;
 }
@@ -510,13 +540,13 @@ export class Hearts {
     }
   }
 
-  /** A bot's swing at the nearest foe in reach: `amount` half hearts and a push, every so often. True when it hit. */
+  /** A bot's swing at the nearest foe in reach: `amount` half hearts and a push, every `every` ticks (a Medium bot's: botWait). True when it hit. */
   botSwing(who: Who, foes: readonly Who[], amount: number, down: (who: Who, cause: string) => void, every = 10): boolean {
     const body = this.play.bodyOf(who);
     if (!body || isPlayer(body)) return false;
     const foe = nearestOf(this.play, body.location, foes.filter((one) => one.key !== who.key));
     if (!foe || foe.gap > 2.4) return false;
-    if (system.currentTick - (this.lastHit.get(who.key) ?? -999) < every) return false;
+    if (system.currentTick - (this.lastHit.get(who.key) ?? -999) < botWait(this.play, every)) return false;
     this.lastHit.set(who.key, system.currentTick);
     botFace(body, foe.body.location);
     this.hurt(foe.who, amount, body, "entityAttack", down);
@@ -644,7 +674,7 @@ export function walkPath(dimension: Dimension, box: WorldBox, standY: number, fr
 
 /**
  * A bot walking a path to `to` (walkPath, worked out again every so often): one step this tick along
- * it. True once it's there.
+ * it at `speed` (a Medium bot's: botPace). True once it's there.
  */
 export function botWalkTo(play: Play, who: Who, box: WorldBox, standY: number, to: Vector3, paths: Map<string, { path: Vector3[]; at: number }>, speed = BOT_WALK): boolean {
   const body = play.bodyOf(who);
@@ -655,7 +685,8 @@ export function botWalkTo(play: Play, who: Who, box: WorldBox, standY: number, t
     paths.set(who.key, plan);
   }
   const next = plan.path[0];
-  if (!next) return stepToward(body, to, speed, 0.4);
-  if (stepToward(body, next, speed, 0.25)) plan.path.shift();
+  const step = botPace(play, speed);
+  if (!next) return stepToward(body, to, step, 0.4);
+  if (stepToward(body, next, step, 0.25)) plan.path.shift();
   return plan.path.length === 0 && flat(body.location, to) < 0.6;
 }

@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { privatePacks } from "../packs.ts";
+import { privatePackNames, privatePacks } from "../packs.ts";
 
 const dirs: string[] = [];
 function folder(files: Record<string, string>): string {
@@ -43,5 +43,17 @@ describe("privatePacks", () => {
 
   it("is empty for a target without the folder", async () => {
     expect(await privatePacks(folder({ "game.config.ts": "" }), "sumo")).toEqual([]);
+  });
+
+  it("names each pack once for the scripts' \"#private-packs\"", async () => {
+    const game = folder({
+      "private_packs/skins/resource_pack/manifest.json": "{}",
+      "private_packs/skins/resource_pack/textures/blockparty/skins/ari.png": "",
+      "private_packs/chameleon/behavior_pack/manifest.json": "{}",
+      "private_packs/chameleon/behavior_pack/entities/player.json": "{}",
+      "private_packs/chameleon/resource_pack/manifest.json": "{}",
+      "private_packs/chameleon/resource_pack/entity/player.entity.json": "{}",
+    });
+    expect(privatePackNames(await privatePacks(game, "blockparty"))).toEqual(["chameleon", "skins"]);
   });
 });

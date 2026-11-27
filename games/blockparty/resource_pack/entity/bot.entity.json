@@ -8,13 +8,38 @@
         "fade": "guardian_ghost"
       },
       "textures": {
-        "default": "textures/entity/steve"
+        "steve": "textures/entity/steve",
+        "alex": "textures/entity/alex",
+        "ari": "textures/blockparty/skins/ari",
+        "efe": "textures/blockparty/skins/efe",
+        "kai": "textures/blockparty/skins/kai",
+        "makena": "textures/blockparty/skins/makena",
+        "noor": "textures/blockparty/skins/noor",
+        "sunny": "textures/blockparty/skins/sunny",
+        "zuri": "textures/blockparty/skins/zuri",
+        "tennis_steve": "textures/blockparty/skins/tennis_steve",
+        "tuxedo_steve": "textures/blockparty/skins/tuxedo_steve",
+        "athlete_steve": "textures/blockparty/skins/athlete_steve",
+        "scottish_steve": "textures/blockparty/skins/scottish_steve",
+        "prisoner_steve": "textures/blockparty/skins/prisoner_steve",
+        "cyclist_steve": "textures/blockparty/skins/cyclist_steve",
+        "boxer_steve": "textures/blockparty/skins/boxer_steve",
+        "tennis_alex": "textures/blockparty/skins/tennis_alex",
+        "tuxedo_alex": "textures/blockparty/skins/tuxedo_alex",
+        "athlete_alex": "textures/blockparty/skins/athlete_alex",
+        "swedish_alex": "textures/blockparty/skins/swedish_alex",
+        "prisoner_alex": "textures/blockparty/skins/prisoner_alex",
+        "cyclist_alex": "textures/blockparty/skins/cyclist_alex",
+        "boxer_alex": "textures/blockparty/skins/boxer_alex",
+        "developer_alex": "textures/blockparty/skins/developer_alex",
+        "developer_steve": "textures/blockparty/skins/developer_steve"
       },
       "geometry": {
-        "default": "geometry.humanoid.custom"
+        "default": "geometry.humanoid.custom",
+        "slim": "geometry.humanoid.customSlim"
       },
       "render_controllers": [
-        "controller.render.blockparty.fading"
+        "controller.render.blockparty.bot"
       ],
       "animations": {
         "humanoid_base_pose": "animation.humanoid.base_pose",
@@ -26,11 +51,13 @@
         "scale": "0.9375",
         "initialize": [
           "v.gliding_speed_value = 1.0;",
-          "v.fade = q.property('blockparty:faded') ? 0.0 : 1.0;"
+          "v.fade = q.property('blockparty:faded') ? 0.0 : 1.0;",
+          "v.skin = q.property('blockparty:skin');"
         ],
         "pre_animation": [
           "v.tcos0 = (math.cos(q.modified_distance_moved * 38.17) * q.modified_move_speed / v.gliding_speed_value) * 57.3;",
-          "v.fade = math.clamp(v.fade + (q.property('blockparty:faded') ? -1.0 : 1.0) * q.delta_time * 2.5, 0.0, 1.0);"
+          "v.fade = math.clamp(v.fade + (q.property('blockparty:faded') ? -1.0 : 1.0) * q.delta_time * 2.5, 0.0, 1.0);",
+          "v.skin = q.property('blockparty:skin');"
         ],
         "animate": [
           "humanoid_base_pose",

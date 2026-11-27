@@ -45,10 +45,11 @@ import type { MapCard } from "../maps/store.ts";
 import { cutBlocksPack } from "./blocks-cut.ts";
 import { addGameKitPictures } from "./kit-pictures.ts";
 import { addBoardIcons } from "../blockparty/item-icons.ts";
+import { addBotPortraits } from "../blockparty/bot-portraits.ts";
 import { VanillaTextures } from "./vanilla-textures.ts";
 import { addTeamButtons } from "./team-buttons.ts";
 import { pinManifest, type Manifest } from "./mc-versions.ts";
-import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, PACK_PREFIX, privatePacks, sharedPacks, writePackLists, type SharedPack } from "./packs.ts";
+import { addSharedPacks, buildBehaviorPack, buildResourcePack, hasContent, PACK_PREFIX, privatePackNames, privatePacks, sharedPacks, writePackLists, type SharedPack } from "./packs.ts";
 import { validateGameConfig } from "./validate.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
@@ -427,7 +428,8 @@ for (const target of targets) {
   const out = join(dist, "templates", "servers", target.id);
   await mkdir(out, { recursive: true });
   if (target.behaviorPack) {
-    await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack, registry, playerSkins.list);
+    const privates = privatePackNames(target.privatePacks.map(({ pack }) => pack));
+    await buildBehaviorPack(join(target.dir, "behavior_pack"), join(out, "behavior_packs", `${target.id}_bp`), target.behaviorPack, registry, playerSkins.list, privates);
   }
   if (target.resourcePack) {
     const game = target.game;
@@ -436,8 +438,9 @@ for (const target of targets) {
     if (target.id === "lobby") steps.push(addGameIcons);
     else if (game?.kits?.select) steps.push((pack) => addGameKitPictures(pack, game, maps).then(() => {}));
     if (game?.playerPortraits) steps.push(addPlayerPortraits);
-    // Block Party's item and dice icons, from its items and dice files (Minecraft's textures among them, so never in git).
-    if (target.id === "blockparty") steps.push(addBoardIcons);
+    // Block Party's item and dice icons, from its items and dice files (Minecraft's textures among them, so never in git),
+    // and its bots' skins' portraits (Minecraft's and its private skins pack's).
+    if (target.id === "blockparty") steps.push(addBoardIcons, (pack) => addBotPortraits(pack, target.dir, VanillaTextures.load()));
     const extra = steps.length > 0 ? async (pack: string) => { for (const step of steps) await step(pack); } : undefined;
     await buildResourcePack(join(target.dir, "resource_pack"), join(out, "resource_packs", `${target.id}_rp`), target.resourcePack, extra);
   }

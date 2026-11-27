@@ -23,6 +23,88 @@
         }
       ]
     },
+    "controller.render.blockparty.bot": {
+      "arrays": {
+        "textures": {
+          "Array.skins": [
+            "Texture.steve",
+            "Texture.alex",
+            "Texture.ari",
+            "Texture.efe",
+            "Texture.kai",
+            "Texture.makena",
+            "Texture.noor",
+            "Texture.sunny",
+            "Texture.zuri",
+            "Texture.tennis_steve",
+            "Texture.tuxedo_steve",
+            "Texture.athlete_steve",
+            "Texture.scottish_steve",
+            "Texture.prisoner_steve",
+            "Texture.cyclist_steve",
+            "Texture.boxer_steve",
+            "Texture.tennis_alex",
+            "Texture.tuxedo_alex",
+            "Texture.athlete_alex",
+            "Texture.swedish_alex",
+            "Texture.prisoner_alex",
+            "Texture.cyclist_alex",
+            "Texture.boxer_alex",
+            "Texture.developer_alex",
+            "Texture.developer_steve"
+          ]
+        },
+        "geometries": {
+          "Array.models": [
+            "Geometry.default",
+            "Geometry.slim",
+            "Geometry.default",
+            "Geometry.slim",
+            "Geometry.default",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.default",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.slim",
+            "Geometry.default"
+          ]
+        }
+      },
+      "geometry": "Array.models[v.skin]",
+      "materials": [
+        {
+          "*": "v.fade < 1.0 ? Material.fade : Material.default"
+        }
+      ],
+      "textures": [
+        "Array.skins[v.skin]"
+      ],
+      "color": {
+        "r": 1,
+        "g": 1,
+        "b": 1,
+        "a": "v.fade"
+      },
+      "part_visibility": [
+        {
+          "*": "v.fade > 0.0"
+        }
+      ]
+    },
     "controller.render.blockparty.villager_base": {
       "geometry": "Geometry.default",
       "materials": [

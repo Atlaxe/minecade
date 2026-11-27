@@ -5,10 +5,10 @@
 // and hit anyone in reach.
 import type { Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, botBrawl, botStep, clock, everyTick, isPlayer, moveBot, onPlan, placesBy } from "./common.ts";
+import { BOT_WALK, blockId, botBrawl, botPace, botStep, clock, everyTick, isPlayer, moveBot, onPlan, placesBy } from "./common.ts";
 import { inOrder, middleOf, over, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
-/** A bot's climb, blocks a tick (a player's is about 0.12). */
+/** A bot's climb, blocks a tick (a player's is about 0.12; a Medium bot's: botPace). */
 const BOT_CLIMB = 0.11;
 
 export const LADDER: MinigameDef = {
@@ -77,7 +77,7 @@ export const LADDER: MinigameDef = {
         const column = columns.get(who.key);
         const inLadder = blockId(dimension, body.location).includes("ladder") || blockId(dimension, { x: body.location.x, y: body.location.y + 1, z: body.location.z }).includes("ladder");
         if (body.location.y >= top.min.y) botStep(play, who, { x: goal.x, y: goal.y, z: goal.z }, BOT_WALK);
-        else if (inLadder) moveBot(body, 0, BOT_CLIMB, 0);
+        else if (inLadder) moveBot(body, 0, botPace(play, BOT_CLIMB), 0);
         else if (column) botStep(play, who, column, BOT_WALK, 0.2);
       }
       if (tick % 5 === 0) play.status(`${everyone.map((who) => `${who.name} ${Math.floor(best.get(who.key) ?? 0)}`).join("  ")}  ${clock(total - tick)}`);

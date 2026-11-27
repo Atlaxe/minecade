@@ -7,11 +7,11 @@
 import { EntityComponentTypes, GameMode, ItemStack, type Vector3 } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/towers.json";
-import { BOT_WALK, blockId, botStep, byWeight, clock, everyTick, fellOut, floorOf, Hearts, isPlayer, nearestOf, onPlan, placesByOut, setBlock } from "./common.ts";
+import { BOT_WALK, blockId, botStep, botWait, byWeight, clock, everyTick, fellOut, floorOf, Hearts, isPlayer, nearestOf, onPlan, placesByOut, setBlock } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 export const TOWER_ITEMS: readonly { id: string; amount?: number; weight?: number }[] = file.items;
-/** Ticks between a bot's bridge blocks. */
+/** Ticks between a bot's bridge blocks (a Medium bot's: botWait). */
 const BOT_BRIDGE = 16;
 
 export const TOWERS: MinigameDef = {
@@ -86,7 +86,7 @@ export const TOWERS: MinigameDef = {
         const length = Math.hypot(dx, dz) || 1;
         const ahead: Vector3 = { x: Math.floor(body.location.x + (dx / length) * 0.8), y: Math.floor(body.location.y) - 1, z: Math.floor(body.location.z + (dz / length) * 0.8) };
         if (blockId(dimension, ahead) === "minecraft:air") {
-          if (t - (lastBridge.get(who.key) ?? -99) >= BOT_BRIDGE) {
+          if (t - (lastBridge.get(who.key) ?? -99) >= botWait(play, BOT_BRIDGE)) {
             lastBridge.set(who.key, t);
             setBlock(dimension, ahead, "minecraft:oak_planks");
           }

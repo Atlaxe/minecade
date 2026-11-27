@@ -39,6 +39,7 @@ import { EasingType, EntityComponentTypes, EquipmentSlot, GameMode, InputPermiss
 import { describeError, log, placeArena, turnedSize, turnsToFit, type ArenaMap, type Hit, type MapConfig, type QuarterTurns, type Scope } from "@minecade/minigame-core";
 import { mapSettingValue } from "@minecade/minigame-core/config";
 import { isPlayer, thinkTicks, type Who } from "./bots.ts";
+import type { BotSkill } from "./bot-skill.ts";
 import { line } from "./lines.ts";
 import { podiumLayout, podiumOrder, podiumPlaces, standInPodium, type PodiumLayout } from "./minigame-podium.ts";
 import { forcedOutcome, pickName, spinStart, wheelOf, type Format } from "./minigame-rules.ts";
@@ -82,6 +83,8 @@ export interface RunnerHost {
   notice(text: string, ticks?: number): void;
   say(text: string): void;
   random(): number;
+  /** How well the bots play (the lobby's Bots option; bot-skill.ts). */
+  botSkill(): BotSkill;
   /** The line top right for everyone, while a minigame is on (undefined: the board's again). */
   status(text: string | undefined): void;
   /** One player's own line top right for `ticks`, over the status (undefined: theirs goes). */
@@ -415,6 +418,7 @@ export class MinigameRunner {
           field,
           sides,
           random: this.host.random,
+          skill: this.host.botSkill(),
           inPlay: () => everyone.filter((who) => !this.outs.has(who.key) && this.bodyOf(who) !== undefined),
           out: (who) => this.takeOut(who, watchSpot),
           isOut: (who) => this.outs.has(who.key),

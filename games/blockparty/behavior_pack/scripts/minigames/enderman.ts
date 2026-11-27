@@ -7,12 +7,12 @@
 // after the last round place by points. Players are held where they stand and only turn. Bots look
 // away at a random moment of the round's window, now and then too late.
 import { MARKUP } from "./arenas.ts";
-import { botFace, everyTick, isPlayer, lookAngle, onPlan, placesByOut, spawnIn } from "./common.ts";
+import { botFace, botSlip, everyTick, isPlayer, lookAngle, onPlan, placesByOut, spawnIn } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** Ticks between rounds. */
 const BETWEEN = 50;
-/** How often a bot looks away too late. */
+/** How often a bot looks away too late (a Medium bot's: botSlip). */
 const BOT_LATE = 0.18;
 
 export const ENDERMAN: MinigameDef = {
@@ -56,7 +56,7 @@ export const ENDERMAN: MinigameDef = {
       if (left.length <= 1 && everyone.length > 1) break;
       const snap = snapMin + Math.floor(play.random() * (snapMax - snapMin));
       // Bots stare first, then look away at their moment (some too late).
-      const botAway = new Map(left.filter((who) => !who.player).map((who) => [who.key, play.random() < BOT_LATE ? snap + 5 : Math.floor(play.random() * snap * 0.95)]));
+      const botAway = new Map(left.filter((who) => !who.player).map((who) => [who.key, play.random() < botSlip(play, BOT_LATE) ? snap + 5 : Math.floor(play.random() * snap * 0.95)]));
       for (const who of left) {
         const body = play.bodyOf(who);
         if (body && !isPlayer(body)) botFace(body, head);

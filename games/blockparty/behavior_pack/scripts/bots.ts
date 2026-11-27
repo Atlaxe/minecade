@@ -1,8 +1,9 @@
 // Bots (the user's idea, 2026-11-17): a game one player starts gets bots in the empty seats (the
-// lobby's Bots option), so a whole game can be watched to work out how it flows. A bot is a
-// Steve-looking entity of the game's own (blockparty:bot, on the player's model and Steve's skin;
-// vanilla's zombie model maps a 64 x 32 skin and stretched Steve's), named "Bot 1" and on (its name
-// shows when you look at it). It sits in a seat like a player: its piece walks the board, it rolls
+// lobby's Bots option, which also sets how well they play: bot-skill.ts), so a whole game can be
+// watched to work out how it flows. A bot is an entity of the game's own (blockparty:bot, on the
+// player's model; vanilla's zombie model maps a 64 x 32 skin and stretched Steve's) wearing one of
+// Minecraft's skins (bot-skins.ts: a different one for each bot, at random, kept every time it's made
+// again), named "Bot 1" and on (its name shows when you look at it). It sits in a seat like a player: its piece walks the board, it rolls
 // (the die over its head, a short think, a hop), picks a way at a branch, buys a Star when it has the
 // coins, and plays the minigames, each step after a delay so you can see it happen. Bots move by a set
 // speed each tick (clearVelocity, then applyImpulse), keeping their fall.
@@ -13,8 +14,11 @@
 // bots vanish at the first minigame while the server still had them playing.
 import type { Dimension, Entity, Player, Vector3 } from "@minecraft/server";
 import { describeError, log, type Scope } from "@minecade/minigame-core";
+import { BOT_SKINS, pickSkin, type BotSkin } from "./bot-skins.ts";
 
 export const BOT_ENTITY = "blockparty:bot";
+/** The bot's skin: its index in BOT_SKINS (bot-skins.ts). */
+const SKIN_PROPERTY = "blockparty:skin";
 
 /** Someone in the game: a player, or a bot. */
 export interface Who {
@@ -122,20 +126,26 @@ export function thinkTicks(random: () => number, min = 20, max = 40): number {
 
 export class Bots {
   private readonly dimension: Dimension;
-  /** Bodies by lowercased name, in the order the bots were added. */
-  private readonly bodies = new Map<string, { name: string; body?: Entity }>();
+  /** The skins this build can draw (bot-skins.ts, wearableSkins), and the game's random. */
+  private readonly wearable: readonly number[];
+  private readonly random: () => number;
+  /** Bodies by lowercased name, in the order the bots were added, each with its skin (an index in BOT_SKINS). */
+  private readonly bodies = new Map<string, { name: string; skin: number; body?: Entity }>();
 
-  constructor(scope: Scope, dimension: Dimension) {
+  constructor(scope: Scope, dimension: Dimension, wearable: readonly number[], random: () => number) {
     this.dimension = dimension;
+    this.wearable = wearable;
+    this.random = random;
     scope.add(() => this.removeAll());
   }
 
-  /** Sits `count` bots down, "Bot 1" and on; each gets a body at `at`. */
+  /** Sits `count` bots down, "Bot 1" and on, each in a skin no other bot wears while there are enough; each gets a body at `at`. */
   add(count: number, at: Vector3): Who[] {
     const added: Who[] = [];
     for (let i = 0; i < count; i++) {
       const name = `Bot ${this.bodies.size + 1}`;
-      this.bodies.set(name.toLowerCase(), { name });
+      const skin = pickSkin(this.wearable, [...this.bodies.values()].map((entry) => entry.skin), this.random);
+      this.bodies.set(name.toLowerCase(), { name, skin });
       const body = this.spawn(name, at);
       if (body) added.push({ name, key: name.toLowerCase(), body });
     }
@@ -148,6 +158,12 @@ export class Bots {
 
   get count(): number {
     return this.bodies.size;
+  }
+
+  /** A bot's skin. */
+  skinOf(name: string): BotSkin | undefined {
+    const entry = this.bodies.get(name.toLowerCase());
+    return entry ? BOT_SKINS[entry.skin] : undefined;
   }
 
   /** A bot with its body (a new one at `at` when the old is gone and `at` is given). */
@@ -187,7 +203,10 @@ export class Bots {
       const body = this.dimension.spawnEntity(BOT_ENTITY, at);
       body.nameTag = name;
       const entry = this.bodies.get(name.toLowerCase());
-      if (entry) entry.body = body;
+      if (entry) {
+        entry.body = body;
+        body.setProperty(SKIN_PROPERTY, entry.skin);
+      }
       return body;
     } catch (error) {
       log.warn(`blockparty: ${name} couldn't be placed: ${describeError(error)}`);

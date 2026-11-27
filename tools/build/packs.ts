@@ -7,14 +7,14 @@
 // each template gets the world's pack lists with them in (writePackLists).
 import { existsSync } from "node:fs";
 import { cp, readdir, readFile, writeFile } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import type { PlayerSkin, Registry } from "@minecade/minigame-core/config";
 import type { TransportKind } from "@minecade/minigame-core/protocol";
 import { MODULE_VERSIONS, pinManifest, type Manifest } from "./mc-versions.ts";
 import { contentHash, withPatchVersion } from "./pack-version.ts";
-import { modBlocksPlugin, privateDataPlugin, registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
+import { modBlocksPlugin, privateDataPlugin, privatePacksPlugin, registryPlugin, skinsPlugin, transportPlugin } from "./transport-plugin.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const TRANSPORTS: TransportKind[] = ["http", "log"];
@@ -79,6 +79,11 @@ export async function privatePacks(targetDir: string, targetId: string): Promise
   return found.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
+/** Each private pack's name (its folder in private_packs/), once, for "#private-packs". */
+export function privatePackNames(packs: readonly SharedPack[]): string[] {
+  return [...new Set(packs.map((pack) => basename(dirname(pack.dir))))].sort();
+}
+
 /** A pack's manifest with pinned versions. Throws when it's missing, not JSON, or names an unknown module. */
 export async function readPinnedManifest(dir: string): Promise<Manifest> {
   const path = join(dir, "manifest.json");
@@ -98,7 +103,8 @@ export async function hasContent(dir: string): Promise<boolean> {
   return false;
 }
 
-export async function buildBehaviorPack(src: string, out: string, manifest: Manifest, registry: Registry, skins: PlayerSkin[]): Promise<void> {
+/** `privates`: the names of the target's private packs (privatePackNames), which its scripts import as "#private-packs". */
+export async function buildBehaviorPack(src: string, out: string, manifest: Manifest, registry: Registry, skins: PlayerSkin[], privates: readonly string[] = []): Promise<void> {
   // Everything except the sources and the manifest ships as-is (icons, texts, ...).
   await cp(src, out, { recursive: true, filter: (path) => !path.endsWith(".ts") && path !== join(src, "manifest.json") });
   for (const kind of TRANSPORTS) {
@@ -117,6 +123,7 @@ export async function buildBehaviorPack(src: string, out: string, manifest: Mani
         transportPlugin(kind),
         registryPlugin(registry),
         skinsPlugin(skins),
+        privatePacksPlugin(privates),
         modBlocksPlugin(),
       ],
       logLevel: "warning",

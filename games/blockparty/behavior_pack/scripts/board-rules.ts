@@ -27,9 +27,6 @@ export function addCoins(coins: number, change: number): number {
 /** The game's lengths (the lobby's Length option), the first the default. */
 export const LENGTHS = [15, 10, 20] as const;
 
-/** The lobby's Bots option: how many bots join a game one player starts (bots.ts), the first the default. */
-export const BOT_COUNTS = [3, 2, 1, 0] as const;
-
 /** A Star's price by the game's length: 15 coins in 10 turns, 20 in 15, 25 in 20. */
 export function starPrice(turns: number): number {
   return turns <= 10 ? 15 : turns <= 15 ? 20 : 25;

@@ -17,7 +17,7 @@ import { EntityComponentTypes, ItemStack, system, world, type Entity, type Playe
 import type { Who } from "../bots.ts";
 import file from "../../../minigames/cook.json";
 import { MARKUP } from "./arenas.ts";
-import { blockAt, blockId, clock, everyTick, inside, item, onPlan, pick, placesBy, removeEntity, setBlock, sideMap, spawnIn, tilesOf, winnerBy } from "./common.ts";
+import { blockAt, blockId, botWait, clock, everyTick, inside, item, onPlan, pick, placesBy, removeEntity, setBlock, sideMap, spawnIn, tilesOf, winnerBy } from "./common.ts";
 import { type Field, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 interface Ingredient {
@@ -359,7 +359,8 @@ export const COOK: MinigameDef = {
       open = true;
       const how = dish.in === "pot" ? `in the pot: ${dish.from.map((one) => `${one.chopped ? "chopped " : ""}${named(one.id)}`).join(", ")}` : "at the crafting table";
       play.notice(`Request ${request}: ${dish.name}!\nMade ${how}`, 120);
-      const botAt = new Map(sides.map((side, s) => [s, side.every((who) => !who.player) ? Math.floor(requestTime * (0.35 + play.random() * 0.45)) : -1]));
+      // An all-bot side's delivery time: a Medium bot's (botWait), so a slower level can miss a request.
+      const botAt = new Map(sides.map((side, s) => [s, side.every((who) => !who.player) ? botWait(play, Math.floor(requestTime * (0.35 + play.random() * 0.45))) : -1]));
       await everyTick(play, requestTime, (tick) => {
         const now = system.currentTick;
         for (const pot of pots.values()) {

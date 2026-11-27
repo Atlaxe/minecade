@@ -5,12 +5,12 @@
 // players. Bots throw where a target will be every second or so, hitting about half the time.
 import { EntityComponentTypes, ItemStack, world, type Entity, type Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { clock, everyTick, flat, onPlan, placesBy, spawnIn, throwFrom } from "./common.ts";
+import { botAim, botWait, clock, everyTick, flat, onPlan, placesBy, spawnIn, throwFrom } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play, type WorldBox } from "./kit.ts";
 
 /** Snowballs a player is kept topped up to. */
 const SNOWBALLS = 16;
-/** Ticks between a bot's throws. */
+/** Ticks between a bot's throws (a Medium bot's: botWait). */
 const BOT_THROW = 22;
 
 interface Target {
@@ -90,7 +90,7 @@ export const SNOWBALL: MinigameDef = {
       play.tell(who, `Hit! +${target.points}`, 20);
       play.dimension.playSound("random.orb", target.entity!.location);
     });
-    const nextThrow = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, 10 + Math.floor(play.random() * 20)]));
+    const nextThrow = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, botWait(play, 10 + Math.floor(play.random() * 20))]));
     await everyTick(play, total, (tick) => {
       for (const target of targets) {
         const length = Math.abs(target.to - target.from) || 1;
@@ -110,14 +110,14 @@ export const SNOWBALL: MinigameDef = {
         if (who.player || tick < (nextThrow.get(who.key) ?? 0)) continue;
         const body = play.bodyOf(who);
         if (!body || targets.length === 0) continue;
-        nextThrow.set(who.key, tick + BOT_THROW + Math.floor(play.random() * 10));
+        nextThrow.set(who.key, tick + botWait(play, BOT_THROW + Math.floor(play.random() * 10)));
         // Leads the target by its travel over the flight.
         const target = targets[Math.floor(play.random() * targets.length)];
         const now = placeOf(target);
         const flight = flat(body.location, now) / 1.5;
         const ahead = { ...target, t: Math.max(0, Math.min(1, target.t + (target.dir * speed * flight) / (Math.abs(target.to - target.from) || 1))) };
         const aim = placeOf(ahead);
-        throwFrom(play, body, { x: aim.x, y: aim.y + 0.6, z: aim.z }, { error: 1.4 });
+        throwFrom(play, body, { x: aim.x, y: aim.y + 0.6, z: aim.z }, { error: botAim(play, 1.4) });
       }
       if (tick % 5 === 0) play.status(`${everyone.map((who) => `${who.name} ${points.get(who.key)}`).join("  ")}  ${clock(total - tick)}`);
     });

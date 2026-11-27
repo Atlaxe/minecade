@@ -4,11 +4,11 @@
 // up to 10 more for speed); an answer never locked counts for the pad you're on, with no speed
 // points. The right pad lights up. Most points after the questions wins. The questions are the
 // user's, games/blockparty/minigames/quiz.json. Bots are right about 60% of the time, locking in
-// after 2 to 6 seconds.
+// after 2 to 6 seconds (a Medium bot; the lobby's level moves both).
 import { ButtonState, InputButton, world } from "@minecraft/server";
 import file from "../../../minigames/quiz.json";
 import { MARKUP } from "./arenas.ts";
-import { BOT_WALK, blockId, blocksOf, botJump, botStep, clock, everyTick, onPlan, placesBy, setBlock, shuffled, spotIn } from "./common.ts";
+import { BOT_WALK, blockId, blocksOf, botJump, botOdds, botStep, botWait, clock, everyTick, onPlan, placesBy, setBlock, shuffled, spotIn } from "./common.ts";
 import { inOrder, over, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 export const QUESTIONS: readonly { question: string; answers: string[]; right: number }[] = file.questions;
@@ -66,7 +66,7 @@ export const QUIZ: MinigameDef = {
       locks = new Map();
       open = true;
       play.notice(`${q.question}\n${q.answers.map((answer, i) => `${PADS[i]}§r ${answer}`).join("   ")}`, answerTime + 10);
-      const botPlan = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, { pad: play.random() < 0.6 ? q.right : Math.floor(play.random() * 4), at: 40 + Math.floor(play.random() * 80) }]));
+      const botPlan = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, { pad: play.random() < botOdds(play, 0.6) ? q.right : Math.floor(play.random() * 4), at: botWait(play, 40 + Math.floor(play.random() * 80)) }]));
       const botSpot = new Map([...botPlan].map(([key, plan]) => [key, spotIn(pads[plan.pad], play.random, 1)]));
       await everyTick(play, answerTime, (tick) => {
         tickNow = tick;

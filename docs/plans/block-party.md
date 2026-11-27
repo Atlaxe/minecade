@@ -1619,6 +1619,19 @@ reward was dropped.
      and stretched Steve's), and a bot that goes into an arena and back is made again there a moment
      after the players (a body moved in the same tick as a player was dropped by that player's
      screen, so the bots vanished at the first minigame while still playing).
+     Since 2026-11-27 (the user): the Bots option is one choice of Easy, Medium, Hard or No bots
+     (Easy first), and bots fill every empty seat. Each bot wears a different skin, at random, from
+     Minecraft's default skins and Legacy Console Edition's Default Skin Pack (`bot-skins.ts`;
+     Steve and Alex are the game's own textures, the other 23 the private skins pack from the
+     workshop's bot-skins project, so a build without it has only Steve and Alex), and its card
+     shows that skin's portrait. The level (`bot-skill.ts`) goes into every minigame as
+     `play.skill`: Medium is each minigame's own numbers; Easy reacts later (waits times 1.6), moves
+     at 0.8 of the speed, throws twice as wide and gets calls wrong more (log-odds down 1: a 0.6
+     answer is about 0.35); Hard reacts sooner (0.65), moves 1.1 times as fast but never past a
+     sprint, throws at 0.45 of the error and is right more (log-odds up 1.3: 0.6 is about 0.85).
+     The shared helpers (`botStep`, `botRun`, `botWalkTo`, `botBrawl`, `Hearts.botSwing`) apply it,
+     and each minigame wraps its own bot waits, aim and odds in `botWait`, `botAim`, `botOdds` and
+     `botSlip`. The board itself (rolls, branches, Stars, items) plays the same at every level.
    - **Test help** (the user asked): the One Die (always 1) in place of the Slow Die, Get star in
      Tests (on your roll, the roll is the number of spaces to the nearest Star and the branches go
      that way), and 30 starting coins while Block Party is a test game or `DEV_MIN_PLAYERS` is 1.

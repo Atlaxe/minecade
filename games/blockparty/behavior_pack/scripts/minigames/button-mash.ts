@@ -3,11 +3,12 @@
 // through the players from last place to first: the camera on each in turn as they blast up into the
 // sky on a firework trail, higher for more hits, the winner last and highest. Most hits wins; equal
 // counts tie. The button is the board's coin for now (a model of its own comes later); a hit counts
-// on your own button only. Players are held in place throughout. Bots hit every 3 to 5 ticks.
+// on your own button only. Players are held in place throughout. Bots hit every 3 to 5 ticks (a
+// Medium bot's: botWait).
 import { world, type Entity } from "@minecraft/server";
 import type { Who } from "../bots.ts";
 import { MARKUP } from "./arenas.ts";
-import { botFace, clock, everyTick, isPlayer, moveTo, onPlan, placesBy, spawnIn } from "./common.ts";
+import { botFace, botWait, clock, everyTick, isPlayer, moveTo, onPlan, placesBy, spawnIn } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** Each launch's ticks, and how hard the highest launch goes up (applyKnockback's vertical). */
@@ -56,6 +57,8 @@ export const BUTTON_MASH: MinigameDef = {
       if (who && buttonOf.get(who.key)?.id === hitEntity.id) hit(who);
     });
     const nextBotHit = new Map(everyone.filter((who) => !who.player).map((who) => [who.key, 3]));
+    const soonest = botWait(play, 3);
+    const latest = botWait(play, 5);
     await everyTick(play, total, (tick) => {
       for (const who of everyone) {
         if (who.player) continue;
@@ -65,7 +68,7 @@ export const BUTTON_MASH: MinigameDef = {
         if (tick === 0) botFace(body, button.location);
         if (tick >= (nextBotHit.get(who.key) ?? 0)) {
           hit(who);
-          nextBotHit.set(who.key, tick + 3 + Math.floor(play.random() * 3));
+          nextBotHit.set(who.key, tick + soonest + Math.floor(play.random() * (latest - soonest + 1)));
         }
       }
       if (tick % 5 === 0) play.status(`Hit it!  ${clock(total - tick)}`);

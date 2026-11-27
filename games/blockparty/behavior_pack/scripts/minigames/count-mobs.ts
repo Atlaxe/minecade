@@ -3,11 +3,12 @@
 // leave it through the gates, in groups, walked by script. The round names a color or all sheep.
 // Count with jump (each press adds one) and sneak (takes one off); each player sees only their own
 // count. When the round ends the sheep stop and the counts show: the closest scores most (3, 2, 1;
-// spot on, 1 more). Most points after the rounds wins. Bots' counts land within 2 of the right one.
+// spot on, 1 more). Most points after the rounds wins. Bots' counts land within 2 of the right one
+// (a Medium bot's: botAim).
 // The players' bodies wait at their spawns, held.
 import { ButtonState, EntityComponentTypes, InputButton, world, type Entity, type Vector3 } from "@minecraft/server";
 import { MARKUP } from "./arenas.ts";
-import { clock, everyTick, inside, onPlan, pick, placesBy, removeEntity, spawnIn, spotIn, yawToward } from "./common.ts";
+import { botAim, clock, everyTick, inside, onPlan, pick, placesBy, removeEntity, spawnIn, spotIn, yawToward } from "./common.ts";
 import { inOrder, type MinigameDef, type Outcome, type Play } from "./kit.ts";
 
 /** Vanilla's sheep colors by its color index: white 0, light gray 8, gray 7, black 15. */
@@ -137,7 +138,8 @@ export const COUNT_MOBS: MinigameDef = {
       counting = false;
       // The right count: the named sheep in the pen now.
       const right = sheep.filter((one) => one.entity.isValid && inside(pen, one.entity.location, 1) && (named < 0 || one.gray === named)).length;
-      for (const who of everyone) if (!who.player) counts.set(who.key, Math.max(0, right + Math.floor(play.random() * 5) - 2));
+      const spread = Math.round(botAim(play, 2));
+      for (const who of everyone) if (!who.player) counts.set(who.key, Math.max(0, right + Math.floor(play.random() * (spread * 2 + 1)) - spread));
       const off = (key: string) => Math.abs((counts.get(key) ?? 0) - right);
       const order = placesBy(everyone.map((who) => who.key), off, true);
       order.forEach((group, place) => {
